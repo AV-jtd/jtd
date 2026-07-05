@@ -3,9 +3,9 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle, CheckCircle2, Clock, Rocket, CircleDashed, Pencil } from "lucide-react";
+import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle, CheckCircle2, Clock, Rocket, CircleDashed, Pencil, Trash2, Tag, FolderKanban, Package, Boxes } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useStmProjects } from "../hooks/useStmProjects";
+import { useStmProjects, useStmStructureNodes, useDeleteStmStructureNode } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
 import { StmMatrixHeader } from "../components/StmMatrixHeader";
 import { StmMatrixRow } from "../components/StmMatrixRow";
@@ -14,6 +14,8 @@ import { computeStmAnalytics, isStmProjectOverdue, isStmProjectBlocked, isStmPro
 import StmCreateSkuDialog from "../components/StmCreateSkuDialog";
 import StmExcelImportDialog from "../components/StmExcelImportDialog";
 import StmEditGroupDialog from "../components/StmEditGroupDialog";
+import StmCreateStructureDialog from "../components/StmCreateStructureDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import type { StmGroupField } from "../hooks/useStmProjects";
 import { cn } from "@/lib/utils";
 
@@ -92,8 +94,10 @@ export default function StmMatrixView() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const projects = useStmProjects();
+  const { data: structureNodes = [] } = useStmStructureNodes();
+  const deleteNode = useDeleteStmStructureNode();
   const [flow, setFlow] = useState<StmFlow>("in");
-  const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand">("retailer");
+  const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand" | "project">("retailer");
   // Secondary grouping: within a brand/retailer group, split rows by project.
   const [subGroupProject, setSubGroupProject] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -115,6 +119,8 @@ export default function StmMatrixView() {
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // "+ Создать" → structure placeholder dialog (brand/project/drop/retailer).
+  const [createStructure, setCreateStructure] = useState<StmGroupField | null>(null);
   // Group-header editor (rename/merge + manager + participants).
   const [editGroup, setEditGroup] = useState<{
     field: StmGroupField;
@@ -245,10 +251,13 @@ export default function StmMatrixView() {
   const distinctValues = useMemo(() => {
     const flowProjects = projects.filter(p => p.flow === flow);
     const pick = (f: StmGroupField) => Array.from(new Set(
-      flowProjects.map(p => ((p.meta as any)[f] || "").toString().trim()).filter(Boolean),
+      [
+        ...flowProjects.map(p => ((p.meta as any)[f] || "").toString().trim()),
+        ...structureNodes.filter(n => n.flow === flow && n.field === f).map(n => n.value.trim()),
+      ].filter(Boolean),
     ));
     return { retailer: pick("retailer"), brand: pick("brand"), drop: pick("drop"), project: pick("project") };
-  }, [projects, flow]);
+  }, [projects, flow, structureNodes]);
 
   // Open the group editor for a header. Derives a shared manager if all SKUs agree.
   const openGroupEditor = (field: StmGroupField, value: string, items: typeof visible) => {
@@ -291,13 +300,22 @@ export default function StmMatrixView() {
   };
   type SubGroup = { key: string; label: string; items: typeof visible } & ReturnType<typeof stat>;
   const grouped = useMemo(() => {
-    if (groupBy === "none") return [{ key: "__all", label: "", items: focused, subgroups: null as null | SubGroup[], ...stat(focused) }];
+    if (groupBy === "none") return [{ key: "__all", label: "", items: focused, subgroups: null as null | SubGroup[], placeholder: false, nodeId: null as string | null, ...stat(focused) }];
     const map = new Map<string, typeof visible>();
     focused.forEach(p => {
       const k = (p.meta as any)[groupBy] || "Без группы";
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(p);
     });
+    // Inject empty placeholder groups (created via "+ Создать") for this field.
+    const placeholderNodeByKey = new Map<string, string>();
+    if (!focusStage && statusFilter !== "archived") {
+      structureNodes
+        .filter(n => n.flow === flow && n.field === groupBy)
+        .forEach(n => {
+          if (!map.has(n.value)) { map.set(n.value, []); placeholderNodeByKey.set(n.value, n.id); }
+        });
+    }
     const canSub = subGroupProject && (groupBy === "brand" || groupBy === "retailer");
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b, "ru"))
@@ -314,10 +332,11 @@ export default function StmMatrixView() {
             .sort(([a], [b]) => a.localeCompare(b, "ru"))
             .map(([sk, sitems]) => ({ key: `${key}//${sk}`, label: sk, items: sitems, ...stat(sitems) }));
         }
-        return { key, label: key, items, subgroups, ...stat(items) };
+        const nodeId = items.length === 0 ? (placeholderNodeByKey.get(key) ?? null) : null;
+        return { key, label: key, items, subgroups, placeholder: !!nodeId, nodeId, ...stat(items) };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focused, groupBy, subGroupProject]);
+  }, [focused, groupBy, subGroupProject, structureNodes, flow, focusStage, statusFilter]);
 
   // Aggregates-first: on every page entry start with every group collapsed
   // (portfolio "from above") regardless of saved preference. The user can
@@ -436,6 +455,7 @@ export default function StmMatrixView() {
               <option value="retailer">По сети</option>
               <option value="brand">По бренду</option>
               <option value="drop">По дропу</option>
+              <option value="project">По проекту</option>
             </select>
           </div>
 
@@ -515,9 +535,29 @@ export default function StmMatrixView() {
           >
             <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Импорт Excel
           </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)} className="h-8">
-            <Plus className="h-3.5 w-3.5 mr-1" /> SKU
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="h-8">
+                <Plus className="h-3.5 w-3.5 mr-1" /> Создать
+                <ChevronDown className="h-3.5 w-3.5 ml-1 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => setCreateOpen(true)}>
+                <Package className="h-4 w-4 mr-2" /> SKU
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setCreateStructure("brand")}>
+                <Tag className="h-4 w-4 mr-2" /> Бренд
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCreateStructure("project")}>
+                <FolderKanban className="h-4 w-4 mr-2" /> Проект
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCreateStructure("drop")}>
+                <Boxes className="h-4 w-4 mr-2" /> Дроп
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -614,10 +654,25 @@ export default function StmMatrixView() {
                             ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
                             : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
                           <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate max-w-[220px]">{it.group.label}</span>
-                          <span className="text-[10px] text-muted-foreground/70 shrink-0 w-12">{it.group.count} SKU</span>
-                          <GroupMetrics s={it.group} />
+                          {it.group.placeholder ? (
+                            <span className="text-[10px] text-muted-foreground/50 shrink-0 italic">заготовка · 0 SKU</span>
+                          ) : (
+                            <>
+                              <span className="text-[10px] text-muted-foreground/70 shrink-0 w-12">{it.group.count} SKU</span>
+                              <GroupMetrics s={it.group} />
+                            </>
+                          )}
                         </button>
-                        {groupBy !== "none" && (
+                        {it.group.placeholder && it.group.nodeId ? (
+                          <button
+                            type="button"
+                            onClick={() => deleteNode.mutate(it.group.nodeId!)}
+                            className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-destructive hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-opacity"
+                            title="Удалить пустую группу-заготовку"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        ) : groupBy !== "none" && (
                           <button
                             type="button"
                             onClick={() => openGroupEditor(groupBy as StmGroupField, it.group.label, it.group.items)}
@@ -679,6 +734,15 @@ export default function StmMatrixView() {
 
       <StmCreateSkuDialog open={createOpen} onOpenChange={setCreateOpen} defaultFlow={flow} />
       <StmExcelImportDialog open={importOpen} onOpenChange={setImportOpen} defaultFlow={flow} />
+      {createStructure && (
+        <StmCreateStructureDialog
+          open={!!createStructure}
+          onOpenChange={(v) => { if (!v) setCreateStructure(null); }}
+          field={createStructure}
+          flow={flow}
+          existingValues={distinctValues[createStructure]}
+        />
+      )}
       {editGroup && (
         <StmEditGroupDialog
           open={!!editGroup}

@@ -1609,6 +1609,36 @@ export type Database = {
           },
         ]
       }
+      stm_structure_nodes: {
+        Row: {
+          created_at: string
+          field: string
+          flow: string
+          id: string
+          updated_at: string
+          user_id: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          field: string
+          flow: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          field?: string
+          flow?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          value?: string
+        }
+        Relationships: []
+      }
       subtasks: {
         Row: {
           assigned_to: string | null

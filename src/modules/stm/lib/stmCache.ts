@@ -23,6 +23,7 @@ export const STM_KEYS = {
   groups: () => ["task_groups"] as const,
   stageTasks: (userId?: string) => ["stm-stage-tasks", userId] as const,
   stageTasksAll: () => ["stm-stage-tasks"] as const,
+  structureNodes: () => ["stm-structure-nodes"] as const,
 } as const;
 
 /** Patch every cached task_groups query in place (no refetch). */
