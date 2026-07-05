@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink, Building2, Users, Search, X } from "lucide-react";
+import { ArrowLeft, Loader2, Save, MessageCircle, Sun, Moon, Monitor, Palette, Bell, BellOff, Mail, Download, CalendarSync, Copy, Check, RefreshCw, Tag, ShieldAlert, UserCog, ExternalLink, Building2, Users, Search, X, KeyRound } from "lucide-react";
 import SmartImportDialog from "@/components/SmartImportDialog";
 import TagManagementPanel from "@/components/TagManagementPanel";
 import DelegationPanel from "@/components/DelegationPanel";
@@ -21,6 +21,7 @@ import { useNotificationPreferences } from "@/hooks/useNotificationPreferences";
 import { Switch } from "@/components/ui/switch";
 import MaxLinkCard from "@/components/MaxLinkCard";
 import { ConsultantGuard } from "@/components/consultant/ConsultantGuard";
+import ChangePasswordSection from "@/components/settings/ChangePasswordSection";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -134,6 +135,7 @@ type SectionMeta = {
 
 const SECTION_META: Record<string, SectionMeta> = {
   profile:        { id: "profile",        label: "Профиль",     keywords: "имя организация email telegram" },
+  security:       { id: "security",       label: "Пароль",      keywords: "пароль безопасность смена сменить password" },
   appearance:     { id: "appearance",     label: "Оформление",  keywords: "тема цвет акцент темная светлая палитра" },
   notifications:  { id: "notifications",  label: "Уведомления", keywords: "push web telegram бот матрица отчёт" },
   max_channel:    { id: "max_channel",    label: "MAX",         keywords: "max мессенджер бот уведомления канал альтернатива" },
@@ -482,6 +484,19 @@ export default function Settings() {
                 </div>
               </div>
               </div>
+            </SettingsSection>
+
+            {/* Смена пароля */}
+            <SettingsSection
+              icon={KeyRound}
+              title="Пароль"
+              description="Смена пароля от аккаунта"
+              sectionId="security"
+              registerRef={registerRef}
+              forceOpen={isSearching}
+              hidden={!matches("security", "Пароль", "пароль безопасность смена сменить password")}
+            >
+              <ChangePasswordSection />
             </SettingsSection>
 
             {/* Notifications — matrix view, collapsed by default */}
