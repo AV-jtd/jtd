@@ -121,6 +121,8 @@ export default function StmMatrixView() {
   const [importOpen, setImportOpen] = useState(false);
   // "+ Создать" → structure placeholder dialog (brand/project/drop/retailer).
   const [createStructure, setCreateStructure] = useState<StmGroupField | null>(null);
+  // "+ SKU" from a group/project header → pre-filled create-SKU dialog.
+  const [createSkuPrefill, setCreateSkuPrefill] = useState<Partial<Record<StmGroupField, string>> | null>(null);
   // Group-header editor (rename/merge + manager + participants).
   const [editGroup, setEditGroup] = useState<{
     field: StmGroupField;
@@ -265,6 +267,13 @@ export default function StmMatrixView() {
     const mgrs = new Set(items.map(p => ((p.meta as any).manager_id as string | undefined) || null));
     const managerId = mgrs.size === 1 ? (Array.from(mgrs)[0] ?? null) : null;
     setEditGroup({ field, value, groupIds, managerId });
+  };
+
+  const NO_GROUP = new Set(["Без группы", "Без проекта"]);
+  // Open the create-SKU dialog pre-filled with a group/project's structure context.
+  const openCreateSku = (meta: Partial<Record<StmGroupField, string>> | null) => {
+    setCreateSkuPrefill(meta && Object.keys(meta).length ? meta : null);
+    setCreateOpen(true);
   };
 
   // Counts per status for the tab labels (within current flow).
@@ -543,7 +552,7 @@ export default function StmMatrixView() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => setCreateOpen(true)}>
+              <DropdownMenuItem onClick={() => openCreateSku(null)}>
                 <Package className="h-4 w-4 mr-2" /> SKU
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -663,6 +672,17 @@ export default function StmMatrixView() {
                             </>
                           )}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => openCreateSku(NO_GROUP.has(it.group.label) ? null : { [groupBy as StmGroupField]: it.group.label })}
+                          className={cn(
+                            "shrink-0 inline-flex items-center gap-0.5 h-6 px-1.5 rounded text-[10px] font-medium border border-border/60 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-background/60 transition-colors",
+                            it.group.placeholder ? "opacity-100" : "opacity-0 group-hover/hdr:opacity-100",
+                          )}
+                          title="Добавить SKU в эту группу"
+                        >
+                          <Plus className="h-3 w-3" /> SKU
+                        </button>
                         {it.group.placeholder && it.group.nodeId ? (
                           <button
                             type="button"
@@ -705,6 +725,20 @@ export default function StmMatrixView() {
                         </button>
                         <button
                           type="button"
+                          onClick={() => {
+                            const parent = it.subgroup.key.split("//")[0];
+                            const meta: Partial<Record<StmGroupField, string>> = {};
+                            if (groupBy !== "none" && !NO_GROUP.has(parent)) meta[groupBy as StmGroupField] = parent;
+                            if (!NO_GROUP.has(it.subgroup.label)) meta.project = it.subgroup.label;
+                            openCreateSku(meta);
+                          }}
+                          className="shrink-0 inline-flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-medium border border-border/60 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-colors"
+                          title="Добавить SKU в этот проект"
+                        >
+                          <Plus className="h-3 w-3" /> SKU
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openGroupEditor("project", it.subgroup.label, it.subgroup.items)}
                           className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-foreground hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-opacity"
                           title="Редактировать проект (название, объединение, участники)"
@@ -732,7 +766,12 @@ export default function StmMatrixView() {
         )}
       </div>
 
-      <StmCreateSkuDialog open={createOpen} onOpenChange={setCreateOpen} defaultFlow={flow} />
+      <StmCreateSkuDialog
+        open={createOpen}
+        onOpenChange={(v) => { setCreateOpen(v); if (!v) setCreateSkuPrefill(null); }}
+        defaultFlow={flow}
+        defaultMeta={createSkuPrefill ?? undefined}
+      />
       <StmExcelImportDialog open={importOpen} onOpenChange={setImportOpen} defaultFlow={flow} />
       {createStructure && (
         <StmCreateStructureDialog

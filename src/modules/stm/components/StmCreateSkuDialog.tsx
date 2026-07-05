@@ -1,19 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCreateStmSku } from "../hooks/useStmProjects";
-import type { StmFlow } from "../lib/stages";
+import type { StmFlow, StmMeta } from "../lib/stages";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   defaultFlow?: StmFlow;
+  /** Pre-fill structure fields (used by "+ SKU" on a group/project header). */
+  defaultMeta?: Partial<Pick<StmMeta, "retailer" | "brand" | "drop" | "project">>;
 }
 
-export default function StmCreateSkuDialog({ open, onOpenChange, defaultFlow = "in" }: Props) {
+export default function StmCreateSkuDialog({ open, onOpenChange, defaultFlow = "in", defaultMeta }: Props) {
   const [name, setName] = useState("");
   const [retailer, setRetailer] = useState("");
   const [brand, setBrand] = useState("");
@@ -22,7 +24,26 @@ export default function StmCreateSkuDialog({ open, onOpenChange, defaultFlow = "
   const [flow, setFlow] = useState<StmFlow>(defaultFlow);
   const create = useCreateStmSku();
 
-  const reset = () => { setName(""); setRetailer(""); setBrand(""); setProject(""); setDrop(""); };
+  const reset = () => {
+    setName("");
+    setRetailer(defaultMeta?.retailer ?? "");
+    setBrand(defaultMeta?.brand ?? "");
+    setProject(defaultMeta?.project ?? "");
+    setDrop(defaultMeta?.drop ?? "");
+  };
+
+  // Apply pre-filled structure fields whenever the dialog is (re)opened.
+  useEffect(() => {
+    if (open) {
+      setName("");
+      setRetailer(defaultMeta?.retailer ?? "");
+      setBrand(defaultMeta?.brand ?? "");
+      setProject(defaultMeta?.project ?? "");
+      setDrop(defaultMeta?.drop ?? "");
+      setFlow(defaultFlow);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const submit = async () => {
     if (!name.trim()) return;
