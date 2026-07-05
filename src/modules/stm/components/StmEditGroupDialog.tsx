@@ -13,7 +13,7 @@ import {
   useAddStmGroupParticipants,
   type StmGroupField,
 } from "../hooks/useStmProjects";
-import { initialsFromName } from "@/lib/initials";
+import { getInitials } from "@/lib/initials";
 
 const FIELD_LABELS: Record<StmGroupField, string> = {
   retailer: "Сеть",
@@ -151,7 +151,7 @@ export default function StmEditGroupDialog({
             <div className="flex items-center flex-wrap gap-1.5 mt-1">
               {participantIds.map(id => (
                 <span key={id} className="inline-flex items-center gap-1 text-[11px] bg-muted rounded-full pl-2 pr-1 py-0.5">
-                  {nameById.get(id) ? initialsFromName(nameById.get(id)!) : "—"}
+                  {nameById.get(id) ? getInitials(nameById.get(id)) : "—"}
                   <button type="button" onClick={() => setParticipantIds(prev => prev.filter(x => x !== id))} className="hover:text-destructive">
                     <X className="h-3 w-3" />
                   </button>
