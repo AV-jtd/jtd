@@ -190,6 +190,12 @@ services:
       KONG_PLUGINS: request-transformer,cors,key-auth,acl,basic-auth
       KONG_NGINX_PROXY_PROXY_BUFFER_SIZE: 160k
       KONG_NGINX_PROXY_PROXY_BUFFERS: 64 160k
+      # Собственный (внутренний) nginx Kong читает входящие запросы клиента
+      # с дефолтными буферами (client_header_buffer_size ~1k, large_client_header_buffers 4 8k) —
+      # этого не хватает для длинных URL вида task_id=in.(...много UUID...),
+      # даёт 414 Request-URI Too Large ещё до того, как запрос доходит до PostgREST.
+      KONG_NGINX_HTTP_LARGE_CLIENT_HEADER_BUFFERS: "8 256k"
+      KONG_NGINX_HTTP_CLIENT_HEADER_BUFFER_SIZE: 256k
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
       DASHBOARD_USERNAME: ${DASHBOARD_USERNAME}
