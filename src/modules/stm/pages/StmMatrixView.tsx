@@ -308,10 +308,11 @@ export default function StmMatrixView() {
   const totalProgress = visible.length
     ? Math.round(visible.reduce((s, p) => s + p.progress, 0) / visible.length)
     : 0;
-  const overdueCount = visible.reduce(
-    (n, p) => n + p.stageTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < new Date()).length,
-    0,
-  );
+  const overdueCount = visible.reduce((n, p) => {
+    // Freeze the overdue clock at archive time for archived SKUs.
+    const ref = p.archivedAt ? new Date(p.archivedAt).getTime() : Date.now();
+    return n + p.stageTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline).getTime() < ref).length;
+  }, 0);
 
   // ---- Flattened item list (group headers + rows) for virtualization ----
   type FlatItem =
