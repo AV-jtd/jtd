@@ -607,7 +607,7 @@ export default function StmMatrixView() {
                             next.has(it.group.key) ? next.delete(it.group.key) : next.add(it.group.key);
                             return next;
                           })}
-                          className="flex-1 min-w-0 flex items-center gap-2 text-left"
+                          className="flex items-center gap-2 text-left"
                           aria-expanded={!collapsedGroups.has(it.group.key)}
                         >
                           {collapsedGroups.has(it.group.key)
@@ -637,7 +637,7 @@ export default function StmMatrixView() {
                             next.has(it.subgroup.key) ? next.delete(it.subgroup.key) : next.add(it.subgroup.key);
                             return next;
                           })}
-                          className="flex-1 min-w-0 flex items-center gap-2 text-left"
+                          className="flex items-center gap-2 text-left"
                           aria-expanded={!collapsedGroups.has(it.subgroup.key)}
                         >
                           {collapsedGroups.has(it.subgroup.key)
