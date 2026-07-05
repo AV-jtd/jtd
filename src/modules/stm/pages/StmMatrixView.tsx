@@ -535,9 +535,29 @@ export default function StmMatrixView() {
           >
             <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Импорт Excel
           </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)} className="h-8">
-            <Plus className="h-3.5 w-3.5 mr-1" /> SKU
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="h-8">
+                <Plus className="h-3.5 w-3.5 mr-1" /> Создать
+                <ChevronDown className="h-3.5 w-3.5 ml-1 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => setCreateOpen(true)}>
+                <Package className="h-4 w-4 mr-2" /> SKU
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setCreateStructure("brand")}>
+                <Tag className="h-4 w-4 mr-2" /> Бренд
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCreateStructure("project")}>
+                <FolderKanban className="h-4 w-4 mr-2" /> Проект
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCreateStructure("drop")}>
+                <Boxes className="h-4 w-4 mr-2" /> Дроп
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
