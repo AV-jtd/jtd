@@ -161,6 +161,12 @@ certbot --nginx -d justtodoit.ru
 10. **www.justtodoit.ru** — переключён вручную на VPS (было canChange:false
     через API). Проверить что резолвится, добавить 301 www → корень.
 
+13. **AI через OpenRouter** — «ИИ временно недоступен»: на Lovable AI работал
+    через их шлюз (LOVABLE_API_KEY), на VPS его нет. Привязать свой ключ
+    OpenRouter: обновить AI edge-функции (endpoint + ключ в .env.supabase),
+    убрать зависимость от Lovable AI Gateway. Запасной вариант для РФ —
+    GigaChat/YandexGPT (в реестре рисков).
+
 ## Правило разработки на будущее
 
 Любые изменения схемы БД — **только через миграции в git**, никогда через
