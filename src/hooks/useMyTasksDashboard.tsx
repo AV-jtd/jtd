@@ -6,6 +6,7 @@ export type MyTask = {
   id: string;
   title: string;
   deadline: string | null;
+  user_id: string | null;
   group_id: string | null;
   assigned_to: string | null;
   delegated_from: string | null;
@@ -17,7 +18,7 @@ export type MyTask = {
 };
 
 const SELECT =
-  "id, title, deadline, group_id, assigned_to, delegated_from, requires_approval, approval_status, is_important, priority, task_groups:group_id(name)";
+  "id, title, deadline, user_id, group_id, assigned_to, delegated_from, requires_approval, approval_status, is_important, priority, task_groups:group_id(name)";
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
@@ -30,6 +31,7 @@ function normalize(rows: any[]): MyTask[] {
     id: r.id,
     title: r.title,
     deadline: r.deadline ?? null,
+    user_id: r.user_id ?? null,
     group_id: r.group_id ?? null,
     assigned_to: r.assigned_to ?? null,
     delegated_from: r.delegated_from ?? null,
@@ -41,12 +43,27 @@ function normalize(rows: any[]): MyTask[] {
   }));
 }
 
+/** Постранично читает все строки запроса, обходя дефолтный лимит в 1000. */
+async function fetchAll<T>(
+  build: (from: number, to: number) => any,
+  page = 1000,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += page) {
+    const { data, error } = await build(from, from + page - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < page) break;
+  }
+  return out;
+}
+
 /**
  * Загружает активные задачи текущего пользователя для мини-дашборда «Мои задачи».
  * Возвращает два массива:
- *  - involved: задачи, где я исполнитель или участник (assigned_to синкается в
- *    task_participants, поэтому достаточно одного среза по участникам);
- *  - delegatedByMe: задачи, которые я делегировал другим (delegated_from = я).
+ *  - involved: задачи, где я автор, исполнитель или участник;
+ *  - delegatedByMe: задачи, которые я делегировал другим.
  */
 export function useMyTasksDashboard() {
   const { user } = useAuth();
@@ -59,14 +76,14 @@ export function useMyTasksDashboard() {
     queryFn: async (): Promise<{ involved: MyTask[]; delegatedByMe: MyTask[] }> => {
       if (!uid) return { involved: [], delegatedByMe: [] };
 
-      // 1) Задачи, где я участник/исполнитель.
-      const { data: parts } = await supabase
-        .from("task_participants")
-        .select("task_id")
-        .eq("user_id", uid);
-      const ids = [...new Set((parts ?? []).map((p: any) => p.task_id))];
+      // 1) Задачи, где я участник (assigned_to синкается в task_participants).
+      //    Читаем постранично, чтобы не упереться в лимит 1000 строк.
+      const parts = await fetchAll<{ task_id: string }>((from, to) =>
+        supabase.from("task_participants").select("task_id").eq("user_id", uid).range(from, to),
+      );
+      const ids = [...new Set(parts.map((p) => p.task_id))];
 
-      const involved: MyTask[] = [];
+      const byId = new Map<string, MyTask>();
       for (const part of chunk(ids, 150)) {
         if (part.length === 0) continue;
         const { data } = await supabase
@@ -75,19 +92,56 @@ export function useMyTasksDashboard() {
           .in("id", part)
           .eq("is_completed", false)
           .eq("is_draft", false);
-        involved.push(...normalize(data ?? []));
+        for (const t of normalize(data ?? [])) byId.set(t.id, t);
       }
 
-      // 2) Задачи, делегированные мной другим.
-      const { data: deleg } = await supabase
-        .from("tasks")
-        .select(SELECT)
-        .eq("delegated_from", uid)
-        .eq("is_completed", false)
-        .eq("is_draft", false);
-      const delegatedByMe = normalize(deleg ?? []).filter((t) => t.assigned_to !== uid);
+      // 1b) Подстраховка от рассинхрона task_participants: добавляем задачи,
+      //     где я указан исполнителем, но строки участника может не быть.
+      const assigned = await fetchAll<any>((from, to) =>
+        supabase
+          .from("tasks")
+          .select(SELECT)
+          .eq("assigned_to", uid)
+          .eq("is_completed", false)
+          .eq("is_draft", false)
+          .range(from, to),
+      );
+      for (const t of normalize(assigned)) byId.set(t.id, t);
 
-      return { involved, delegatedByMe };
+      // 1c) Старые/импортированные задачи могли не иметь строки creator в
+      //     task_participants. Автор задачи всё равно должен видеть её в «Мой день».
+      const createdByMe = await fetchAll<any>((from, to) =>
+        supabase
+          .from("tasks")
+          .select(SELECT)
+          .eq("user_id", uid)
+          .eq("is_completed", false)
+          .eq("is_draft", false)
+          .range(from, to),
+      );
+      for (const t of normalize(createdByMe)) byId.set(t.id, t);
+
+      const involved = [...byId.values()];
+
+      // 2) Задачи, делегированные мной другим.
+      const deleg = await fetchAll<any>((from, to) =>
+        supabase
+          .from("tasks")
+          .select(SELECT)
+          .eq("delegated_from", uid)
+          .eq("is_completed", false)
+          .eq("is_draft", false)
+          .range(from, to),
+      );
+      const delegatedByMe = normalize(deleg).filter((t) => t.assigned_to !== uid);
+
+      for (const t of normalize(createdByMe)) {
+        if (t.assigned_to && t.assigned_to !== uid) delegatedByMe.push(t);
+      }
+
+      const delegatedUnique = [...new Map(delegatedByMe.map((t) => [t.id, t])).values()];
+
+      return { involved, delegatedByMe: delegatedUnique };
     },
   });
 }

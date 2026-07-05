@@ -5,11 +5,11 @@ import { cn } from "@/lib/utils";
 import { StmMatrixCell } from "./StmMatrixCell";
 import type { StmProject } from "../hooks/useStmProjects";
 import type { StmStage } from "../lib/stages";
-import { ChevronRight, ChevronDown, MessageSquare, Archive, RotateCcw } from "lucide-react";
+import { ChevronRight, ChevronDown, MessageSquare, Archive } from "lucide-react";
 import { StmExpandedRow } from "./StmExpandedRow";
-import StmArchiveDialog from "./StmArchiveDialog";
-import { Button } from "@/components/ui/button";
-import { stmRowState } from "../lib/stmAnalytics";
+import StmStatusControl from "./StmStatusControl";
+import { getStmLifecycleOption } from "../lib/stages";
+import { stmRowState, stmTimeInStage } from "../lib/stmAnalytics";
 
 const RU_DATE_SHORT = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "";
@@ -27,20 +27,25 @@ interface Props {
 }
 
 function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGantt, activeStageKey, onActiveStageChange, density = "comfortable" }: Props) {
-  const { group, meta, currentStageKey, stageTasks, progress, archivedAt, archiveComment } = project;
+  const { group, meta, currentStageKey, stageTasks, progress, archivedAt, archiveComment, lifecycle } = project;
   const isArchived = !!archivedAt;
-  const [archiveOpen, setArchiveOpen] = useState(false);
+  const lifecycleOpt = getStmLifecycleOption(lifecycle);
 
   // Row state drives the left status strip + progress bar color.
   const state = stmRowState(project);
   const currentStage = currentStageKey ? stages.find(s => s.key === currentStageKey) : null;
+  const timeInStage = stmTimeInStage(project);
   const stripClass =
     state === "overdue" ? "bg-destructive"
+    : state === "blocked" ? "bg-warning"
+    : state === "stuck" ? "bg-warning/60"
     : state === "done" ? "bg-success"
     : state === "active" ? "bg-primary"
     : "bg-border";
   const barClass =
     state === "overdue" ? "bg-destructive"
+    : state === "blocked" ? "bg-warning"
+    : state === "stuck" ? "bg-warning/70"
     : state === "done" ? "bg-success"
     : state === "active" ? "bg-primary"
     : "bg-muted-foreground/30";
@@ -120,6 +125,14 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                 state === "overdue" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary",
               )}>{currentStage.short}</span>
             )}
+            {!isArchived && progress < 100 && (state === "blocked" || state === "stuck") && (
+              <span className={cn(
+                "shrink-0 text-[9px] px-1 py-0.5 rounded leading-none font-medium whitespace-nowrap",
+                state === "blocked" ? "bg-warning/15 text-warning" : "bg-warning/10 text-warning/90",
+              )} title={state === "blocked" ? "Этап заблокирован" : `Завис ${timeInStage} дн на этапе`}>
+                {state === "blocked" ? "⛔" : `⏳${timeInStage ?? ""}`}
+              </span>
+            )}
             <span className="shrink-0 w-7 text-right text-[10px] tabular-nums font-mono text-muted-foreground">{progress}%</span>
           </button>
 
@@ -151,7 +164,7 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
           })}
 
           {/* Comment column — compact indicator */}
-          <div className="min-w-[260px] w-[260px] shrink-0 h-9 px-3 border-l border-border bg-card flex items-center gap-2">
+          <div className="min-w-[260px] w-[260px] shrink-0 h-9 px-3 border-l border-border bg-card flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <MessageSquare className={cn(
               "h-3 w-3 shrink-0",
               group.description ? "text-primary" : "text-muted-foreground/30",
@@ -162,6 +175,14 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
             )}>
               {group.description || "—"}
             </span>
+            <StmStatusControl
+              compact
+              groupId={group.id}
+              groupName={group.name}
+              meta={meta}
+              current={lifecycle}
+              archivedAt={archivedAt}
+            />
           </div>
         </div>
       ) : (
@@ -193,10 +214,10 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                 {isArchived && (
                   <span
                     className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-warning/15 border border-warning/40 text-[9px] font-semibold uppercase tracking-wider text-warning"
-                    title={archiveComment || "Архив"}
+                    title={archiveComment || lifecycleOpt.label}
                   >
                     <Archive className="h-2.5 w-2.5" />
-                    Архив · {RU_DATE_SHORT(archivedAt)}
+                    {lifecycleOpt.label} · {RU_DATE_SHORT(archivedAt)}
                   </span>
                 )}
               </div>
@@ -223,6 +244,16 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                   )}>
                     сейчас: {currentStage.short}
                   </span>
+                  {(state === "blocked" || state === "stuck") && (
+                    <span className={cn(
+                      "ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium",
+                      state === "blocked" ? "bg-warning/15 text-warning" : "bg-warning/10 text-warning/90",
+                    )} title={state === "blocked" ? "Этап заблокирован" : "Завис на этапе"}>
+                      {state === "blocked"
+                        ? "⛔ заблокирован"
+                        : `⏳ ${timeInStage} дн на этапе`}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -263,7 +294,7 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
 
         {/* Right-side comment column — duplicates the SKU comment in the expanded card */}
         <div
-          className="min-w-[260px] w-[260px] shrink-0 p-1.5 border-l border-border bg-card flex flex-col gap-1"
+          className="min-w-[260px] w-[260px] shrink-0 p-2 border-l border-border bg-card flex flex-col gap-1.5"
           onClick={(e) => e.stopPropagation()}
         >
           {isArchived && archiveComment && (
@@ -289,11 +320,11 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
               className="w-full flex-1 min-h-[40px] bg-background border border-primary/40 rounded px-2 py-1 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/60 resize-none"
             />
           ) : (
-            <div className="flex items-stretch gap-1 flex-1 min-h-[40px]">
+            <>
               <button
                 type="button"
                 onClick={() => setEditingComment(true)}
-                className="group/cmt flex-1 min-w-0 flex items-start gap-1.5 text-left px-2 py-1 rounded border border-border bg-background/60 hover:bg-muted/50 hover:border-primary/40 transition-colors"
+                className="group/cmt w-full flex-1 min-h-[40px] flex items-start gap-1.5 text-left px-2 py-1.5 rounded-md border border-border bg-background/60 hover:bg-muted/50 hover:border-primary/40 transition-colors"
                 title={group.description || "Добавить комментарий по SKU"}
               >
                 <MessageSquare className={cn(
@@ -307,18 +338,15 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
                   {group.description || "Добавить комментарий…"}
                 </span>
               </button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setArchiveOpen(true)}
-                className="h-auto w-7 shrink-0 text-muted-foreground/60 hover:text-warning hover:bg-warning/10"
-                title={isArchived ? "Вернуть из архива" : "В архив"}
-              >
-                {isArchived
-                  ? <RotateCcw className="h-3.5 w-3.5" />
-                  : <Archive className="h-3.5 w-3.5" />}
-              </Button>
-            </div>
+              <StmStatusControl
+                fullWidth
+                groupId={group.id}
+                groupName={group.name}
+                meta={meta}
+                current={lifecycle}
+                archivedAt={archivedAt}
+              />
+            </>
           )}
         </div>
       </div>
@@ -336,14 +364,6 @@ function StmMatrixRowInner({ project, stages, expanded, onToggleExpand, onOpenGa
           />
         </div>
       )}
-
-      <StmArchiveDialog
-        open={archiveOpen}
-        onOpenChange={setArchiveOpen}
-        groupId={group.id}
-        groupName={group.name}
-        unarchive={isArchived}
-      />
     </>
   );
 }

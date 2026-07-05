@@ -2,13 +2,100 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { GanttChart, ChevronDown, ChevronRight, MessageSquare } from "lucide-react";
+import { GanttChart, ChevronDown, ChevronRight, MessageSquare, MessagesSquare } from "lucide-react";
 import TaskItem from "@/components/TaskItem";
+import ProjectChat from "@/components/ProjectChat";
 import type { Task } from "@/hooks/useTasks";
-import type { StmStage } from "../lib/stages";
+import { REWORK_RISK_THRESHOLD, type StmStage } from "../lib/stages";
 import type { StmProject } from "../hooks/useStmProjects";
 import { StmOpsTasks } from "./StmOpsTasks";
 import { patchGroupInCache, restoreGroupSnapshots } from "../lib/stmCache";
+import { stmTimeInStage, isStmProjectBlocked, isStmProjectStuck } from "../lib/stmAnalytics";
+
+/**
+ * Inline-editable STM meta chip (Сеть / Бренд / Проект / Дроп).
+ * Click to edit → updates task_groups.stm_meta[field] with optimistic cache patch,
+ * so existing SKUs can be (re)grouped without recreating them.
+ */
+function StmMetaChip({
+  group,
+  meta,
+  field,
+  label,
+  placeholder,
+}: {
+  group: StmProject["group"];
+  meta: StmProject["meta"];
+  field: "retailer" | "brand" | "project" | "drop";
+  label: string;
+  placeholder: string;
+}) {
+  const qc = useQueryClient();
+  const current = (meta?.[field] as string | undefined) ?? "";
+  const [draft, setDraft] = useState(current);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { setDraft(current); }, [group.id, current]);
+
+  const save = useMutation({
+    mutationFn: async (text: string) => {
+      const nextMeta: any = { ...(meta || {}) };
+      if (text) nextMeta[field] = text; else delete nextMeta[field];
+      const { error } = await supabase
+        .from("task_groups")
+        .update({ stm_meta: nextMeta })
+        .eq("id", group.id);
+      if (error) throw error;
+      return nextMeta;
+    },
+    onMutate: async (text: string) => {
+      const nextMeta: any = { ...(meta || {}) };
+      if (text) nextMeta[field] = text; else delete nextMeta[field];
+      const snapshots = patchGroupInCache(qc, group.id, { stm_meta: nextMeta } as any);
+      return { snapshots };
+    },
+    onError: (_e, _v, ctx: any) => {
+      if (ctx?.snapshots) restoreGroupSnapshots(qc, ctx.snapshots);
+    },
+  });
+
+  const commit = () => {
+    setEditing(false);
+    if (draft.trim() !== current) save.mutate(draft.trim());
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">{label}</span>
+      {editing ? (
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") { setDraft(current); setEditing(false); }
+            if (e.key === "Enter") commit();
+          }}
+          placeholder={placeholder}
+          className="h-6 bg-stm-glass/30 border border-stm-accent/40 rounded px-2 text-xs text-stm-fg placeholder:text-stm-fg/30 focus:outline-none focus:ring-1 focus:ring-stm-accent/60 w-40"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className={cn(
+            "text-xs px-2 py-0.5 rounded border transition-colors",
+            current
+              ? "text-stm-accent border-stm-accent/30 bg-stm-accent/10 hover:bg-stm-accent/20"
+              : "text-stm-fg/40 border-stm-border/40 hover:text-stm-accent hover:border-stm-accent/30 italic",
+          )}
+        >
+          {current || "не задан"}
+        </button>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   project: StmProject;
@@ -55,6 +142,9 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
   // Active stage is controlled via URL (?stage=...). Fall back to current stage when nothing is set.
   const activeStageKey = controlledStageKey ?? currentStageKey;
   const setActiveStageKey = (next: string | null) => onActiveStageChange?.(next);
+
+  // ---- Per-SKU chat toggle (group_messages backed via ProjectChat) ----
+  const [showChat, setShowChat] = useState(false);
 
   // ---- Auto-advance: when the active stage gets completed, jump to the next open stage. ----
   useEffect(() => {
@@ -150,6 +240,11 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
     ? stageTasks.find(t => (t as any).stage_key === activeStageKey) ?? null
     : null;
 
+  // ---- Stage-level risk telemetry (time-in-stage / blocked) ----
+  const timeInStage = stmTimeInStage(project);
+  const blocked = isStmProjectBlocked(project);
+  const stuck = isStmProjectStuck(project);
+
   return (
     <div className="bg-stm-bg/95 border-b border-stm-border/40 px-4 py-4 space-y-4">
       {/* HEADER — Total telemetry */}
@@ -163,8 +258,11 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
               {project.flow === "in" ? "ВВОД" : "ВЫВОД"}
             </span>
           </div>
-          <div className="text-sm font-light text-stm-fg/80 truncate">
-            {[meta.retailer, meta.brand, meta.drop].filter(Boolean).join(" · ") || "—"}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1">
+            <StmMetaChip group={group} meta={meta} field="retailer" label="Сеть" placeholder="X5, Лента…" />
+            <StmMetaChip group={group} meta={meta} field="brand" label="Бренд" placeholder="Бережное томление…" />
+            <StmMetaChip group={group} meta={meta} field="project" label="Проект" placeholder="Чистые составы…" />
+            <StmMetaChip group={group} meta={meta} field="drop" label="Дроп" placeholder="Q2 2026…" />
           </div>
         </div>
 
@@ -190,12 +288,36 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
             <div className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">Прогресс</div>
             <div className="text-sm font-mono text-stm-fg tabular-nums">{progress}%</div>
           </div>
+          {progress < 100 && timeInStage != null && (
+            <div className="text-right">
+              <div className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">На этапе</div>
+              <div className={cn(
+                "text-sm font-mono tabular-nums",
+                blocked || stuck ? "text-stm-warn" : "text-stm-fg/70",
+              )}>
+                {blocked ? `⛔ ${timeInStage} дн` : stuck ? `⏳ ${timeInStage} дн` : `${timeInStage} дн`}
+              </div>
+            </div>
+          )}
           {globalDrift > 0 && (
             <div className="text-right">
               <div className="text-[10px] font-mono uppercase tracking-widest text-stm-fg/40">Дрифт</div>
               <div className="text-sm font-mono text-stm-danger tabular-nums">↗ +{globalDrift} дн</div>
             </div>
           )}
+          <button
+            type="button"
+            onClick={() => setShowChat(v => !v)}
+            className={cn(
+              "inline-flex items-center gap-1 text-[11px] transition-colors px-2 py-1 rounded border",
+              showChat
+                ? "text-stm-accent border-stm-accent/50 bg-stm-accent/10"
+                : "text-stm-fg/60 border-stm-border/40 hover:text-stm-accent hover:border-stm-accent/40",
+            )}
+            aria-pressed={showChat}
+          >
+            <MessagesSquare className="h-3 w-3" /> Чат
+          </button>
           <button
             type="button"
             onClick={() => onOpenGantt?.(group.id)}
@@ -280,6 +402,9 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
             const isCurrent = stage.key === currentStageKey;
             const isActive = stage.key === activeStageKey;
             const overdue = !isDone && task?.deadline && new Date(task.deadline) < new Date();
+            const stageStatus = (task as any)?.stage_status as string | null | undefined;
+            const isBlocked = !isDone && stageStatus === "blocked";
+            const isInProgress = !isDone && !overdue && !isBlocked && stageStatus === "in_progress";
             const drift = calcDrift(task);
             const assigneeName = task?.assigned_to ? profileMap.get(task.assigned_to) : null;
             const dueLabel = RU_DATE(task?.deadline);
@@ -321,6 +446,8 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
                       "size-1.5 rounded-full",
                       isDone ? "bg-stm-success" :
                       overdue ? "bg-stm-danger animate-pulse" :
+                      isBlocked ? "bg-stm-warn animate-pulse" :
+                      isInProgress ? "bg-stm-accent animate-pulse" :
                       isCurrent ? "bg-stm-accent animate-pulse" : "bg-stm-fg/20",
                     )} />
                   </div>
@@ -342,6 +469,14 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
                   )}>
                     {dueLabel ?? "—"}
                   </p>
+                  {stage.key === "rework" && task && (((task as any).rework_count as number) ?? 0) > 0 && (
+                    <p className={cn(
+                      "text-[10px] font-mono tabular-nums",
+                      (((task as any).rework_count as number) ?? 0) >= REWORK_RISK_THRESHOLD ? "text-stm-warn" : "text-stm-fg/50",
+                    )}>
+                      🔁 доработок: {(task as any).rework_count}
+                    </p>
+                  )}
                 </div>
 
                 {!task && (
@@ -367,6 +502,19 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
         <div className="text-[11px] text-stm-fg/40 px-2 italic flex items-center gap-2">
           <ChevronRight className="h-3 w-3" />
           Выберите этап, чтобы открыть детали (шаги, дедлайн, ответственный)
+        </div>
+      )}
+
+      {/* Per-SKU chat (group_messages) */}
+      {showChat && (
+        <div className="rounded-xl border border-stm-border/40 bg-stm-glass/20 overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-stm-border/30 text-[10px] font-mono uppercase tracking-widest text-stm-fg/50">
+            <MessagesSquare className="h-3 w-3 text-stm-accent" />
+            <span>Чат SKU · {group.name}</span>
+          </div>
+          <div className="h-[380px]">
+            <ProjectChat groupId={group.id} groupName={group.name} embedded onClose={() => setShowChat(false)} />
+          </div>
         </div>
       )}
 

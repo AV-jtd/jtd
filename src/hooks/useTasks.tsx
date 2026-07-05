@@ -906,18 +906,19 @@ export function useTaskMutations() {
   });
 
   const updateGroupAppearance = useMutation({
-    mutationFn: async ({ id, icon, color }: { id: string; icon?: string | null; color?: string | null }) => {
+    mutationFn: async ({ id, icon, color, logo_url }: { id: string; icon?: string | null; color?: string | null; logo_url?: string | null }) => {
       const updates: Record<string, any> = {};
       if (icon !== undefined) updates.icon = icon;
       if (color !== undefined) updates.color = color;
+      if (logo_url !== undefined) updates.logo_url = logo_url;
       const { error } = await supabase.from("task_groups").update(updates).eq("id", id);
       if (error) throw error;
     },
-    onMutate: async ({ id, icon, color }) => {
+    onMutate: async ({ id, icon, color, logo_url }) => {
       await qc.cancelQueries({ queryKey: ["task_groups"] });
       const snap = snapshotGroups(qc);
       updateAllGroupCaches(qc, (groups) =>
-        groups.map(g => g.id === id ? { ...g, ...(icon !== undefined ? { icon } : {}), ...(color !== undefined ? { color } : {}) } : g)
+        groups.map(g => g.id === id ? { ...g, ...(icon !== undefined ? { icon } : {}), ...(color !== undefined ? { color } : {}), ...(logo_url !== undefined ? { logo_url } : {}) } : g)
       );
       return { snap };
     },
@@ -1394,6 +1395,8 @@ export function useTaskMutations() {
         protocol_scope: task.protocol_scope ?? 'external',
         stage_key: null,
         stm_flow: null,
+        stage_status: null,
+        rework_count: 0,
         subtasks: [],
         task_tags: [],
         follow_up_of: (task as any).follow_up_of ?? null,

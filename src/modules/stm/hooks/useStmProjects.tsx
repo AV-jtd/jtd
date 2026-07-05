@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTaskGroups, type TaskGroup, type Task } from "@/hooks/useTasks";
-import { getStmStages, type StmFlow, type StmMeta, type StmStage } from "../lib/stages";
+import { getStmStages, resolveStmLifecycle, type StmFlow, type StmLifecycle, type StmMeta, type StmStage, type StmStageStatus } from "../lib/stages";
 import { STM_KEYS, invalidateStmCaches, patchStageTaskInCache } from "../lib/stmCache";
 import { toast } from "sonner";
 
@@ -62,6 +62,8 @@ export interface StmProject {
   archivedAt: string | null;
   /** Mandatory comment captured at the moment of archiving. */
   archiveComment: string | null;
+  /** Effective SKU lifecycle status. */
+  lifecycle: StmLifecycle;
 }
 
 /**
@@ -85,6 +87,7 @@ export function useStmProjects() {
       const total = stages.length;
       const done = stages.filter(s => filtered.some(t => (t as any).stage_key === s.key && t.is_completed)).length;
       const currentStage = stages.find(s => !filtered.some(t => (t as any).stage_key === s.key && t.is_completed));
+      const archivedAt = g.closed_at ?? null;
       return {
         group: g,
         meta,
@@ -92,8 +95,9 @@ export function useStmProjects() {
         stageTasks: filtered,
         progress: total ? Math.round((done / total) * 100) : 0,
         currentStageKey: currentStage?.key ?? null,
-        archivedAt: g.closed_at ?? null,
+        archivedAt,
         archiveComment: (g as any).archive_comment ?? null,
+        lifecycle: resolveStmLifecycle(meta, !!archivedAt),
       };
     });
   }, [groups, allTasks]);
@@ -261,6 +265,7 @@ export function useToggleStmStage() {
         .update({
           is_completed: input.isCompleted,
           completed_at: input.isCompleted ? new Date().toISOString() : null,
+          stage_status: input.isCompleted ? "done" : "in_progress",
         })
         .eq("id", input.taskId);
       if (error) throw error;
@@ -292,7 +297,8 @@ export function useToggleStmStage() {
       const prev = patchStageTaskInCache(qc, user?.id, input.taskId, {
         is_completed: input.isCompleted,
         completed_at: input.isCompleted ? new Date().toISOString() : null,
-      });
+        stage_status: input.isCompleted ? "done" : "in_progress",
+      } as Partial<Task>);
       return { prev };
     },
     onError: (_err, _input, ctx) => {
@@ -492,5 +498,269 @@ export function useShiftStmStageDate() {
       toast.error("Не удалось перенести дату");
     },
     onSuccess: () => toast.success("Дата перенесена"),
+  });
+}
+
+/**
+ * Set the workflow status of a single stage cell (pending / in_progress /
+ * blocked / done). "done" keeps is_completed in sync so progress, cascades
+ * and the Gantt stay consistent — stage_status is a layer on top, not a
+ * replacement for the completion flag.
+ */
+export function useSetStmStageStatus() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: { taskId: string; status: StmStageStatus }) => {
+      const isDone = input.status === "done";
+      const patch: Record<string, unknown> = {
+        stage_status: input.status,
+        is_completed: isDone,
+        completed_at: isDone ? new Date().toISOString() : null,
+      };
+      const { error } = await supabase
+        .from("tasks")
+        .update(patch as any)
+        .eq("id", input.taskId);
+      if (error) throw error;
+      return input;
+    },
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: STM_KEYS.stageTasks(user?.id) });
+      const isDone = input.status === "done";
+      const prev = patchStageTaskInCache(qc, user?.id, input.taskId, {
+        stage_status: input.status,
+        is_completed: isDone,
+        completed_at: isDone ? new Date().toISOString() : null,
+      } as Partial<Task>);
+      return { prev };
+    },
+    onError: (_err, _input, ctx) => {
+      if (ctx?.prev) qc.setQueryData(STM_KEYS.stageTasks(user?.id), ctx.prev);
+      toast.error("Не удалось обновить статус этапа");
+    },
+  });
+}
+
+/**
+ * Manually adjust the rework iteration counter (rework_count) on the
+ * "Доработка образцов" stage task. Each +1 = one new reworked sample sent.
+ * Clamped to >= 0. Does not affect progress %, it's a quality/risk signal.
+ */
+export function useSetReworkCount() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (input: { taskId: string; delta?: number; value?: number }) => {
+      const cached = qc.getQueryData<Task[]>(STM_KEYS.stageTasks(user?.id)) ?? [];
+      const task = cached.find(t => t.id === input.taskId) ?? null;
+      const current = ((task as any)?.rework_count as number | null | undefined) ?? 0;
+      const next = Math.max(0, input.value !== undefined ? input.value : current + (input.delta ?? 0));
+      const { error } = await supabase
+        .from("tasks")
+        .update({ rework_count: next } as any)
+        .eq("id", input.taskId);
+      if (error) throw error;
+      return { next };
+    },
+    onMutate: async (input) => {
+      await qc.cancelQueries({ queryKey: STM_KEYS.stageTasks(user?.id) });
+      const cached = qc.getQueryData<Task[]>(STM_KEYS.stageTasks(user?.id)) ?? [];
+      const task = cached.find(t => t.id === input.taskId) ?? null;
+      const current = ((task as any)?.rework_count as number | null | undefined) ?? 0;
+      const next = Math.max(0, input.value !== undefined ? input.value : current + (input.delta ?? 0));
+      const prev = patchStageTaskInCache(qc, user?.id, input.taskId, {
+        rework_count: next,
+      } as Partial<Task>);
+      return { prev };
+    },
+    onError: (_err, _input, ctx) => {
+      if (ctx?.prev) qc.setQueryData(STM_KEYS.stageTasks(user?.id), ctx.prev);
+      toast.error("Не удалось обновить счётчик доработок");
+    },
+  });
+}
+
+/** Metadata dimension editable from the group header. */
+export type StmGroupField = "retailer" | "brand" | "drop" | "project";
+
+/**
+ * "Empty placeholder" structure node — a named Brand/Project/Drop/Retailer
+ * that exists before any SKU is attached to it, so the matrix can show the
+ * (empty) group up front. Merges naturally with real SKU groups by value.
+ */
+export interface StmStructureNode {
+  id: string;
+  flow: StmFlow;
+  field: StmGroupField;
+  value: string;
+}
+
+/** All placeholder structure nodes (both flows). */
+export function useStmStructureNodes() {
+  const { user, loading } = useAuth();
+  return useQuery({
+    queryKey: STM_KEYS.structureNodes(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("stm_structure_nodes" as any)
+        .select("id, flow, field, value");
+      if (error) throw error;
+      return (data ?? []) as unknown as StmStructureNode[];
+    },
+    enabled: !loading && !!user,
+    staleTime: 30_000,
+  });
+}
+
+/** Create an empty placeholder group (Brand / Project / Drop / Retailer). */
+export function useCreateStmStructureNode() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (input: { flow: StmFlow; field: StmGroupField; value: string }) => {
+      if (!user) throw new Error("not authenticated");
+      const value = input.value.trim();
+      if (!value) throw new Error("empty value");
+      const { error } = await supabase
+        .from("stm_structure_nodes" as any)
+        .insert({ user_id: user.id, flow: input.flow, field: input.field, value } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: STM_KEYS.structureNodes() });
+      toast.success("Группа создана");
+    },
+    onError: (e: any) => {
+      if (e?.code === "23505") toast.error("Такая группа уже существует");
+      else toast.error(`Не удалось создать: ${e.message}`);
+    },
+  });
+}
+
+/** Delete an empty placeholder group. */
+export function useDeleteStmStructureNode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("stm_structure_nodes" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: STM_KEYS.structureNodes() });
+      toast.success("Группа удалена");
+    },
+    onError: (e: any) => toast.error(`Не удалось удалить: ${e.message}`),
+  });
+}
+
+/**
+ * Bulk-rename a group's meta dimension across all its SKUs.
+ * Renaming to an existing group's value naturally merges the SKUs into it.
+ */
+export function useUpdateStmGroupMeta() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { groupIds: string[]; field: StmGroupField; value: string }) => {
+      const value = input.value.trim();
+      // Read current meta per group from the groups cache, patch the field, write back.
+      const groups = (qc.getQueryData<TaskGroup[]>(STM_KEYS.groups()) ?? []) as TaskGroup[];
+      for (const id of input.groupIds) {
+        const g = groups.find(x => x.id === id);
+        const meta = { ...(((g as any)?.stm_meta) || {}) } as StmMeta;
+        if (value) (meta as any)[input.field] = value;
+        else delete (meta as any)[input.field];
+        const { error } = await supabase
+          .from("task_groups")
+          .update({ stm_meta: meta as any })
+          .eq("id", id);
+        if (error) throw error;
+      }
+      return { count: input.groupIds.length };
+    },
+    onSuccess: ({ count }) => {
+      invalidateStmCaches(qc);
+      toast.success(`Обновлено SKU: ${count}`);
+    },
+    onError: (e: any) => toast.error(`Не удалось обновить: ${e.message}`),
+  });
+}
+
+/** Set the same responsible manager (stm_meta.manager_id) on all SKUs of a group. */
+export function useSetStmGroupManager() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { groupIds: string[]; managerId: string | null }) => {
+      const groups = (qc.getQueryData<TaskGroup[]>(STM_KEYS.groups()) ?? []) as TaskGroup[];
+      for (const id of input.groupIds) {
+        const g = groups.find(x => x.id === id);
+        const meta = { ...(((g as any)?.stm_meta) || {}) } as StmMeta;
+        if (input.managerId) (meta as any).manager_id = input.managerId;
+        else delete (meta as any).manager_id;
+        const { error } = await supabase
+          .from("task_groups")
+          .update({ stm_meta: meta as any })
+          .eq("id", id);
+        if (error) throw error;
+      }
+      return { count: input.groupIds.length };
+    },
+    onSuccess: ({ count }) => {
+      invalidateStmCaches(qc);
+      toast.success(`Ответственный назначен для ${count} SKU`);
+    },
+    onError: (e: any) => toast.error(`Не удалось назначить: ${e.message}`),
+  });
+}
+
+/**
+ * Add participants (role 'support') to every stage task of every SKU in a group.
+ * Additive & idempotent: existing (task_id, user_id) pairs are skipped.
+ */
+export function useAddStmGroupParticipants() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { groupIds: string[]; userIds: string[] }) => {
+      if (input.userIds.length === 0 || input.groupIds.length === 0) return { added: 0, skuCount: 0 };
+
+      // All stage tasks of the target groups.
+      const { data: tasks, error: tErr } = await supabase
+        .from("tasks")
+        .select("id, group_id")
+        .eq("task_type", "stm_stage")
+        .in("group_id", input.groupIds);
+      if (tErr) throw tErr;
+      const taskIds = (tasks ?? []).map((t: any) => t.id);
+      if (taskIds.length === 0) return { added: 0, skuCount: input.groupIds.length };
+
+      // Existing participant pairs to avoid duplicates.
+      const { data: existing, error: eErr } = await supabase
+        .from("task_participants")
+        .select("task_id, user_id")
+        .in("task_id", taskIds)
+        .in("user_id", input.userIds);
+      if (eErr) throw eErr;
+      const existingSet = new Set((existing ?? []).map((r: any) => `${r.task_id}:${r.user_id}`));
+
+      const rows: any[] = [];
+      for (const tid of taskIds) {
+        for (const uid of input.userIds) {
+          if (existingSet.has(`${tid}:${uid}`)) continue;
+          rows.push({ task_id: tid, user_id: uid, role: "support" });
+        }
+      }
+      if (rows.length) {
+        const { error: iErr } = await supabase.from("task_participants").insert(rows);
+        if (iErr) throw iErr;
+      }
+      return { added: input.userIds.length, skuCount: input.groupIds.length };
+    },
+    onSuccess: ({ added, skuCount }) => {
+      invalidateStmCaches(qc);
+      if (added > 0) toast.success(`Участники (${added}) добавлены к ${skuCount} SKU`);
+    },
+    onError: (e: any) => toast.error(`Не удалось добавить участников: ${e.message}`),
   });
 }

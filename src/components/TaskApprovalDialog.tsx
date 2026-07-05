@@ -204,7 +204,7 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         ref={dialogRef}
-        className="sm:max-w-md max-h-[85vh] overflow-y-auto relative"
+        className="sm:max-w-md max-h-[85vh] flex flex-col gap-0 overflow-hidden relative"
         onDragEnter={onDragEnter}
         onDragLeave={onDragLeave}
         onDragOver={onDragOver}
@@ -217,13 +217,13 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
             <p className="text-sm font-medium text-primary">Перетащите файлы сюда</p>
           </div>
         )}
-        <DialogHeader>
+        <DialogHeader className="flex-shrink-0 pb-3">
           <DialogTitle className="flex items-center gap-2 text-base">
             <FileText className="h-4 w-4 text-primary" />
             Результат выполнения
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-3 flex-1 overflow-y-auto min-h-0 pr-1">
           <p className="text-sm text-muted-foreground">
             Задача «{taskTitle}» требует утверждения. Опишите результат:
           </p>
@@ -318,7 +318,7 @@ export function TaskClosureDialog({ open, onOpenChange, taskTitle, taskId, onSub
             <span>Перетащите файлы или Ctrl+V для скриншота</span>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 pt-4 mt-1 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Отмена</Button>
           <Button onClick={handleSubmit} disabled={!result.trim() || validating}>
             Отправить на утверждение

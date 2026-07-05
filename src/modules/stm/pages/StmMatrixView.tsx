@@ -3,17 +3,88 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle } from "lucide-react";
+import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle, CheckCircle2, Clock, Rocket, CircleDashed, Pencil, Trash2, Tag, FolderKanban, Package, Boxes } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useStmProjects } from "../hooks/useStmProjects";
+import { useStmProjects, useStmStructureNodes, useDeleteStmStructureNode } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
 import { StmMatrixHeader } from "../components/StmMatrixHeader";
 import { StmMatrixRow } from "../components/StmMatrixRow";
 import { StmDashboardBar } from "../components/StmDashboardBar";
-import { computeStmAnalytics, isStmProjectOverdue } from "../lib/stmAnalytics";
+import { computeStmAnalytics, isStmProjectOverdue, isStmProjectBlocked, isStmProjectStuck } from "../lib/stmAnalytics";
 import StmCreateSkuDialog from "../components/StmCreateSkuDialog";
 import StmExcelImportDialog from "../components/StmExcelImportDialog";
+import StmEditGroupDialog from "../components/StmEditGroupDialog";
+import StmCreateStructureDialog from "../components/StmCreateStructureDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import type { StmGroupField } from "../hooks/useStmProjects";
 import { cn } from "@/lib/utils";
+
+/** Aggregate stats shape shared by group + subgroup headers. */
+interface GroupStat {
+  count: number;
+  avgProgress: number;
+  overdueCount: number;
+  doneCount: number;
+  activeCount: number;
+  notStartedCount: number;
+  riskCount: number;
+  readyCount: number;
+}
+
+/**
+ * Left-aligned portfolio metrics for a (sub)group header.
+ * Order = funnel health: progress → not started → in progress → ready →
+ * done → risk → overdue. Zero-value badges are hidden to keep it scannable.
+ */
+function GroupMetrics({ s, size = "md" }: { s: GroupStat; size?: "md" | "sm" }) {
+  const bar = size === "md" ? "w-16 h-1.5" : "w-12 h-1";
+  const ic = size === "md" ? "h-3 w-3" : "h-2.5 w-2.5";
+  const badge = "inline-flex items-center gap-0.5 text-[10px] font-medium tabular-nums";
+  return (
+    <span className="flex items-center gap-2.5 shrink-0">
+      {/* avg progress */}
+      <span className="flex items-center gap-1.5">
+        <span className={cn("rounded-full bg-muted overflow-hidden", bar)}>
+          <span
+            className="block h-full rounded-full bg-primary/60"
+            style={{ width: `${Math.max(s.avgProgress, s.avgProgress > 0 ? 4 : 0)}%` }}
+          />
+        </span>
+        <span className="text-[10px] tabular-nums font-mono text-muted-foreground w-8 text-right">{s.avgProgress}%</span>
+      </span>
+      {s.notStartedCount > 0 && (
+        <span className={cn(badge, "text-muted-foreground/60")} title="Не начато">
+          <CircleDashed className={ic} />{s.notStartedCount}
+        </span>
+      )}
+      {s.activeCount > 0 && (
+        <span className={cn(badge, "text-foreground/70")} title="В работе">
+          <Clock className={ic} />{s.activeCount}
+        </span>
+      )}
+      {s.readyCount > 0 && (
+        <span className={cn(badge, "text-primary")} title="Готовы к запуску (вкус утверждён)">
+          <Rocket className={ic} />{s.readyCount}
+        </span>
+      )}
+      {s.doneCount > 0 && (
+        <span className={cn(badge, "text-success")} title="Завершено">
+          <CheckCircle2 className={ic} />{s.doneCount}
+        </span>
+      )}
+      {s.riskCount > 0 && (
+        <span className={cn(badge, "text-warning")} title="Зависли / заблокированы">
+          ⏳<span>{s.riskCount}</span>
+        </span>
+      )}
+      {s.overdueCount > 0 && (
+        <span className={cn(badge, "font-semibold text-destructive")} title="Просрочено">
+          <AlertTriangle className={ic} />{s.overdueCount}
+        </span>
+      )}
+    </span>
+  );
+}
 
 /**
  * STM (Private Label) Mission Control matrix.
@@ -23,8 +94,18 @@ export default function StmMatrixView() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const projects = useStmProjects();
+  const { data: structureNodes = [] } = useStmStructureNodes();
+  const deleteNode = useDeleteStmStructureNode();
   const [flow, setFlow] = useState<StmFlow>("in");
-  const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand">("retailer");
+  const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand" | "project">("retailer");
+  // Secondary grouping: within a brand/retailer group, split rows by project.
+  const [subGroupProject, setSubGroupProject] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("stm:subGroupProject") === "1";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("stm:subGroupProject", subGroupProject ? "1" : "0"); } catch { /* ignore */ }
+  }, [subGroupProject]);
   // Default = active only ("чтобы лишнего не показывать"). Persist to localStorage.
   const [statusFilter, setStatusFilter] = useState<"active" | "archived" | "all">(() => {
     if (typeof window === "undefined") return "active";
@@ -34,9 +115,21 @@ export default function StmMatrixView() {
   useEffect(() => {
     try { window.localStorage.setItem("stm:statusFilter", statusFilter); } catch { /* ignore */ }
   }, [statusFilter]);
-  const [search, setSearch] = useState("");
+  // Поддержка ?q= из карточки клиента («Открыть в СТМ Mission Control»).
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // "+ Создать" → structure placeholder dialog (brand/project/drop/retailer).
+  const [createStructure, setCreateStructure] = useState<StmGroupField | null>(null);
+  // "+ SKU" from a group/project header → pre-filled create-SKU dialog.
+  const [createSkuPrefill, setCreateSkuPrefill] = useState<Partial<Record<StmGroupField, string>> | null>(null);
+  // Group-header editor (rename/merge + manager + participants).
+  const [editGroup, setEditGroup] = useState<{
+    field: StmGroupField;
+    value: string;
+    groupIds: string[];
+    managerId: string | null;
+  } | null>(null);
   // Row density: comfortable (full) or compact (single-line dot heat-map).
   const [density, setDensity] = useState<"comfortable" | "compact">(() => {
     if (typeof window === "undefined") return "comfortable";
@@ -156,6 +249,33 @@ export default function StmMatrixView() {
     [visible, focusStage],
   );
 
+  // Distinct existing values per dimension (within current flow) — for merge hint.
+  const distinctValues = useMemo(() => {
+    const flowProjects = projects.filter(p => p.flow === flow);
+    const pick = (f: StmGroupField) => Array.from(new Set(
+      [
+        ...flowProjects.map(p => ((p.meta as any)[f] || "").toString().trim()),
+        ...structureNodes.filter(n => n.flow === flow && n.field === f).map(n => n.value.trim()),
+      ].filter(Boolean),
+    ));
+    return { retailer: pick("retailer"), brand: pick("brand"), drop: pick("drop"), project: pick("project") };
+  }, [projects, flow, structureNodes]);
+
+  // Open the group editor for a header. Derives a shared manager if all SKUs agree.
+  const openGroupEditor = (field: StmGroupField, value: string, items: typeof visible) => {
+    const groupIds = items.map(p => p.group.id);
+    const mgrs = new Set(items.map(p => ((p.meta as any).manager_id as string | undefined) || null));
+    const managerId = mgrs.size === 1 ? (Array.from(mgrs)[0] ?? null) : null;
+    setEditGroup({ field, value, groupIds, managerId });
+  };
+
+  const NO_GROUP = new Set(["Без группы", "Без проекта"]);
+  // Open the create-SKU dialog pre-filled with a group/project's structure context.
+  const openCreateSku = (meta: Partial<Record<StmGroupField, string>> | null) => {
+    setCreateSkuPrefill(meta && Object.keys(meta).length ? meta : null);
+    setCreateOpen(true);
+  };
+
   // Counts per status for the tab labels (within current flow).
   const statusCounts = useMemo(() => {
     const inFlow = projects.filter(p => p.flow === flow);
@@ -170,31 +290,70 @@ export default function StmMatrixView() {
     const count = items.length;
     const avgProgress = count ? Math.round(items.reduce((s, p) => s + p.progress, 0) / count) : 0;
     const overdueCount = items.filter(isStmProjectOverdue).length;
-    return { count, avgProgress, overdueCount };
+    // Завершённые SKU (100%).
+    const doneCount = items.filter(p => p.progress >= 100).length;
+    // В работе (начаты, но не закрыты и не просрочены).
+    const activeCount = items.filter(p => p.progress > 0 && p.progress < 100 && !isStmProjectOverdue(p)).length;
+    // Ещё не начаты.
+    const notStartedCount = items.filter(p => p.progress === 0).length;
+    // Риск: завис/заблокирован (без учёта уже просроченных — те идут в overdue).
+    const riskCount = items.filter(p =>
+      !p.archivedAt && p.progress < 100 && !isStmProjectOverdue(p) &&
+      (isStmProjectBlocked(p) || isStmProjectStuck(p)),
+    ).length;
+    // Готовы к запуску: вкус утверждён, но SKU ещё не закрыт.
+    const readyCount = items.filter(p =>
+      p.progress < 100 && p.stageTasks.some(t => (t as any).stage_key === "approval" && t.is_completed),
+    ).length;
+    return { count, avgProgress, overdueCount, doneCount, activeCount, notStartedCount, riskCount, readyCount };
   };
+  type SubGroup = { key: string; label: string; items: typeof visible } & ReturnType<typeof stat>;
   const grouped = useMemo(() => {
-    if (groupBy === "none") return [{ key: "__all", label: "", items: focused, ...stat(focused) }];
+    if (groupBy === "none") return [{ key: "__all", label: "", items: focused, subgroups: null as null | SubGroup[], placeholder: false, nodeId: null as string | null, ...stat(focused) }];
     const map = new Map<string, typeof visible>();
     focused.forEach(p => {
       const k = (p.meta as any)[groupBy] || "Без группы";
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(p);
     });
+    // Inject empty placeholder groups (created via "+ Создать") for this field.
+    const placeholderNodeByKey = new Map<string, string>();
+    if (!focusStage && statusFilter !== "archived") {
+      structureNodes
+        .filter(n => n.flow === flow && n.field === groupBy)
+        .forEach(n => {
+          if (!map.has(n.value)) { map.set(n.value, []); placeholderNodeByKey.set(n.value, n.id); }
+        });
+    }
+    const canSub = subGroupProject && (groupBy === "brand" || groupBy === "retailer");
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b, "ru"))
-      .map(([key, items]) => ({ key, label: key, items, ...stat(items) }));
+      .map(([key, items]) => {
+        let subgroups: SubGroup[] | null = null;
+        if (canSub) {
+          const sm = new Map<string, typeof visible>();
+          items.forEach(p => {
+            const sk = p.meta.project?.trim() || "Без проекта";
+            if (!sm.has(sk)) sm.set(sk, []);
+            sm.get(sk)!.push(p);
+          });
+          subgroups = Array.from(sm.entries())
+            .sort(([a], [b]) => a.localeCompare(b, "ru"))
+            .map(([sk, sitems]) => ({ key: `${key}//${sk}`, label: sk, items: sitems, ...stat(sitems) }));
+        }
+        const nodeId = items.length === 0 ? (placeholderNodeByKey.get(key) ?? null) : null;
+        return { key, label: key, items, subgroups, placeholder: !!nodeId, nodeId, ...stat(items) };
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focused, groupBy]);
+  }, [focused, groupBy, subGroupProject, structureNodes, flow, focusStage, statusFilter]);
 
-  // Aggregates-first: when grouping is on and the user has no saved preference
-  // for this mode yet, start with every group collapsed (portfolio "from above").
+  // Aggregates-first: on every page entry start with every group collapsed
+  // (portfolio "from above") regardless of saved preference. The user can
+  // expand groups afterwards within the same session.
   const autoCollapsedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (groupBy === "none") return;
     if (autoCollapsedRef.current.has(storageKey)) return;
-    let raw: string | null = null;
-    try { raw = window.localStorage.getItem(storageKey); } catch { /* ignore */ }
-    if (raw) { autoCollapsedRef.current.add(storageKey); return; }
     if (grouped.length === 0) return; // wait for data
     setCollapsedGroups(new Set(grouped.map(g => g.key)));
     autoCollapsedRef.current.add(storageKey);
@@ -203,20 +362,30 @@ export default function StmMatrixView() {
   const totalProgress = visible.length
     ? Math.round(visible.reduce((s, p) => s + p.progress, 0) / visible.length)
     : 0;
-  const overdueCount = visible.reduce(
-    (n, p) => n + p.stageTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < new Date()).length,
-    0,
-  );
+  const overdueCount = visible.reduce((n, p) => {
+    // Freeze the overdue clock at archive time for archived SKUs.
+    const ref = p.archivedAt ? new Date(p.archivedAt).getTime() : Date.now();
+    return n + p.stageTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline).getTime() < ref).length;
+  }, 0);
 
   // ---- Flattened item list (group headers + rows) for virtualization ----
   type FlatItem =
     | { kind: "group"; key: string; group: (typeof grouped)[number] }
+    | { kind: "subgroup"; key: string; subgroup: SubGroup }
     | { kind: "row"; key: string; project: (typeof visible)[number] };
   const flatItems = useMemo<FlatItem[]>(() => {
     const items: FlatItem[] = [];
     grouped.forEach(g => {
       if (g.label) items.push({ kind: "group", key: `g:${g.key}`, group: g });
-      if (!g.label || !collapsedGroups.has(g.key)) {
+      if (g.label && collapsedGroups.has(g.key)) return;
+      if (g.subgroups) {
+        g.subgroups.forEach(sg => {
+          items.push({ kind: "subgroup", key: `sg:${sg.key}`, subgroup: sg });
+          if (!collapsedGroups.has(sg.key)) {
+            sg.items.forEach(p => items.push({ kind: "row", key: `r:${p.group.id}`, project: p }));
+          }
+        });
+      } else {
         g.items.forEach(p => items.push({ kind: "row", key: `r:${p.group.id}`, project: p }));
       }
     });
@@ -232,6 +401,7 @@ export default function StmMatrixView() {
     estimateSize: (i) => {
       const it = flatItems[i];
       if (it.kind === "group") return 34;
+      if (it.kind === "subgroup") return 28;
       if (expandedSku === it.project.group.id) return density === "compact" ? 380 : 440;
       return density === "compact" ? 37 : 97;
     },
@@ -294,8 +464,26 @@ export default function StmMatrixView() {
               <option value="retailer">По сети</option>
               <option value="brand">По бренду</option>
               <option value="drop">По дропу</option>
+              <option value="project">По проекту</option>
             </select>
           </div>
+
+          {(groupBy === "brand" || groupBy === "retailer") && (
+            <button
+              type="button"
+              onClick={() => setSubGroupProject(v => !v)}
+              className={cn(
+                "inline-flex items-center gap-1.5 h-8 px-2.5 rounded text-xs border transition-colors",
+                subGroupProject
+                  ? "bg-primary/15 text-primary border-primary/40"
+                  : "bg-background text-muted-foreground border-border hover:text-foreground",
+              )}
+              aria-pressed={subGroupProject}
+              title="Группировать внутри по проектам"
+            >
+              ↳ по проектам
+            </button>
+          )}
 
           {groupBy !== "none" && grouped.length > 0 && (
             <div className="flex items-center gap-1">
@@ -356,9 +544,29 @@ export default function StmMatrixView() {
           >
             <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Импорт Excel
           </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)} className="h-8">
-            <Plus className="h-3.5 w-3.5 mr-1" /> SKU
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="h-8">
+                <Plus className="h-3.5 w-3.5 mr-1" /> Создать
+                <ChevronDown className="h-3.5 w-3.5 ml-1 opacity-70" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => openCreateSku(null)}>
+                <Package className="h-4 w-4 mr-2" /> SKU
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setCreateStructure("brand")}>
+                <Tag className="h-4 w-4 mr-2" /> Бренд
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCreateStructure("project")}>
+                <FolderKanban className="h-4 w-4 mr-2" /> Проект
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setCreateStructure("drop")}>
+                <Boxes className="h-4 w-4 mr-2" /> Дроп
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -404,13 +612,7 @@ export default function StmMatrixView() {
       </div>
 
       {/* Dashboard summary band */}
-      <StmDashboardBar
-        analytics={analytics}
-        focusStage={focusStage}
-        onFocusStage={setFocusStage}
-        onPickGroup={(term) => { setGroupBy(groupBy === "brand" ? "brand" : "retailer"); setSearch(term); }}
-        groupMode={groupBy === "brand" ? "brand" : "retailer"}
-      />
+      <StmDashboardBar analytics={analytics} />
 
       {/* Matrix scroll area */}
       <div ref={scrollRef} className="flex-1 overflow-auto">
@@ -446,39 +648,104 @@ export default function StmMatrixView() {
                     style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vi.start}px)` }}
                   >
                     {it.kind === "group" ? (
-                      <button
-                        type="button"
-                        onClick={() => setCollapsedGroups(prev => {
-                          const next = new Set(prev);
-                          next.has(it.group.key) ? next.delete(it.group.key) : next.add(it.group.key);
-                          return next;
-                        })}
-                        className="w-full flex items-center gap-2 px-4 h-[34px] bg-muted/60 border-b border-border hover:bg-muted transition-colors text-left"
-                        aria-expanded={!collapsedGroups.has(it.group.key)}
-                      >
-                        {collapsedGroups.has(it.group.key)
-                          ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                          : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
-                        <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate">{it.group.label}</span>
-                        <span className="text-[10px] text-muted-foreground/70 shrink-0">{it.group.count} SKU</span>
-                        <span className="ml-auto flex items-center gap-3 shrink-0">
-                          {/* avg progress mini bar */}
-                          <span className="flex items-center gap-1.5">
-                            <span className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
-                              <span
-                                className="block h-full rounded-full bg-primary/60"
-                                style={{ width: `${Math.max(it.group.avgProgress, it.group.avgProgress > 0 ? 4 : 0)}%` }}
-                              />
-                            </span>
-                            <span className="text-[10px] tabular-nums font-mono text-muted-foreground w-8 text-right">{it.group.avgProgress}%</span>
-                          </span>
-                          {it.group.overdueCount > 0 && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-destructive">
-                              <AlertTriangle className="h-3 w-3" />{it.group.overdueCount}
-                            </span>
+                      <div className="group/hdr w-full flex items-center gap-2 px-4 h-[34px] bg-muted/60 border-b border-border hover:bg-muted transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedGroups(prev => {
+                            const next = new Set(prev);
+                            next.has(it.group.key) ? next.delete(it.group.key) : next.add(it.group.key);
+                            return next;
+                          })}
+                          className="flex items-center gap-2 text-left"
+                          aria-expanded={!collapsedGroups.has(it.group.key)}
+                        >
+                          {collapsedGroups.has(it.group.key)
+                            ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                            : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
+                          <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate max-w-[220px]">{it.group.label}</span>
+                          {it.group.placeholder ? (
+                            <span className="text-[10px] text-muted-foreground/50 shrink-0 italic">заготовка · 0 SKU</span>
+                          ) : (
+                            <>
+                              <span className="text-[10px] text-muted-foreground/70 shrink-0 w-12">{it.group.count} SKU</span>
+                              <GroupMetrics s={it.group} />
+                            </>
                           )}
-                        </span>
-                      </button>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openCreateSku(NO_GROUP.has(it.group.label) ? null : { [groupBy as StmGroupField]: it.group.label })}
+                          className={cn(
+                            "shrink-0 inline-flex items-center gap-0.5 h-6 px-1.5 rounded text-[10px] font-medium border border-border/60 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-background/60 transition-colors",
+                            it.group.placeholder ? "opacity-100" : "opacity-0 group-hover/hdr:opacity-100",
+                          )}
+                          title="Добавить SKU в эту группу"
+                        >
+                          <Plus className="h-3 w-3" /> SKU
+                        </button>
+                        {it.group.placeholder && it.group.nodeId ? (
+                          <button
+                            type="button"
+                            onClick={() => deleteNode.mutate(it.group.nodeId!)}
+                            className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-destructive hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-opacity"
+                            title="Удалить пустую группу-заготовку"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        ) : groupBy !== "none" && (
+                          <button
+                            type="button"
+                            onClick={() => openGroupEditor(groupBy as StmGroupField, it.group.label, it.group.items)}
+                            className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-foreground hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-opacity"
+                            title="Редактировать группу (название, объединение, участники)"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    ) : it.kind === "subgroup" ? (
+                      <div className="group/hdr w-full flex items-center gap-2 pl-9 pr-4 h-[28px] bg-muted/30 border-b border-border/60 hover:bg-muted/50 transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedGroups(prev => {
+                            const next = new Set(prev);
+                            next.has(it.subgroup.key) ? next.delete(it.subgroup.key) : next.add(it.subgroup.key);
+                            return next;
+                          })}
+                          className="flex items-center gap-2 text-left"
+                          aria-expanded={!collapsedGroups.has(it.subgroup.key)}
+                        >
+                          {collapsedGroups.has(it.subgroup.key)
+                            ? <ChevronRight className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+                            : <ChevronDown className="h-3 w-3 text-muted-foreground/70 shrink-0" />}
+                          <span className="text-[10px] text-muted-foreground shrink-0">📁</span>
+                          <span className="text-[10px] tracking-wide text-muted-foreground font-medium truncate max-w-[200px]">{it.subgroup.label}</span>
+                          <span className="text-[10px] text-muted-foreground/60 shrink-0 w-12">{it.subgroup.count} SKU</span>
+                          <GroupMetrics s={it.subgroup} size="sm" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const parent = it.subgroup.key.split("//")[0];
+                            const meta: Partial<Record<StmGroupField, string>> = {};
+                            if (groupBy !== "none" && !NO_GROUP.has(parent)) meta[groupBy as StmGroupField] = parent;
+                            if (!NO_GROUP.has(it.subgroup.label)) meta.project = it.subgroup.label;
+                            openCreateSku(meta);
+                          }}
+                          className="shrink-0 inline-flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-medium border border-border/60 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-colors"
+                          title="Добавить SKU в этот проект"
+                        >
+                          <Plus className="h-3 w-3" /> SKU
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openGroupEditor("project", it.subgroup.label, it.subgroup.items)}
+                          className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-foreground hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-opacity"
+                          title="Редактировать проект (название, объединение, участники)"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      </div>
                     ) : (
                       <StmMatrixRow
                         project={it.project}
@@ -499,8 +766,33 @@ export default function StmMatrixView() {
         )}
       </div>
 
-      <StmCreateSkuDialog open={createOpen} onOpenChange={setCreateOpen} defaultFlow={flow} />
+      <StmCreateSkuDialog
+        open={createOpen}
+        onOpenChange={(v) => { setCreateOpen(v); if (!v) setCreateSkuPrefill(null); }}
+        defaultFlow={flow}
+        defaultMeta={createSkuPrefill ?? undefined}
+      />
       <StmExcelImportDialog open={importOpen} onOpenChange={setImportOpen} defaultFlow={flow} />
+      {createStructure && (
+        <StmCreateStructureDialog
+          open={!!createStructure}
+          onOpenChange={(v) => { if (!v) setCreateStructure(null); }}
+          field={createStructure}
+          flow={flow}
+          existingValues={distinctValues[createStructure]}
+        />
+      )}
+      {editGroup && (
+        <StmEditGroupDialog
+          open={!!editGroup}
+          onOpenChange={(v) => { if (!v) setEditGroup(null); }}
+          field={editGroup.field}
+          currentValue={editGroup.value === "Без группы" || editGroup.value === "Без проекта" ? "" : editGroup.value}
+          groupIds={editGroup.groupIds}
+          existingValues={distinctValues[editGroup.field]}
+          currentManagerId={editGroup.managerId}
+        />
+      )}
     </div>
   );
 }

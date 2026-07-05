@@ -1609,6 +1609,36 @@ export type Database = {
           },
         ]
       }
+      stm_structure_nodes: {
+        Row: {
+          created_at: string
+          field: string
+          flow: string
+          id: string
+          updated_at: string
+          user_id: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          field: string
+          flow: string
+          id?: string
+          updated_at?: string
+          user_id: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          field?: string
+          flow?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+          value?: string
+        }
+        Relationships: []
+      }
       subtasks: {
         Row: {
           assigned_to: string | null
@@ -2142,8 +2172,10 @@ export type Database = {
           recurrence: string | null
           recurrence_end_date: string | null
           requires_approval: boolean
+          rework_count: number
           source_protocol_id: string | null
           stage_key: string | null
+          stage_status: string | null
           start_at: string | null
           status_meta: Json
           stm_flow: string | null
@@ -2182,8 +2214,10 @@ export type Database = {
           recurrence?: string | null
           recurrence_end_date?: string | null
           requires_approval?: boolean
+          rework_count?: number
           source_protocol_id?: string | null
           stage_key?: string | null
+          stage_status?: string | null
           start_at?: string | null
           status_meta?: Json
           stm_flow?: string | null
@@ -2222,8 +2256,10 @@ export type Database = {
           recurrence?: string | null
           recurrence_end_date?: string | null
           requires_approval?: boolean
+          rework_count?: number
           source_protocol_id?: string | null
           stage_key?: string | null
+          stage_status?: string | null
           start_at?: string | null
           status_meta?: Json
           stm_flow?: string | null
@@ -2586,6 +2622,33 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_send_log: {
+        Row: {
+          chat_id: number
+          created_at: string
+          id: string
+          recipient_id: string | null
+          report_type: string
+          week_start: string
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          id?: string
+          recipient_id?: string | null
+          report_type: string
+          week_start: string
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          id?: string
+          recipient_id?: string | null
+          report_type?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       wiki_pages: {
         Row: {
           content: string | null
@@ -2787,6 +2850,7 @@ export type Database = {
         Returns: boolean
       }
       department_depth: { Args: { _dept_id: string }; Returns: number }
+      email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
@@ -2888,6 +2952,7 @@ export type Database = {
         Args: { _group_id: string; _user_id: string }
         Returns: boolean
       }
+      is_npd_stm_group: { Args: { _group_id: string }; Returns: boolean }
       is_parent_of_member_group: {
         Args: { _parent_id: string; _user_id: string }
         Returns: boolean

@@ -1,11 +1,110 @@
 import React from "react";
 import { cn } from "@/lib/utils";
-import { Check, Clock, AlertTriangle, Minus, Flag, Plus } from "lucide-react";
+import { Check, Clock, AlertTriangle, Minus, Flag, Plus, Ban, Loader, RotateCcw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem,
+  ContextMenuLabel, ContextMenuSeparator,
+} from "@/components/ui/context-menu";
 import type { Task } from "@/hooks/useTasks";
-import { useToggleStmStage, useCreateStmStage, useShiftStmStageDate } from "../hooks/useStmProjects";
+import { useToggleStmStage, useCreateStmStage, useShiftStmStageDate, useSetStmStageStatus, useSetReworkCount } from "../hooks/useStmProjects";
 import StmStageDatePopover from "./StmStageDatePopover";
-import type { StmFlow } from "../lib/stages";
+import { REWORK_RISK_THRESHOLD, type StmFlow, type StmStageStatus } from "../lib/stages";
+
+/** Inline +/- counter for sample rework iterations (only on the "rework" stage). */
+function ReworkCounter({ task }: { task: Task }) {
+  const setCount = useSetReworkCount();
+  const count = ((task as any).rework_count as number | null | undefined) ?? 0;
+  const risk = count >= REWORK_RISK_THRESHOLD;
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-0.5 rounded px-0.5 leading-none",
+        risk ? "text-warning" : "text-muted-foreground",
+      )}
+      onClick={(e) => e.stopPropagation()}
+      title={`Доработок образца: ${count}${risk ? " · много итераций" : ""}`}
+    >
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setCount.mutate({ taskId: task.id, delta: -1 }); }}
+        className="hover:text-foreground disabled:opacity-30"
+        disabled={count <= 0}
+        aria-label="Минус доработка"
+      >
+        <Minus className="h-2.5 w-2.5" />
+      </button>
+      <span className={cn("inline-flex items-center gap-0.5 text-[9px] font-mono tabular-nums", risk && "font-bold")}>
+        <RotateCcw className="h-2.5 w-2.5" />{count}
+      </span>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setCount.mutate({ taskId: task.id, delta: 1 }); }}
+        className="hover:text-foreground"
+        aria-label="Плюс доработка"
+      >
+        <Plus className="h-2.5 w-2.5" />
+      </button>
+    </div>
+  );
+}
+
+type CellStatus = "done" | "overdue" | "blocked" | "in_progress" | "current" | "open";
+
+/** Derive the visual status of a stage cell from completion + stage_status. */
+function deriveCellStatus(task: Task, isCurrent: boolean): CellStatus {
+  const overdue = !task.is_completed && !!task.deadline && new Date(task.deadline) < new Date();
+  const ss = (task as any).stage_status as StmStageStatus | null | undefined;
+  if (task.is_completed) return "done";
+  if (overdue) return "overdue";
+  if (ss === "blocked") return "blocked";
+  if (ss === "in_progress") return "in_progress";
+  if (isCurrent) return "current";
+  return "open";
+}
+
+const STATUS_LABEL: Record<CellStatus, string> = {
+  done: "Готово",
+  overdue: "Просрочено",
+  blocked: "Заблокирован",
+  in_progress: "В работе",
+  current: "Текущий этап",
+  open: "Ожидает",
+};
+
+/** Right-click menu to set a stage's workflow status. */
+function StageStatusMenu({ task, children }: { task: Task; children: React.ReactNode }) {
+  const setStatus = useSetStmStageStatus();
+  const cur = (task as any).stage_status as StmStageStatus | null | undefined;
+  const pick = (status: StmStageStatus) => setStatus.mutate({ taskId: task.id, status });
+  const Item = ({ status, icon: Icon, label, tone }: { status: StmStageStatus; icon: React.ElementType; label: string; tone?: string }) => (
+    <ContextMenuItem
+      onClick={() => pick(status)}
+      className={cn("gap-2 text-xs", tone)}
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+      {(cur === status || (status === "done" && task.is_completed)) && (
+        <Check className="h-3 w-3 ml-auto text-primary" />
+      )}
+    </ContextMenuItem>
+  );
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          Статус этапа
+        </ContextMenuLabel>
+        <ContextMenuSeparator />
+        <Item status="pending" icon={Minus} label="Ожидает" />
+        <Item status="in_progress" icon={Loader} label="В работе" tone="text-primary" />
+        <Item status="blocked" icon={Ban} label="Заблокирован" tone="text-warning" />
+        <Item status="done" icon={Check} label="Готово" tone="text-success" />
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+}
 
 interface Props {
   task: Task | null;
@@ -71,40 +170,58 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
         />
       );
     }
-    const cOverdue = !task.is_completed && task.deadline && new Date(task.deadline) < new Date();
-    const cStatus: "done" | "overdue" | "current" | "open" =
-      task.is_completed ? "done" : cOverdue ? "overdue" : isCurrent ? "current" : "open";
+    const cStatus = deriveCellStatus(task, isCurrent);
     const dotClass =
       cStatus === "done" ? "bg-success"
       : cStatus === "overdue" ? "bg-destructive"
+      : cStatus === "blocked" ? "bg-warning"
+      : cStatus === "in_progress" ? "bg-primary"
       : cStatus === "current" ? "bg-primary"
       : "bg-muted-foreground/30";
-    const cTip =
-      cStatus === "done" ? "Готово" : cStatus === "overdue" ? "Просрочено" : cStatus === "current" ? "В работе" : "Ожидает";
+    const cTip = STATUS_LABEL[cStatus];
+    const reworkCount = ((task as any).rework_count as number | null | undefined) ?? 0;
+    const reworkRisk = reworkCount >= REWORK_RISK_THRESHOLD;
     return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); toggle.mutate({ taskId: task.id, isCompleted: !task.is_completed }); }}
-            className="h-full w-full flex items-center justify-center"
-            aria-label={`${task.title}: ${cTip}`}
-          >
-            <span className={cn(
-              "h-2.5 w-2.5 rounded-full transition-transform hover:scale-125",
-              dotClass,
-              cStatus === "current" && "ring-2 ring-primary/30",
-              isMilestone && "rounded-[2px] rotate-45",
-            )} />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="text-xs">
-          <div className="font-medium">{isMilestone && "🚩 "}{task.title}</div>
-          <div className="text-muted-foreground">
-            {cTip}{task.deadline ? ` · до ${new Date(task.deadline).toLocaleDateString("ru-RU")}` : ""}
-          </div>
-        </TooltipContent>
-      </Tooltip>
+      <StageStatusMenu task={task}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); toggle.mutate({ taskId: task.id, isCompleted: !task.is_completed }); }}
+              className="relative h-full w-full flex items-center justify-center"
+              aria-label={`${task.title}: ${cTip}`}
+            >
+              <span className={cn(
+                "h-2.5 w-2.5 rounded-full transition-transform hover:scale-125",
+                dotClass,
+                (cStatus === "current" || cStatus === "in_progress" || cStatus === "blocked") && "ring-2 ring-primary/30",
+                (cStatus === "in_progress" || cStatus === "blocked") && "animate-pulse",
+                isMilestone && "rounded-[2px] rotate-45",
+              )} />
+              {(task as any).stage_key === "rework" && reworkCount > 0 && (
+                <span className={cn(
+                  "absolute -top-0.5 -right-0.5 text-[7px] font-mono font-bold leading-none",
+                  reworkRisk ? "text-warning" : "text-muted-foreground",
+                )}>
+                  {reworkCount}
+                </span>
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs">
+            <div className="font-medium">{isMilestone && "🚩 "}{task.title}</div>
+            <div className="text-muted-foreground">
+              {cTip}{task.deadline ? ` · до ${new Date(task.deadline).toLocaleDateString("ru-RU")}` : ""}
+            </div>
+            {(task as any).stage_key === "rework" && (
+              <div className={cn(reworkRisk ? "text-warning" : "text-muted-foreground")}>
+                🔁 Доработок образца: {reworkCount}{reworkRisk ? " — много" : ""}
+              </div>
+            )}
+            <div className="text-[10px] text-muted-foreground/70 mt-0.5 italic">ПКМ — статус</div>
+          </TooltipContent>
+        </Tooltip>
+      </StageStatusMenu>
     );
   }
 
@@ -156,14 +273,8 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
     );
   }
 
-  const overdue = !task.is_completed && task.deadline && new Date(task.deadline) < new Date();
-  const status: "done" | "overdue" | "current" | "open" =
-    task.is_completed ? "done" : overdue ? "overdue" : isCurrent ? "current" : "open";
-
-  const tipLabel =
-    status === "done" ? "Готово" :
-    status === "overdue" ? "Просрочено" :
-    status === "current" ? "В работе" : "Ожидает";
+  const status = deriveCellStatus(task, isCurrent);
+  const tipLabel = STATUS_LABEL[status];
 
   // Drift: positive shift in days from original_deadline
   const driftDays = task.deadline && (task as any).original_deadline
@@ -179,6 +290,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
 
   return (
     <>
+      <StageStatusMenu task={task}>
       <Tooltip>
         <TooltipTrigger asChild>
           <div
@@ -187,6 +299,8 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
               "border",
               status === "done" && "bg-success/10 border-success/30 text-success",
               status === "overdue" && "bg-destructive/10 border-destructive/30 text-destructive",
+              status === "blocked" && "bg-warning/10 border-warning/40 text-warning",
+              status === "in_progress" && "bg-primary/10 border-primary/50 text-primary ring-1 ring-primary/20",
               status === "current" && "bg-primary/10 border-primary/40 text-primary",
               status === "open" && "bg-card border-border hover:bg-muted/50 text-muted-foreground",
               isMilestone && "ring-1 ring-primary/30",
@@ -206,6 +320,8 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
               {isMilestone && <Flag className="h-2.5 w-2.5 text-primary" />}
               {status === "done" && <Check className="h-3.5 w-3.5" />}
               {status === "overdue" && <AlertTriangle className="h-3.5 w-3.5" />}
+              {status === "blocked" && <Ban className="h-3.5 w-3.5" />}
+              {status === "in_progress" && <Loader className="h-3.5 w-3.5 animate-pulse" />}
               {status === "current" && <Clock className="h-3.5 w-3.5" />}
               {status === "open" && !isMilestone && <Minus className="h-3 w-3 opacity-50" />}
             </button>
@@ -219,6 +335,8 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
                   isMilestone && "text-primary font-semibold bg-primary/10",
                   !isMilestone && status === "done" && "text-success font-medium",
                   !isMilestone && status === "overdue" && "text-destructive font-semibold",
+                  !isMilestone && status === "blocked" && "text-warning font-semibold",
+                  !isMilestone && status === "in_progress" && "text-primary font-medium",
                   !isMilestone && status === "current" && "text-primary font-medium",
                   !isMilestone && status === "open" && "text-muted-foreground font-medium",
                 )}
@@ -231,6 +349,7 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
                 ↗+{driftDays}д
               </div>
             )}
+            {(task as any).stage_key === "rework" && <ReworkCounter task={task} />}
             {isMilestone && milestoneLabel && (
               <div className="text-[8px] uppercase tracking-wider text-primary/80 font-semibold leading-none">
                 {milestoneLabel}
@@ -246,13 +365,14 @@ function StmMatrixCellInner({ task, isCurrent, isMilestone, milestoneLabel, grou
             {tipLabel}{task.deadline ? ` · до ${new Date(task.deadline).toLocaleDateString("ru-RU")}` : ""}
           </div>
           <div className="text-[10px] text-muted-foreground mt-1 italic">
-            Иконка — статус, дата — перенос (каскад)
+            Клик — готово · ПКМ — статус · дата — перенос
           </div>
           {driftDays > 0 && (
             <div className="text-warning">Смещение: +{driftDays} дн от плана</div>
           )}
         </TooltipContent>
       </Tooltip>
+      </StageStatusMenu>
       {/* Shift-date popover; uses an invisible anchor positioned over the cell. */}
       <StmStageDatePopover
         open={shiftOpen}

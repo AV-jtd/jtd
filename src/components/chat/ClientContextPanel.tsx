@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import ClientAvatar from "@/components/ClientAvatar";
 import ClientTeamManager from "@/components/ClientTeamManager";
+import ClientStmBlock from "@/components/chat/ClientStmBlock";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNowStrict } from "date-fns";
@@ -517,6 +518,9 @@ export default function ClientContextPanel({
           {data!.client && (
             <ClientTeamManager clientId={data!.client.id} managerName={data!.managerName} />
           )}
+
+          {/* СТМ в работе — привязка к СТМ Mission Control */}
+          <ClientStmBlock clientName={client.name} />
 
           {/* Ключевые задачи */}
           {open.length > 0 && (

@@ -4,6 +4,7 @@ import { useThreads, useThreadsRealtime, Thread, ThreadKindFilter } from "@/hook
 import { useAvailableUsers } from "@/hooks/useTasks";
 import { useMessageSearch, type MessageSearchResult } from "@/hooks/useMessageSearch";
 import ChatAvatar from "./chat/ChatAvatar";
+import ClientAvatar from "./ClientAvatar";
 import ProjectRoomCenter from "./chat/ProjectRoomCenter";
 import TaskChat from "./TaskChat";
 import AiChatThread from "./AiChatThread";
@@ -568,8 +569,17 @@ export default function MessengerPanel({
                           </div>
                         )
                       ) : (
-                        <div className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-accent">
-                          <CheckSquare className="h-4 w-4 text-muted-foreground" />
+                        <div className="relative h-9 w-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 bg-primary/10 text-primary">
+                          <CheckSquare className="h-4 w-4" />
+                          {(thread.clientLogoUrl || thread.clientName) && (
+                            <span className="absolute -bottom-1 -right-1 ring-2 ring-card rounded-full">
+                              <ClientAvatar
+                                client={{ name: thread.clientName || "", logo_url: thread.clientLogoUrl ?? null }}
+                                size="sm"
+                                className="rounded-full"
+                              />
+                            </span>
+                          )}
                         </div>
                       )}
                       {unread && (

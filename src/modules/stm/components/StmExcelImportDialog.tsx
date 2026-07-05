@@ -36,7 +36,7 @@ interface ColumnMapping {
 }
 
 const META_FIELDS = new Set([
-  "title","sku_code_1c","brand","purpose","weight_kg","package_type",
+  "title","sku_code_1c","brand","project","purpose","weight_kg","package_type",
   "target_price","shelf_life","barcode","plu","comment","external_ref","skip"
 ]);
 
@@ -205,6 +205,7 @@ export default function StmExcelImportDialog({ open, onOpenChange, defaultFlow =
       const title = valueToString(get("title"));
       const meta: StmMeta = { flow };
       if (get("brand")) meta.brand = valueToString(get("brand"));
+      if (get("project")) meta.project = valueToString(get("project"));
       if (get("purpose")) meta.purpose = valueToString(get("purpose"));
       if (get("weight_kg")) { const n = parseNumber(get("weight_kg")); if (n != null) meta.weight_kg = n; }
       if (get("package_type")) meta.package_type = valueToString(get("package_type"));
@@ -300,6 +301,7 @@ export default function StmExcelImportDialog({ open, onOpenChange, defaultFlow =
       { value: "external_ref", label: "№ п/п" },
       { value: "sku_code_1c", label: "Код 1С" },
       { value: "brand", label: "ТМ / Бренд" },
+      { value: "project", label: "Проект" },
       { value: "purpose", label: "Цель ввода" },
       { value: "weight_kg", label: "Вес, кг" },
       { value: "package_type", label: "Тип упаковки" },

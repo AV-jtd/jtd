@@ -54,9 +54,18 @@ Deno.serve(async (req) => {
   let sentCount = 0;
   const errors: string[] = [];
 
+  const weekStart = weekStartMoscow();
+
   for (const root of rootGroups) {
     const link = links.find(l => l.group_id === root.id)!;
     try {
+      // Idempotency guard: one report per group chat per week
+      const { error: claimErr } = await supabase
+        .from("weekly_send_log")
+        .insert({ report_type: "group_report", chat_id: link.telegram_chat_id, recipient_id: root.id, week_start: weekStart });
+      if (claimErr) {
+        continue; // already sent this week
+      }
       // Include subgroups
       const { data: subgroups } = await supabase
         .from("task_groups")
@@ -231,6 +240,9 @@ Deno.serve(async (req) => {
         if (!tgResp.ok) {
           const errBody = await tgResp.text();
           errors.push(`${root.name} → ${link.telegram_chat_id}: ${errBody}`);
+          // Release claim so a later run can retry this group
+          await supabase.from("weekly_send_log").delete()
+            .match({ report_type: "group_report", chat_id: link.telegram_chat_id, week_start: weekStart });
           break;
         }
       }
@@ -243,3 +255,11 @@ Deno.serve(async (req) => {
 
   return new Response(JSON.stringify({ ok: true, sent: sentCount, errors }));
 });
+
+function weekStartMoscow(): string {
+  const m = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Moscow" }));
+  const day = m.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  m.setDate(m.getDate() + diff);
+  return m.toISOString().slice(0, 10);
+}
