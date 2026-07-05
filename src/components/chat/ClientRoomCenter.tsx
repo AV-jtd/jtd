@@ -19,9 +19,10 @@ import {
   MessageSquare, ListChecks, BarChart3, UserCheck, ArrowLeft, Maximize2, Minimize2,
   ListTodo, AlertTriangle, CheckCircle2, TrendingUp, MapPin, SquareArrowOutUpRight,
   ChevronDown, ChevronRight, Plus, Info, Link2, X, CalendarClock, CalendarDays, CircleDashed,
-  Radio, FolderKanban, FileText, ListPlus, ArrowUpRight,
+  Radio, FolderKanban, FileText, ListPlus, ArrowUpRight, MessagesSquare,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { useClientChatEvents, type ClientChatEvent } from "@/hooks/useClientChatEvents";
 
 type ClientInfo = {
   id: string; name: string; logo_url: string | null;
