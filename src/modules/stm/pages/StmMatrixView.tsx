@@ -3,9 +3,9 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle, CheckCircle2, Clock, Rocket, CircleDashed, Pencil } from "lucide-react";
+import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle, CheckCircle2, Clock, Rocket, CircleDashed, Pencil, Trash2, Tag, FolderKanban, Package, Boxes } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useStmProjects } from "../hooks/useStmProjects";
+import { useStmProjects, useStmStructureNodes, useDeleteStmStructureNode } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
 import { StmMatrixHeader } from "../components/StmMatrixHeader";
 import { StmMatrixRow } from "../components/StmMatrixRow";
@@ -14,6 +14,8 @@ import { computeStmAnalytics, isStmProjectOverdue, isStmProjectBlocked, isStmPro
 import StmCreateSkuDialog from "../components/StmCreateSkuDialog";
 import StmExcelImportDialog from "../components/StmExcelImportDialog";
 import StmEditGroupDialog from "../components/StmEditGroupDialog";
+import StmCreateStructureDialog from "../components/StmCreateStructureDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import type { StmGroupField } from "../hooks/useStmProjects";
 import { cn } from "@/lib/utils";
 
