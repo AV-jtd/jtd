@@ -599,42 +599,64 @@ export default function StmMatrixView() {
                     style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vi.start}px)` }}
                   >
                     {it.kind === "group" ? (
-                      <button
-                        type="button"
-                        onClick={() => setCollapsedGroups(prev => {
-                          const next = new Set(prev);
-                          next.has(it.group.key) ? next.delete(it.group.key) : next.add(it.group.key);
-                          return next;
-                        })}
-                        className="w-full flex items-center gap-2 px-4 h-[34px] bg-muted/60 border-b border-border hover:bg-muted transition-colors text-left"
-                        aria-expanded={!collapsedGroups.has(it.group.key)}
-                      >
-                        {collapsedGroups.has(it.group.key)
-                          ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                          : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
-                        <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate max-w-[220px]">{it.group.label}</span>
-                        <span className="text-[10px] text-muted-foreground/70 shrink-0 w-12">{it.group.count} SKU</span>
-                        <GroupMetrics s={it.group} />
-                      </button>
+                      <div className="group/hdr w-full flex items-center gap-2 px-4 h-[34px] bg-muted/60 border-b border-border hover:bg-muted transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedGroups(prev => {
+                            const next = new Set(prev);
+                            next.has(it.group.key) ? next.delete(it.group.key) : next.add(it.group.key);
+                            return next;
+                          })}
+                          className="flex-1 min-w-0 flex items-center gap-2 text-left"
+                          aria-expanded={!collapsedGroups.has(it.group.key)}
+                        >
+                          {collapsedGroups.has(it.group.key)
+                            ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                            : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
+                          <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate max-w-[220px]">{it.group.label}</span>
+                          <span className="text-[10px] text-muted-foreground/70 shrink-0 w-12">{it.group.count} SKU</span>
+                          <GroupMetrics s={it.group} />
+                        </button>
+                        {groupBy !== "none" && (
+                          <button
+                            type="button"
+                            onClick={() => openGroupEditor(groupBy as StmGroupField, it.group.label, it.group.items)}
+                            className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-foreground hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-opacity"
+                            title="Редактировать группу (название, объединение, участники)"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                     ) : it.kind === "subgroup" ? (
-                      <button
-                        type="button"
-                        onClick={() => setCollapsedGroups(prev => {
-                          const next = new Set(prev);
-                          next.has(it.subgroup.key) ? next.delete(it.subgroup.key) : next.add(it.subgroup.key);
-                          return next;
-                        })}
-                        className="w-full flex items-center gap-2 pl-9 pr-4 h-[28px] bg-muted/30 border-b border-border/60 hover:bg-muted/50 transition-colors text-left"
-                        aria-expanded={!collapsedGroups.has(it.subgroup.key)}
-                      >
-                        {collapsedGroups.has(it.subgroup.key)
-                          ? <ChevronRight className="h-3 w-3 text-muted-foreground/70 shrink-0" />
-                          : <ChevronDown className="h-3 w-3 text-muted-foreground/70 shrink-0" />}
-                        <span className="text-[10px] text-muted-foreground shrink-0">📁</span>
-                        <span className="text-[10px] tracking-wide text-muted-foreground font-medium truncate max-w-[200px]">{it.subgroup.label}</span>
-                        <span className="text-[10px] text-muted-foreground/60 shrink-0 w-12">{it.subgroup.count} SKU</span>
-                        <GroupMetrics s={it.subgroup} size="sm" />
-                      </button>
+                      <div className="group/hdr w-full flex items-center gap-2 pl-9 pr-4 h-[28px] bg-muted/30 border-b border-border/60 hover:bg-muted/50 transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedGroups(prev => {
+                            const next = new Set(prev);
+                            next.has(it.subgroup.key) ? next.delete(it.subgroup.key) : next.add(it.subgroup.key);
+                            return next;
+                          })}
+                          className="flex-1 min-w-0 flex items-center gap-2 text-left"
+                          aria-expanded={!collapsedGroups.has(it.subgroup.key)}
+                        >
+                          {collapsedGroups.has(it.subgroup.key)
+                            ? <ChevronRight className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+                            : <ChevronDown className="h-3 w-3 text-muted-foreground/70 shrink-0" />}
+                          <span className="text-[10px] text-muted-foreground shrink-0">📁</span>
+                          <span className="text-[10px] tracking-wide text-muted-foreground font-medium truncate max-w-[200px]">{it.subgroup.label}</span>
+                          <span className="text-[10px] text-muted-foreground/60 shrink-0 w-12">{it.subgroup.count} SKU</span>
+                          <GroupMetrics s={it.subgroup} size="sm" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openGroupEditor("project", it.subgroup.label, it.subgroup.items)}
+                          className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-foreground hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-opacity"
+                          title="Редактировать проект (название, объединение, участники)"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      </div>
                     ) : (
                       <StmMatrixRow
                         project={it.project}
