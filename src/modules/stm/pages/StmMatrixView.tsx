@@ -251,10 +251,13 @@ export default function StmMatrixView() {
   const distinctValues = useMemo(() => {
     const flowProjects = projects.filter(p => p.flow === flow);
     const pick = (f: StmGroupField) => Array.from(new Set(
-      flowProjects.map(p => ((p.meta as any)[f] || "").toString().trim()).filter(Boolean),
+      [
+        ...flowProjects.map(p => ((p.meta as any)[f] || "").toString().trim()),
+        ...structureNodes.filter(n => n.flow === flow && n.field === f).map(n => n.value.trim()),
+      ].filter(Boolean),
     ));
     return { retailer: pick("retailer"), brand: pick("brand"), drop: pick("drop"), project: pick("project") };
-  }, [projects, flow]);
+  }, [projects, flow, structureNodes]);
 
   // Open the group editor for a header. Derives a shared manager if all SKUs agree.
   const openGroupEditor = (field: StmGroupField, value: string, items: typeof visible) => {
