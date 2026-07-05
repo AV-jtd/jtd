@@ -644,24 +644,31 @@ type LiveEvent = {
   id: string;
   taskId: string;
   time: string;
-  kind: "created" | "completed" | "drift" | "step";
+  kind: "created" | "completed" | "drift" | "step" | "message";
   actorId: string | null;
   title: string;
   detail?: string;
+  /** Для событий чата: контекст. */
+  isNpd?: boolean;
+  groupName?: string;
+  actorNameOverride?: string | null;
 };
 
 /**
  * Лента активности по клиенту «в эфире». Строится из уже загруженных задач
- * (без отдельных запросов): создание, выполнение, дрейф срока и шаги.
+ * (без отдельных запросов): создание, выполнение, дрейф срока и шаги,
+ * плюс сообщения чатов проектов/SKU (NPD помечается отдельно).
  * Авто-обновляется вместе с realtime-инвалидацией списка задач.
  */
 function ActivityFeed({
-  tasks, users, onOpenTask,
+  tasks, chatEvents, users, onOpenTask,
 }: {
   tasks: Task[];
+  chatEvents: ClientChatEvent[];
   users: { id: string; display_name?: string | null; email?: string | null; username?: string | null }[];
   onOpenTask: (id: string) => void;
 }) {
+  const [filter, setFilter] = useState<"all" | "npd" | "nochat">("all");
   const nameOf = (id: string | null) => {
     if (!id) return "—";
     const u = users.find((x) => x.id === id);
@@ -691,22 +698,94 @@ function ActivityFeed({
       }
     }
   }
-  events.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-  const list = events.slice(0, 60);
+  // Сообщения чата → события ленты.
+  for (const m of chatEvents) {
+    events.push({
+      id: m.id, taskId: m.groupId, time: m.time, kind: "message",
+      actorId: m.actorId, actorNameOverride: m.actorName, title: m.content,
+      detail: m.groupName, isNpd: m.isNpd,
+    });
+  }
 
-  if (list.length === 0) return <EmptyState text="Пока нет активности по клиенту" />;
+  const npdCount = chatEvents.filter((m) => m.isNpd).length;
+  const filtered = events.filter((e) => {
+    if (filter === "nochat") return e.kind !== "message";
+    if (filter === "npd") return e.kind === "message" && e.isNpd;
+    return true;
+  });
+  filtered.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  const list = filtered.slice(0, 60);
 
   const META: Record<LiveEvent["kind"], { icon: typeof CheckCircle2; tone: string; verb: string }> = {
     created: { icon: Plus, tone: "text-tag-blue", verb: "создал(а) задачу" },
     completed: { icon: CheckCircle2, tone: "text-tag-green", verb: "выполнил(а)" },
     drift: { icon: ArrowUpRight, tone: "text-tag-orange", verb: "перенёс(ла)" },
     step: { icon: CheckCircle2, tone: "text-tag-green", verb: "закрыл(а) шаг" },
+    message: { icon: MessagesSquare, tone: "text-tag-purple", verb: "написал(а) в чат" },
   };
+
+  const FILTERS: { key: "all" | "npd" | "nochat"; label: string; count?: number }[] = [
+    { key: "all", label: "Все" },
+    { key: "npd", label: "Только NPD-чат", count: npdCount || undefined },
+    { key: "nochat", label: "Без чатов" },
+  ];
 
   return (
     <div className="space-y-1.5">
+      <div className="mb-1 flex items-center gap-1.5">
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => setFilter(f.key)}
+            className={cn(
+              "flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors",
+              filter === f.key
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border bg-card text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {f.label}
+            {f.count ? (
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-bold">{f.count}</span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {list.length === 0 && (
+        <EmptyState text={filter === "npd" ? "Нет сообщений NPD-чата по клиенту" : "Пока нет активности по клиенту"} />
+      )}
+
       {list.map((e) => {
         const m = META[e.kind];
+        if (e.kind === "message") {
+          const author = e.actorNameOverride || nameOf(e.actorId);
+          return (
+            <div
+              key={e.id}
+              className={cn(
+                "flex w-full items-start gap-2.5 rounded-xl border px-3 py-2 text-left",
+                e.isNpd ? "border-tag-purple/30 bg-tag-purple/5" : "border-border bg-card",
+              )}
+            >
+              <span className={cn("mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-muted", m.tone)}>
+                <m.icon className="h-3.5 w-3.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 text-sm">
+                  <span className="font-medium">{author}</span>
+                  <span className="text-muted-foreground">{m.verb}</span>
+                  {e.isNpd && (
+                    <span className="shrink-0 rounded-full bg-tag-purple/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-tag-purple">NPD</span>
+                  )}
+                </div>
+                <div className="truncate text-sm text-foreground/90">{e.title}</div>
+                {e.detail && <div className="truncate text-xs text-muted-foreground">{e.detail}</div>}
+              </div>
+              <span className="shrink-0 text-[11px] text-muted-foreground">{relTime(e.time)}</span>
+            </div>
+          );
+        }
         return (
           <button
             key={e.id}
