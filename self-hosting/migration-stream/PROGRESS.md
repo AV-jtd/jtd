@@ -70,6 +70,14 @@
   - ⚠️ Важно: bind-mount `nginx-full.conf` — при редактировании файла с хоста нужен `docker restart self-hosting-nginx-1` (не просто `nginx -s reload`), иначе контейнер держит старый inode
   - Проверено: редирект 80→301→443, /sb/ проксирование по HTTPS — 200
 - [ ] **Шаг 7** — Сброс паролей 55 пользователей + smoke-test
+  - 🐛 Найдены и исправлены баги миграции, из-за которых **никто не мог залогиниться**:
+    1. `instance_id` был NULL у 54/55 пользователей вместо zero-UUID
+    2. Токен-поля (confirmation_token, recovery_token, email_change*, ...) были NULL вместо '' — GoTrue падал с 500 (Go sql.Scan не принимает NULL в string)
+    3. `auth.identities` была полностью пустая — досозданы identity-записи provider='email' для всех 55
+    4. **Главная причина**: `GOTRUE_JWT_AUD` не был задан в docker-compose.supabase.yml → GoTrue искал пользователей с aud="", а у них aud='authenticated'. Добавлено `GOTRUE_JWT_AUD: authenticated`, auth-контейнер пересоздан.
+  - Проверено: вход avedyaev@gmail.com через обычный путь (Kong /sb/auth/v1/token) — 200, валидный access_token
+  - SMTP для reset-password писем НЕ работает: `SMTP_PASS=ЗАМЕНИТЬ_ПОЗЖЕ` (плейсхолдер) в .env.supabase — нужен реальный пароль от noreply@justtodoit.ru (smtp.yandex.ru) для варианта A
+  - Ждём подтверждения пользователя (вход + проверка задач/проектов), затем решаем по варианту сброса паролей для остальных 54
 
 ---
 
@@ -84,3 +92,4 @@
 | 2026-07-05 | **Шаг 4 завершён**: nginx отдаёт фронтенд и проксирует Kong, проверено локально и внешне |
 | 2026-07-05 | **Шаг 5**: DNS justtodoit.ru → VPS через SpaceWeb API (root only, www требует поддержки), ждём пропагации TTL |
 | 2026-07-05 | **Шаг 6 завершён**: SSL для justtodoit.ru выпущен, nginx настроен на 443 + редирект с 80 |
+| 2026-07-05 | Найден и исправлен критичный баг: GOTRUE_JWT_AUD не был задан, никто не мог войти. Исправлены instance_id/token-поля/identities для всех 55, добавлен GOTRUE_JWT_AUD=authenticated. Вход avedyaev@gmail.com проверен и работает |
