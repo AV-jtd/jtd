@@ -505,6 +505,19 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
         </div>
       )}
 
+      {/* Per-SKU chat (group_messages) */}
+      {showChat && (
+        <div className="rounded-xl border border-stm-border/40 bg-stm-glass/20 overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-stm-border/30 text-[10px] font-mono uppercase tracking-widest text-stm-fg/50">
+            <MessagesSquare className="h-3 w-3 text-stm-accent" />
+            <span>Чат SKU · {group.name}</span>
+          </div>
+          <div className="h-[380px]">
+            <ProjectChat groupId={group.id} groupName={group.name} embedded />
+          </div>
+        </div>
+      )}
+
       {/* Operational tasks + tasks coming from protocols */}
       <StmOpsTasks groupId={group.id} />
     </div>
