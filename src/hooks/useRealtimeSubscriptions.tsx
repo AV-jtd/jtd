@@ -84,6 +84,8 @@ export function useRealtimeSubscriptions() {
       if (unreadTimer.current) window.clearTimeout(unreadTimer.current);
       unreadTimer.current = window.setTimeout(() => {
         window.dispatchEvent(new Event("jtd:unread-invalidate"));
+        // Keep the Client Room "Эфир" chat activity live.
+        qc.invalidateQueries({ queryKey: ["client_chat_events"] });
         unreadTimer.current = null;
       }, 500);
     };
