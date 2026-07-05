@@ -541,7 +541,7 @@ export default function ClientRoomCenter({
                   live
                 </span>
               </div>
-              <ActivityFeed tasks={tasks} users={availableUsers} onOpenTask={openTaskInline} />
+              <ActivityFeed tasks={tasks} chatEvents={chatEvents} users={availableUsers} onOpenTask={openTaskInline} />
             </div>
           </ScrollArea>
         )}
