@@ -582,3 +582,115 @@ export function useSetReworkCount() {
     },
   });
 }
+
+/** Metadata dimension editable from the group header. */
+export type StmGroupField = "retailer" | "brand" | "drop" | "project";
+
+/**
+ * Bulk-rename a group's meta dimension across all its SKUs.
+ * Renaming to an existing group's value naturally merges the SKUs into it.
+ */
+export function useUpdateStmGroupMeta() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { groupIds: string[]; field: StmGroupField; value: string }) => {
+      const value = input.value.trim();
+      // Read current meta per group from the groups cache, patch the field, write back.
+      const groups = (qc.getQueryData<TaskGroup[]>(STM_KEYS.groups()) ?? []) as TaskGroup[];
+      for (const id of input.groupIds) {
+        const g = groups.find(x => x.id === id);
+        const meta = { ...(((g as any)?.stm_meta) || {}) } as StmMeta;
+        if (value) (meta as any)[input.field] = value;
+        else delete (meta as any)[input.field];
+        const { error } = await supabase
+          .from("task_groups")
+          .update({ stm_meta: meta as any })
+          .eq("id", id);
+        if (error) throw error;
+      }
+      return { count: input.groupIds.length };
+    },
+    onSuccess: ({ count }) => {
+      invalidateStmCaches(qc);
+      toast.success(`Обновлено SKU: ${count}`);
+    },
+    onError: (e: any) => toast.error(`Не удалось обновить: ${e.message}`),
+  });
+}
+
+/** Set the same responsible manager (stm_meta.manager_id) on all SKUs of a group. */
+export function useSetStmGroupManager() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { groupIds: string[]; managerId: string | null }) => {
+      const groups = (qc.getQueryData<TaskGroup[]>(STM_KEYS.groups()) ?? []) as TaskGroup[];
+      for (const id of input.groupIds) {
+        const g = groups.find(x => x.id === id);
+        const meta = { ...(((g as any)?.stm_meta) || {}) } as StmMeta;
+        if (input.managerId) (meta as any).manager_id = input.managerId;
+        else delete (meta as any).manager_id;
+        const { error } = await supabase
+          .from("task_groups")
+          .update({ stm_meta: meta as any })
+          .eq("id", id);
+        if (error) throw error;
+      }
+      return { count: input.groupIds.length };
+    },
+    onSuccess: ({ count }) => {
+      invalidateStmCaches(qc);
+      toast.success(`Ответственный назначен для ${count} SKU`);
+    },
+    onError: (e: any) => toast.error(`Не удалось назначить: ${e.message}`),
+  });
+}
+
+/**
+ * Add participants (role 'support') to every stage task of every SKU in a group.
+ * Additive & idempotent: existing (task_id, user_id) pairs are skipped.
+ */
+export function useAddStmGroupParticipants() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { groupIds: string[]; userIds: string[] }) => {
+      if (input.userIds.length === 0 || input.groupIds.length === 0) return { added: 0, skuCount: 0 };
+
+      // All stage tasks of the target groups.
+      const { data: tasks, error: tErr } = await supabase
+        .from("tasks")
+        .select("id, group_id")
+        .eq("task_type", "stm_stage")
+        .in("group_id", input.groupIds);
+      if (tErr) throw tErr;
+      const taskIds = (tasks ?? []).map((t: any) => t.id);
+      if (taskIds.length === 0) return { added: 0, skuCount: input.groupIds.length };
+
+      // Existing participant pairs to avoid duplicates.
+      const { data: existing, error: eErr } = await supabase
+        .from("task_participants")
+        .select("task_id, user_id")
+        .in("task_id", taskIds)
+        .in("user_id", input.userIds);
+      if (eErr) throw eErr;
+      const existingSet = new Set((existing ?? []).map((r: any) => `${r.task_id}:${r.user_id}`));
+
+      const rows: any[] = [];
+      for (const tid of taskIds) {
+        for (const uid of input.userIds) {
+          if (existingSet.has(`${tid}:${uid}`)) continue;
+          rows.push({ task_id: tid, user_id: uid, role: "support" });
+        }
+      }
+      if (rows.length) {
+        const { error: iErr } = await supabase.from("task_participants").insert(rows);
+        if (iErr) throw iErr;
+      }
+      return { added: input.userIds.length, skuCount: input.groupIds.length };
+    },
+    onSuccess: ({ added, skuCount }) => {
+      invalidateStmCaches(qc);
+      if (added > 0) toast.success(`Участники (${added}) добавлены к ${skuCount} SKU`);
+    },
+    onError: (e: any) => toast.error(`Не удалось добавить участников: ${e.message}`),
+  });
+}

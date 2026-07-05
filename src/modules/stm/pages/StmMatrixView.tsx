@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle, CheckCircle2, Clock, Rocket, CircleDashed } from "lucide-react";
+import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle, CheckCircle2, Clock, Rocket, CircleDashed, Pencil } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useStmProjects } from "../hooks/useStmProjects";
 import { getStmStages, type StmFlow } from "../lib/stages";
@@ -13,6 +13,8 @@ import { StmDashboardBar } from "../components/StmDashboardBar";
 import { computeStmAnalytics, isStmProjectOverdue, isStmProjectBlocked, isStmProjectStuck } from "../lib/stmAnalytics";
 import StmCreateSkuDialog from "../components/StmCreateSkuDialog";
 import StmExcelImportDialog from "../components/StmExcelImportDialog";
+import StmEditGroupDialog from "../components/StmEditGroupDialog";
+import type { StmGroupField } from "../hooks/useStmProjects";
 import { cn } from "@/lib/utils";
 
 /** Aggregate stats shape shared by group + subgroup headers. */
@@ -113,6 +115,13 @@ export default function StmMatrixView() {
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // Group-header editor (rename/merge + manager + participants).
+  const [editGroup, setEditGroup] = useState<{
+    field: StmGroupField;
+    value: string;
+    groupIds: string[];
+    managerId: string | null;
+  } | null>(null);
   // Row density: comfortable (full) or compact (single-line dot heat-map).
   const [density, setDensity] = useState<"comfortable" | "compact">(() => {
     if (typeof window === "undefined") return "comfortable";
@@ -232,6 +241,23 @@ export default function StmMatrixView() {
     [visible, focusStage],
   );
 
+  // Distinct existing values per dimension (within current flow) — for merge hint.
+  const distinctValues = useMemo(() => {
+    const flowProjects = projects.filter(p => p.flow === flow);
+    const pick = (f: StmGroupField) => Array.from(new Set(
+      flowProjects.map(p => ((p.meta as any)[f] || "").toString().trim()).filter(Boolean),
+    ));
+    return { retailer: pick("retailer"), brand: pick("brand"), drop: pick("drop"), project: pick("project") };
+  }, [projects, flow]);
+
+  // Open the group editor for a header. Derives a shared manager if all SKUs agree.
+  const openGroupEditor = (field: StmGroupField, value: string, items: typeof visible) => {
+    const groupIds = items.map(p => p.group.id);
+    const mgrs = new Set(items.map(p => ((p.meta as any).manager_id as string | undefined) || null));
+    const managerId = mgrs.size === 1 ? (Array.from(mgrs)[0] ?? null) : null;
+    setEditGroup({ field, value, groupIds, managerId });
+  };
+
   // Counts per status for the tab labels (within current flow).
   const statusCounts = useMemo(() => {
     const inFlow = projects.filter(p => p.flow === flow);
@@ -308,10 +334,11 @@ export default function StmMatrixView() {
   const totalProgress = visible.length
     ? Math.round(visible.reduce((s, p) => s + p.progress, 0) / visible.length)
     : 0;
-  const overdueCount = visible.reduce(
-    (n, p) => n + p.stageTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < new Date()).length,
-    0,
-  );
+  const overdueCount = visible.reduce((n, p) => {
+    // Freeze the overdue clock at archive time for archived SKUs.
+    const ref = p.archivedAt ? new Date(p.archivedAt).getTime() : Date.now();
+    return n + p.stageTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline).getTime() < ref).length;
+  }, 0);
 
   // ---- Flattened item list (group headers + rows) for virtualization ----
   type FlatItem =
@@ -572,42 +599,64 @@ export default function StmMatrixView() {
                     style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vi.start}px)` }}
                   >
                     {it.kind === "group" ? (
-                      <button
-                        type="button"
-                        onClick={() => setCollapsedGroups(prev => {
-                          const next = new Set(prev);
-                          next.has(it.group.key) ? next.delete(it.group.key) : next.add(it.group.key);
-                          return next;
-                        })}
-                        className="w-full flex items-center gap-2 px-4 h-[34px] bg-muted/60 border-b border-border hover:bg-muted transition-colors text-left"
-                        aria-expanded={!collapsedGroups.has(it.group.key)}
-                      >
-                        {collapsedGroups.has(it.group.key)
-                          ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                          : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
-                        <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate max-w-[220px]">{it.group.label}</span>
-                        <span className="text-[10px] text-muted-foreground/70 shrink-0 w-12">{it.group.count} SKU</span>
-                        <GroupMetrics s={it.group} />
-                      </button>
+                      <div className="group/hdr w-full flex items-center gap-2 px-4 h-[34px] bg-muted/60 border-b border-border hover:bg-muted transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedGroups(prev => {
+                            const next = new Set(prev);
+                            next.has(it.group.key) ? next.delete(it.group.key) : next.add(it.group.key);
+                            return next;
+                          })}
+                          className="flex items-center gap-2 text-left"
+                          aria-expanded={!collapsedGroups.has(it.group.key)}
+                        >
+                          {collapsedGroups.has(it.group.key)
+                            ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                            : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
+                          <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate max-w-[220px]">{it.group.label}</span>
+                          <span className="text-[10px] text-muted-foreground/70 shrink-0 w-12">{it.group.count} SKU</span>
+                          <GroupMetrics s={it.group} />
+                        </button>
+                        {groupBy !== "none" && (
+                          <button
+                            type="button"
+                            onClick={() => openGroupEditor(groupBy as StmGroupField, it.group.label, it.group.items)}
+                            className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-foreground hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-opacity"
+                            title="Редактировать группу (название, объединение, участники)"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
                     ) : it.kind === "subgroup" ? (
-                      <button
-                        type="button"
-                        onClick={() => setCollapsedGroups(prev => {
-                          const next = new Set(prev);
-                          next.has(it.subgroup.key) ? next.delete(it.subgroup.key) : next.add(it.subgroup.key);
-                          return next;
-                        })}
-                        className="w-full flex items-center gap-2 pl-9 pr-4 h-[28px] bg-muted/30 border-b border-border/60 hover:bg-muted/50 transition-colors text-left"
-                        aria-expanded={!collapsedGroups.has(it.subgroup.key)}
-                      >
-                        {collapsedGroups.has(it.subgroup.key)
-                          ? <ChevronRight className="h-3 w-3 text-muted-foreground/70 shrink-0" />
-                          : <ChevronDown className="h-3 w-3 text-muted-foreground/70 shrink-0" />}
-                        <span className="text-[10px] text-muted-foreground shrink-0">📁</span>
-                        <span className="text-[10px] tracking-wide text-muted-foreground font-medium truncate max-w-[200px]">{it.subgroup.label}</span>
-                        <span className="text-[10px] text-muted-foreground/60 shrink-0 w-12">{it.subgroup.count} SKU</span>
-                        <GroupMetrics s={it.subgroup} size="sm" />
-                      </button>
+                      <div className="group/hdr w-full flex items-center gap-2 pl-9 pr-4 h-[28px] bg-muted/30 border-b border-border/60 hover:bg-muted/50 transition-colors">
+                        <button
+                          type="button"
+                          onClick={() => setCollapsedGroups(prev => {
+                            const next = new Set(prev);
+                            next.has(it.subgroup.key) ? next.delete(it.subgroup.key) : next.add(it.subgroup.key);
+                            return next;
+                          })}
+                          className="flex items-center gap-2 text-left"
+                          aria-expanded={!collapsedGroups.has(it.subgroup.key)}
+                        >
+                          {collapsedGroups.has(it.subgroup.key)
+                            ? <ChevronRight className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+                            : <ChevronDown className="h-3 w-3 text-muted-foreground/70 shrink-0" />}
+                          <span className="text-[10px] text-muted-foreground shrink-0">📁</span>
+                          <span className="text-[10px] tracking-wide text-muted-foreground font-medium truncate max-w-[200px]">{it.subgroup.label}</span>
+                          <span className="text-[10px] text-muted-foreground/60 shrink-0 w-12">{it.subgroup.count} SKU</span>
+                          <GroupMetrics s={it.subgroup} size="sm" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openGroupEditor("project", it.subgroup.label, it.subgroup.items)}
+                          className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-foreground hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-opacity"
+                          title="Редактировать проект (название, объединение, участники)"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      </div>
                     ) : (
                       <StmMatrixRow
                         project={it.project}
@@ -630,6 +679,17 @@ export default function StmMatrixView() {
 
       <StmCreateSkuDialog open={createOpen} onOpenChange={setCreateOpen} defaultFlow={flow} />
       <StmExcelImportDialog open={importOpen} onOpenChange={setImportOpen} defaultFlow={flow} />
+      {editGroup && (
+        <StmEditGroupDialog
+          open={!!editGroup}
+          onOpenChange={(v) => { if (!v) setEditGroup(null); }}
+          field={editGroup.field}
+          currentValue={editGroup.value === "Без группы" || editGroup.value === "Без проекта" ? "" : editGroup.value}
+          groupIds={editGroup.groupIds}
+          existingValues={distinctValues[editGroup.field]}
+          currentManagerId={editGroup.managerId}
+        />
+      )}
     </div>
   );
 }

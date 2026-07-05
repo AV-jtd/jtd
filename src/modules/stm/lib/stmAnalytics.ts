@@ -36,11 +36,15 @@ export interface StmAnalytics {
   byBrand: StmGroupStat[];
 }
 
-/** True if the SKU has any not-completed, past-deadline stage task. */
+/**
+ * True if the SKU has any not-completed, past-deadline stage task.
+ * For archived SKUs the "now" reference is frozen at the archive timestamp,
+ * so overdue state stops growing once a SKU is sent to the archive.
+ */
 export function isStmProjectOverdue(p: StmProject): boolean {
-  const now = Date.now();
+  const ref = p.archivedAt ? new Date(p.archivedAt).getTime() : Date.now();
   return p.stageTasks.some(
-    t => !t.is_completed && t.deadline && new Date(t.deadline).getTime() < now,
+    t => !t.is_completed && t.deadline && new Date(t.deadline).getTime() < ref,
   );
 }
 
@@ -76,7 +80,9 @@ export function stmTimeInStage(p: StmProject): number | null {
     if (cur?.start_at) anchor = new Date(cur.start_at).getTime();
   }
   if (anchor == null) return null;
-  const days = Math.floor((Date.now() - anchor) / 86_400_000);
+  // Freeze the clock at archive time for archived SKUs.
+  const ref = p.archivedAt ? new Date(p.archivedAt).getTime() : Date.now();
+  const days = Math.floor((ref - anchor) / 86_400_000);
   return days >= 0 ? days : null;
 }
 
