@@ -143,6 +143,9 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
   const activeStageKey = controlledStageKey ?? currentStageKey;
   const setActiveStageKey = (next: string | null) => onActiveStageChange?.(next);
 
+  // ---- Per-SKU chat toggle (group_messages backed via ProjectChat) ----
+  const [showChat, setShowChat] = useState(false);
+
   // ---- Auto-advance: when the active stage gets completed, jump to the next open stage. ----
   useEffect(() => {
     if (!activeStageKey) return;
