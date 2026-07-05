@@ -300,13 +300,22 @@ export default function StmMatrixView() {
   };
   type SubGroup = { key: string; label: string; items: typeof visible } & ReturnType<typeof stat>;
   const grouped = useMemo(() => {
-    if (groupBy === "none") return [{ key: "__all", label: "", items: focused, subgroups: null as null | SubGroup[], ...stat(focused) }];
+    if (groupBy === "none") return [{ key: "__all", label: "", items: focused, subgroups: null as null | SubGroup[], placeholder: false, nodeId: null as string | null, ...stat(focused) }];
     const map = new Map<string, typeof visible>();
     focused.forEach(p => {
       const k = (p.meta as any)[groupBy] || "Без группы";
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(p);
     });
+    // Inject empty placeholder groups (created via "+ Создать") for this field.
+    const placeholderNodeByKey = new Map<string, string>();
+    if (!focusStage && statusFilter !== "archived") {
+      structureNodes
+        .filter(n => n.flow === flow && n.field === groupBy)
+        .forEach(n => {
+          if (!map.has(n.value)) { map.set(n.value, []); placeholderNodeByKey.set(n.value, n.id); }
+        });
+    }
     const canSub = subGroupProject && (groupBy === "brand" || groupBy === "retailer");
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b, "ru"))
@@ -323,10 +332,11 @@ export default function StmMatrixView() {
             .sort(([a], [b]) => a.localeCompare(b, "ru"))
             .map(([sk, sitems]) => ({ key: `${key}//${sk}`, label: sk, items: sitems, ...stat(sitems) }));
         }
-        return { key, label: key, items, subgroups, ...stat(items) };
+        const nodeId = items.length === 0 ? (placeholderNodeByKey.get(key) ?? null) : null;
+        return { key, label: key, items, subgroups, placeholder: !!nodeId, nodeId, ...stat(items) };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focused, groupBy, subGroupProject]);
+  }, [focused, groupBy, subGroupProject, structureNodes, flow, focusStage, statusFilter]);
 
   // Aggregates-first: on every page entry start with every group collapsed
   // (portfolio "from above") regardless of saved preference. The user can
