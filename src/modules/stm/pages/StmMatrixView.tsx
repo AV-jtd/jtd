@@ -734,6 +734,15 @@ export default function StmMatrixView() {
 
       <StmCreateSkuDialog open={createOpen} onOpenChange={setCreateOpen} defaultFlow={flow} />
       <StmExcelImportDialog open={importOpen} onOpenChange={setImportOpen} defaultFlow={flow} />
+      {createStructure && (
+        <StmCreateStructureDialog
+          open={!!createStructure}
+          onOpenChange={(v) => { if (!v) setCreateStructure(null); }}
+          field={createStructure}
+          flow={flow}
+          existingValues={distinctValues[createStructure]}
+        />
+      )}
       {editGroup && (
         <StmEditGroupDialog
           open={!!editGroup}
