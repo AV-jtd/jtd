@@ -742,6 +742,12 @@ export default function StmMatrixView() {
       </div>
 
       <StmCreateSkuDialog open={createOpen} onOpenChange={setCreateOpen} defaultFlow={flow} />
+      <StmCreateSkuDialog
+        open={createOpen}
+        onOpenChange={(v) => { setCreateOpen(v); if (!v) setCreateSkuPrefill(null); }}
+        defaultFlow={flow}
+        defaultMeta={createSkuPrefill ?? undefined}
+      />
       <StmExcelImportDialog open={importOpen} onOpenChange={setImportOpen} defaultFlow={flow} />
       {createStructure && (
         <StmCreateStructureDialog
