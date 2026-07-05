@@ -307,6 +307,19 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
           )}
           <button
             type="button"
+            onClick={() => setShowChat(v => !v)}
+            className={cn(
+              "inline-flex items-center gap-1 text-[11px] transition-colors px-2 py-1 rounded border",
+              showChat
+                ? "text-stm-accent border-stm-accent/50 bg-stm-accent/10"
+                : "text-stm-fg/60 border-stm-border/40 hover:text-stm-accent hover:border-stm-accent/40",
+            )}
+            aria-pressed={showChat}
+          >
+            <MessagesSquare className="h-3 w-3" /> Чат
+          </button>
+          <button
+            type="button"
             onClick={() => onOpenGantt?.(group.id)}
             className="inline-flex items-center gap-1 text-[11px] text-stm-fg/60 hover:text-stm-accent transition-colors px-2 py-1 rounded border border-stm-border/40 hover:border-stm-accent/40"
           >
