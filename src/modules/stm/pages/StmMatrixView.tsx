@@ -725,6 +725,20 @@ export default function StmMatrixView() {
                         </button>
                         <button
                           type="button"
+                          onClick={() => {
+                            const parent = it.subgroup.key.split("//")[0];
+                            const meta: Partial<Record<StmGroupField, string>> = {};
+                            if (groupBy !== "none" && !NO_GROUP.has(parent)) meta[groupBy as StmGroupField] = parent;
+                            if (!NO_GROUP.has(it.subgroup.label)) meta.project = it.subgroup.label;
+                            openCreateSku(meta);
+                          }}
+                          className="shrink-0 inline-flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-medium border border-border/60 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-colors"
+                          title="Добавить SKU в этот проект"
+                        >
+                          <Plus className="h-3 w-3" /> SKU
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openGroupEditor("project", it.subgroup.label, it.subgroup.items)}
                           className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-foreground hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-opacity"
                           title="Редактировать проект (название, объединение, участники)"
