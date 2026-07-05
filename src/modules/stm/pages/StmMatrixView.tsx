@@ -241,6 +241,23 @@ export default function StmMatrixView() {
     [visible, focusStage],
   );
 
+  // Distinct existing values per dimension (within current flow) — for merge hint.
+  const distinctValues = useMemo(() => {
+    const flowProjects = projects.filter(p => p.flow === flow);
+    const pick = (f: StmGroupField) => Array.from(new Set(
+      flowProjects.map(p => ((p.meta as any)[f] || "").toString().trim()).filter(Boolean),
+    ));
+    return { retailer: pick("retailer"), brand: pick("brand"), drop: pick("drop"), project: pick("project") };
+  }, [projects, flow]);
+
+  // Open the group editor for a header. Derives a shared manager if all SKUs agree.
+  const openGroupEditor = (field: StmGroupField, value: string, items: typeof visible) => {
+    const groupIds = items.map(p => p.group.id);
+    const mgrs = new Set(items.map(p => ((p.meta as any).manager_id as string | undefined) || null));
+    const managerId = mgrs.size === 1 ? (Array.from(mgrs)[0] ?? null) : null;
+    setEditGroup({ field, value, groupIds, managerId });
+  };
+
   // Counts per status for the tab labels (within current flow).
   const statusCounts = useMemo(() => {
     const inFlow = projects.filter(p => p.flow === flow);
