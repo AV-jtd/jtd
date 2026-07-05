@@ -587,6 +587,76 @@ export function useSetReworkCount() {
 export type StmGroupField = "retailer" | "brand" | "drop" | "project";
 
 /**
+ * "Empty placeholder" structure node — a named Brand/Project/Drop/Retailer
+ * that exists before any SKU is attached to it, so the matrix can show the
+ * (empty) group up front. Merges naturally with real SKU groups by value.
+ */
+export interface StmStructureNode {
+  id: string;
+  flow: StmFlow;
+  field: StmGroupField;
+  value: string;
+}
+
+/** All placeholder structure nodes (both flows). */
+export function useStmStructureNodes() {
+  const { user, loading } = useAuth();
+  return useQuery({
+    queryKey: STM_KEYS.structureNodes(),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("stm_structure_nodes" as any)
+        .select("id, flow, field, value");
+      if (error) throw error;
+      return (data ?? []) as unknown as StmStructureNode[];
+    },
+    enabled: !loading && !!user,
+    staleTime: 30_000,
+  });
+}
+
+/** Create an empty placeholder group (Brand / Project / Drop / Retailer). */
+export function useCreateStmStructureNode() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  return useMutation({
+    mutationFn: async (input: { flow: StmFlow; field: StmGroupField; value: string }) => {
+      if (!user) throw new Error("not authenticated");
+      const value = input.value.trim();
+      if (!value) throw new Error("empty value");
+      const { error } = await supabase
+        .from("stm_structure_nodes" as any)
+        .insert({ user_id: user.id, flow: input.flow, field: input.field, value } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: STM_KEYS.structureNodes() });
+      toast.success("Группа создана");
+    },
+    onError: (e: any) => {
+      if (e?.code === "23505") toast.error("Такая группа уже существует");
+      else toast.error(`Не удалось создать: ${e.message}`);
+    },
+  });
+}
+
+/** Delete an empty placeholder group. */
+export function useDeleteStmStructureNode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("stm_structure_nodes" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: STM_KEYS.structureNodes() });
+      toast.success("Группа удалена");
+    },
+    onError: (e: any) => toast.error(`Не удалось удалить: ${e.message}`),
+  });
+}
+
+/**
  * Bulk-rename a group's meta dimension across all its SKUs.
  * Renaming to an existing group's value naturally merges the SKUs into it.
  */
