@@ -654,10 +654,25 @@ export default function StmMatrixView() {
                             ? <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
                             : <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />}
                           <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold truncate max-w-[220px]">{it.group.label}</span>
-                          <span className="text-[10px] text-muted-foreground/70 shrink-0 w-12">{it.group.count} SKU</span>
-                          <GroupMetrics s={it.group} />
+                          {it.group.placeholder ? (
+                            <span className="text-[10px] text-muted-foreground/50 shrink-0 italic">заготовка · 0 SKU</span>
+                          ) : (
+                            <>
+                              <span className="text-[10px] text-muted-foreground/70 shrink-0 w-12">{it.group.count} SKU</span>
+                              <GroupMetrics s={it.group} />
+                            </>
+                          )}
                         </button>
-                        {groupBy !== "none" && (
+                        {it.group.placeholder && it.group.nodeId ? (
+                          <button
+                            type="button"
+                            onClick={() => deleteNode.mutate(it.group.nodeId!)}
+                            className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-destructive hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-opacity"
+                            title="Удалить пустую группу-заготовку"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        ) : groupBy !== "none" && (
                           <button
                             type="button"
                             onClick={() => openGroupEditor(groupBy as StmGroupField, it.group.label, it.group.items)}
