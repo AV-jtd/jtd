@@ -115,6 +115,13 @@ export default function StmMatrixView() {
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // Group-header editor (rename/merge + manager + participants).
+  const [editGroup, setEditGroup] = useState<{
+    field: StmGroupField;
+    value: string;
+    groupIds: string[];
+    managerId: string | null;
+  } | null>(null);
   // Row density: comfortable (full) or compact (single-line dot heat-map).
   const [density, setDensity] = useState<"comfortable" | "compact">(() => {
     if (typeof window === "undefined") return "comfortable";
