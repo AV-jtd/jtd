@@ -205,7 +205,7 @@ async function generateAiReview(data: any, userName: string): Promise<string | n
 
   const res = await fetch(AI_GATEWAY, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENROUTER_API_KEY}` },
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru" },
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
       messages: [
