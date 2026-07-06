@@ -136,7 +136,7 @@ ${activeProjectInfo}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -211,7 +211,7 @@ ${activeProjectInfo}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -319,7 +319,7 @@ ${activeProjectInfo}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -406,7 +406,7 @@ ${activeProjectInfo}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -519,7 +519,7 @@ ${activeProjectInfo}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -623,7 +623,7 @@ ${activeProjectInfo}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -729,7 +729,7 @@ ${activeProjectInfo}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -827,7 +827,7 @@ ${activeProjectInfo}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -925,7 +925,7 @@ ${activeProjectInfo}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -988,7 +988,7 @@ ${activeProjectInfo}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1077,7 +1077,7 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1190,7 +1190,7 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1306,7 +1306,7 @@ ${stagesList}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1455,7 +1455,7 @@ ${stagesList}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1601,7 +1601,7 @@ ${ganttContextBlock}
       const ganttResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1639,7 +1639,7 @@ ${ganttContextBlock}
       const smartResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1920,7 +1920,7 @@ ${contextInfo}
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1959,7 +1959,7 @@ ${contextInfo}
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
