@@ -3,9 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const AI_GATEWAY = "https://openrouter.ai/api/v1/chat/completions";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -184,7 +184,7 @@ function buildFallbackReport(data: any, userName: string): string {
 }
 
 async function generateAiReview(data: any, userName: string): Promise<string | null> {
-  if (!LOVABLE_API_KEY) return buildFallbackReport(data, userName);
+  if (!OPENROUTER_API_KEY) return buildFallbackReport(data, userName);
   try {
   const prompt = `Ты — ИИ-менеджер проектов. Составь краткий еженедельный обзор для менеджера "${userName}".
 
@@ -205,7 +205,7 @@ async function generateAiReview(data: any, userName: string): Promise<string | n
 
   const res = await fetch(AI_GATEWAY, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${LOVABLE_API_KEY}` },
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENROUTER_API_KEY}` },
     body: JSON.stringify({
       model: "google/gemini-2.5-flash",
       messages: [
