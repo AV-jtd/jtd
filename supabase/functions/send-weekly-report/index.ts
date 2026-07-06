@@ -3,8 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-const AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+const AI_GATEWAY = "https://openrouter.ai/api/v1/chat/completions";
 
 Deno.serve(async (req) => {
   if (!BOT_TOKEN) {
@@ -325,7 +325,7 @@ async function generateAiBlock(d: {
   noAssigneeCount: number;
   projectsCount: number;
 }): Promise<string | null> {
-  if (!LOVABLE_API_KEY) return null;
+  if (!OPENROUTER_API_KEY) return null;
   try {
     const prompt = `Ты — ИИ-менеджер проектов. Составь краткий ИИ-блок для еженедельного отчёта менеджера "${d.userName}".
 
@@ -350,7 +350,7 @@ async function generateAiBlock(d: {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",

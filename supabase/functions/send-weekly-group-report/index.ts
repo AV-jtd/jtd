@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
 
       // AI summary
       let aiSummary = "";
-      if (LOVABLE_API_KEY) {
+      if (OPENROUTER_API_KEY) {
         try {
           const prompt = `Ты — ИИ-менеджер проектов. Составь короткий weekly review (3-5 строк) для команды проекта "${root.name}" на русском языке.
 
@@ -186,10 +186,10 @@ Deno.serve(async (req) => {
 
 Формат: 1) краткая оценка состояния (1 строка), 2) 1-2 главных риска, 3) 1-2 рекомендации команде. Без markdown, эмодзи в начале строк допустимы. Кратко, по делу.`;
 
-          const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          const aiResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+              "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
