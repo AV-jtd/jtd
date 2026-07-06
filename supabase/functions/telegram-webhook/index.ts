@@ -2338,8 +2338,8 @@ async function aiEnrichTask(
   users: { id: string; name: string; telegram_username: string | null }[],
   projectName?: string,
 ): Promise<AiTaskEnrichment | null> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return null;
+  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+  if (!OPENROUTER_API_KEY) return null;
 
   const userList = users
     .map(u => `- "${u.name}" (id: ${u.id}${u.telegram_username ? `, tg: @${u.telegram_username}` : ""})`)
@@ -2348,10 +2348,10 @@ async function aiEnrichTask(
   const today = new Date().toISOString().split("T")[0];
 
   try {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -2464,8 +2464,8 @@ async function handleAiChat(
   groupId: string | null,
   projectName: string | null,
 ) {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) {
+  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+  if (!OPENROUTER_API_KEY) {
     await sendTelegramMessage(botToken, chatId, "❌ ИИ-ассистент временно недоступен.");
     return;
   }
@@ -2568,10 +2568,10 @@ async function handleAiChat(
 
     const contextStr = contextParts.length > 0 ? contextParts.join("\n") : "Нет данных о проектах.";
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -2836,8 +2836,8 @@ function formatDate(date: Date): string {
 // === Voice Message Transcription ===
 
 async function transcribeVoiceMessage(botToken: string, fileId: string): Promise<string | null> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return null;
+  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+  if (!OPENROUTER_API_KEY) return null;
 
   try {
     // Get file path from Telegram
@@ -2865,10 +2865,10 @@ async function transcribeVoiceMessage(botToken: string, fileId: string): Promise
     const base64Audio = btoa(binary);
 
     // Transcribe with Gemini (supports audio natively)
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -2927,8 +2927,8 @@ async function aiBulkParse(
   users: { id: string; name: string; telegram_username: string | null }[],
   projectName?: string,
 ): Promise<BulkParsedTask[] | null> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return null;
+  const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+  if (!OPENROUTER_API_KEY) return null;
 
   const userList = users.length > 0
     ? users.map(u => `- id="${u.id}" name="${u.name}"${u.telegram_username ? ` username="@${u.telegram_username}"` : ""}`).join("\n")
@@ -2937,10 +2937,10 @@ async function aiBulkParse(
   const today = new Date().toISOString().split("T")[0];
 
   try {
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

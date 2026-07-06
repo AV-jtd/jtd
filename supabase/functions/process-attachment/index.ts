@@ -139,9 +139,9 @@ serve(async (req) => {
 
     // Generate AI summary
     let summary: string | null = null;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 
-    if (LOVABLE_API_KEY && fileUrls.length > 0) {
+    if (OPENROUTER_API_KEY && fileUrls.length > 0) {
       try {
         const imageUrls = validationResults
           .filter((r) => r.mime?.startsWith("image/"))
@@ -177,10 +177,10 @@ serve(async (req) => {
 
         messages.push({ role: "user", content: contentParts });
 
-        const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        const aiResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
             "Content-Type": "application/json",
           },
           body: JSON.stringify({

@@ -77,8 +77,8 @@ serve(async (req) => {
 
   try {
     const { message, context, action, quickHints } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY is not configured");
 
     const currentModule = context?.module || "tasks";
     const moduleInstructions = MODULE_INSTRUCTIONS[currentModule] || MODULE_INSTRUCTIONS.tasks;
@@ -133,10 +133,10 @@ ${activeProjectInfo}
 Всегда отвечай на русском языке. Будь кратким и конкретным.${formatTaskTemplates(context?.taskTemplates)}${formatQuickHints(quickHints)}`;
 
     if (action === "parse_task") {
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -208,10 +208,10 @@ ${activeProjectInfo}
     }
 
     if (action === "plan_project") {
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -316,10 +316,10 @@ ${activeProjectInfo}
     if (action === "decompose_task") {
       const { title, description, existingSubtasks, taskTemplates } = context;
       const templatesCtx = formatTaskTemplates(taskTemplates);
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -403,10 +403,10 @@ ${activeProjectInfo}
         ? `\nУже существующие задачи (НЕ дублируй их):\n${existingTasks.map((t: string) => `- ${t}`).join("\n")}`
         : "";
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -516,10 +516,10 @@ ${activeProjectInfo}
   Стримы: ${(p.streams || []).map((s: any) => `${s.name} (${s.completed}/${s.total})`).join(", ")}`
       ).join("\n\n");
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -620,10 +620,10 @@ ${activeProjectInfo}
 Средний срок в воронке: ${avgDaysInFunnel != null ? avgDaysInFunnel + " дней" : "нет данных"}
 Распределение по этапам: ${(stageStats || []).map((s: any) => `${s.stage}: ${s.count}`).join(", ")}`;
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -726,10 +726,10 @@ ${activeProjectInfo}
   ${p.milestones ? `Вехи: ${p.milestones.total} (завершено: ${p.milestones.completed}, просрочено: ${p.milestones.overdue})` : ""}`
       ).join("\n\n");
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -824,10 +824,10 @@ ${activeProjectInfo}
   Контекст: ${(p.axes || []).join(", ") || "—"}`
       ).join("\n\n");
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -922,10 +922,10 @@ ${activeProjectInfo}
   ${p.milestones ? `Вехи: ${p.milestones.completed}/${p.milestones.total}${p.milestones.overdue > 0 ? ` (просрочено: ${p.milestones.overdue})` : ""}` : ""}`
       ).join("\n\n");
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -985,10 +985,10 @@ ${activeProjectInfo}
         resources: "Ресурсы и ссылки",
       };
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1074,10 +1074,10 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
     if (action === "map_columns") {
       const { headers: excelHeaders, sampleRows } = context;
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1187,10 +1187,10 @@ ${existingContent ? `\nТекущий контент секции:\n${existingCo
       const { headers: excelHeaders, sampleRows, stages, flow } = context;
       const stagesList = (stages || []).map((s: any) => `- ${s.key}: ${s.title} (${s.description || ""})`).join("\n");
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1303,10 +1303,10 @@ ${stagesList}
     if (action === "map_crm_columns") {
       const { headers: excelHeaders, sampleRows } = context;
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1452,10 +1452,10 @@ ${stagesList}
 
 Проект: "${bulkProjectName}"${bulkDesc ? `\nОписание: ${bulkDesc}` : ""}${existingInfo}${subprojectInfo}${usersInfo}${formatTaskTemplates(bulkTemplates)}`;
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1598,10 +1598,10 @@ ${ganttContextBlock}
 Доступные участники: ${(ctxUsers || []).map((u: any) => u.name).join(", ") || "не указаны"}
 Текущая дата: ${new Date().toISOString().split("T")[0]}`;
 
-      const ganttResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const ganttResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1636,10 +1636,10 @@ ${ganttContextBlock}
     // === SMART ACTION: LLM-based intent detection with all tools ===
     if (action === "smart") {
       // First, try non-streaming with tool_choice auto
-      const smartResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const smartResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1917,10 +1917,10 @@ ${contextInfo}
 
 Отвечай на русском языке. Используй markdown для форматирования. Будь конкретным — ссылайся на реальные данные проекта.`;
 
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1956,10 +1956,10 @@ ${contextInfo}
     }
 
     // Default: chat mode (streaming)
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
