@@ -2351,7 +2351,7 @@ async function aiEnrichTask(
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -2571,7 +2571,7 @@ async function handleAiChat(
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -2868,7 +2868,7 @@ async function transcribeVoiceMessage(botToken: string, fileId: string): Promise
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -2940,7 +2940,7 @@ async function aiBulkParse(
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({

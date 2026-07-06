@@ -350,7 +350,7 @@ async function generateAiBlock(d: {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",
