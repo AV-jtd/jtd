@@ -118,7 +118,9 @@ Deno.serve(async (req) => {
 
     // Setup webhook command
     if (body.action === "setup_webhook") {
-      const webhookUrl = `https://nvfioycpwyzwukvokwql.supabase.co/functions/v1/telegram-webhook`;
+      const siteUrl = Deno.env.get("SITE_URL") ?? "https://nvfioycpwyzwukvokwql.supabase.co";
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+      const webhookUrl = `${siteUrl}/functions/v1/telegram-webhook${anonKey ? `?apikey=${anonKey}` : ""}`;
       const res = await fetch(
         `https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`,
         {

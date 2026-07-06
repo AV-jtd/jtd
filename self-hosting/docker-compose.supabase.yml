@@ -160,6 +160,10 @@ services:
       LOVABLE_API_KEY: ${LOVABLE_API_KEY}
       # Мессенджер MAX (значение — только в .env.supabase, не в git)
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN}
+      # Публичный домен — используется функциями для self-registration
+      # вебхуков (telegram-webhook/max-webhook "setup_webhook"), чтобы не
+      # хардкодить старый cloud-домен Lovable прямо в коде.
+      SITE_URL: ${SITE_URL}
     command:
       - start
       - --main-service

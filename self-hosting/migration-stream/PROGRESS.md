@@ -151,3 +151,44 @@ DDL из pg_catalog живой БД) обнаружено и устранено:
 | 2026-07-05 | **Шаг 5**: DNS justtodoit.ru → VPS через SpaceWeb API (root only, www требует поддержки), ждём пропагации TTL |
 | 2026-07-05 | **Шаг 6 завершён**: SSL для justtodoit.ru выпущен, nginx настроен на 443 + редирект с 80 |
 | 2026-07-05 | Найден и исправлен критичный баг: GOTRUE_JWT_AUD не был задан, никто не мог войти. Исправлены instance_id/token-поля/identities для всех 55, добавлен GOTRUE_JWT_AUD=authenticated. Вход avedyaev@gmail.com проверен и работает |
+| 2026-07-06 | Telegram/интеграции указывали на облако Lovable — исправлено (см. раздел ниже) |
+
+## Инцидент: Telegram и cron-задачи били в облако Lovable (2026-07-06, устранён)
+
+- **Telegram webhook**: указывал на `nvfioycpwyzwukvokwql.supabase.co`, переключён на
+  `https://justtodoit.ru/functions/v1/telegram-webhook?apikey=<ANON_KEY>` (apikey в query
+  обязателен — у роута `/functions/v1/` в Kong включён key-auth, Telegram не шлёт
+  никаких auth-заголовков сам).
+- **Найден более серьёзный, отдельный баг**: `supabase/functions/main/index.ts`
+  (диспетчер edge-runtime в режиме `--main-service`) был заглушкой, возвращавшей
+  `"JTD Edge Runtime OK"` для ЛЮБОГО пути — то есть **все** edge-функции на VPS
+  были нерабочими, не только telegram-webhook. Переписан на настоящий роутер через
+  `EdgeRuntime.userWorkers.create` (стандартный паттерн self-hosted Supabase),
+  edge-runtime пересоздан. Проверено на нескольких функциях (не только telegram).
+- **2 живых pg_cron задачи** (`protocol-buffer-flush` — раз в минуту,
+  `send-weekly-group-report-friday` — раз в неделю) вызывали облако. Переключены
+  на внутренний `http://kong:8000/functions/v1/...` (эффективнее публичного URL —
+  без DNS/интернета/SSL) через `cron.alter_job()`. Проверено: `net._http_response`
+  показывает 200 OK каждую минуту. `self-hosting/migrate-cron.sql` обновлён под
+  реально применённый и проверенный вариант.
+- **Хардкод cloud-URL внутри кода** `telegram-webhook`/`max-webhook` (в action
+  `setup_webhook`, которая могла бы молча вернуть webhook обратно на облако) —
+  заменён на динамический `SITE_URL` из окружения edge-runtime (добавлена
+  переменная в docker-compose).
+- **MAX-мессенджер**: `MAX_BOT_TOKEN` не настроен в `.env.supabase` вообще —
+  интеграция сейчас неактивна на VPS. Не проверялось/не переключалось —
+  требуется решение пользователя (перенести токен или отключить в облаке).
+- **Дельта задач, попавших в облако до переключения**: точное число не
+  получено (нет service_role/пароля от облачной БД, только anon-ключ, RLS
+  блокирует anon-чтение tasks). Cutoff нашего экспорта: `2026-07-05 16:24:12 UTC`.
+  Для точного числа нужно выполнить в Lovable SQL-редакторе:
+  `SELECT count(*) FROM public.tasks WHERE created_at > '2026-07-05 16:24:12+00';`
+  (верхняя граница — включает вообще все новые задачи, не только из Telegram,
+  маркера источника в схеме нет).
+- Проверено end-to-end: тестовое сообщение в Telegram → задача появилась в
+  БД VPS (`f520afec-...`, `/yado Claude проверка`, `2026-07-06 04:34:38 UTC`).
+- Побочно замечено (не чинилось, вне периметра миграции): ошибка в
+  AI-обогащении задач (`aiEnrichTask` в telegram-webhook, вызов
+  `ai.gateway.lovable.dev`) — "headers of RequestInit is not a valid
+  ByteString". Не блокирует создание задачи (обёрнуто в try/catch), номер
+  строки в трейсе не совпадает с текущим файлом — похоже на кэш модуля.

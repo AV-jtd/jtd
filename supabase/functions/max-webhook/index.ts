@@ -18,7 +18,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const WEBHOOK_URL = "https://nvfioycpwyzwukvokwql.supabase.co/functions/v1/max-webhook";
+const SITE_URL = Deno.env.get("SITE_URL") ?? "https://nvfioycpwyzwukvokwql.supabase.co";
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const WEBHOOK_URL = `${SITE_URL}/functions/v1/max-webhook${ANON_KEY ? `?apikey=${ANON_KEY}` : ""}`;
 
 // Command hints shown by MAX when the user types "/" (DMs and groups).
 const MAX_BOT_COMMANDS = [
