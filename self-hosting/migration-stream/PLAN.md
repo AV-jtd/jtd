@@ -144,6 +144,12 @@ certbot --nginx -d justtodoit.ru
 - ✅ 414 URI Too Long (буферы Kong)
 - ✅ Telegram webhook + cron → на VPS; edge-диспетчер (был заглушкой) → рабочий
 - ✅ fix_auth_users.sql — идемпотентная защита входа при перезаливках
+- ✅ MAX-мессенджер (токен + webhook на VPS)
+- ✅ Бэкапы в S3 (проверенные, MD5 совпал; попутно фикс segfault pg_dump)
+- ✅ Realtime — живые обновления (тенант через Admin API + DB_ENC_KEY 16 байт)
+- ✅ Дельта задач из облака = 0 (обе post-cutoff задачи уже на VPS)
+
+**🎉 Переезд функционально завершён. Остались только косметика/удобства.**
 
 ---
 
