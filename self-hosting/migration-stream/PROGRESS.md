@@ -289,3 +289,46 @@ self-hosting/*.
   `db_20260707_225913.dump`, 6.2 MB (~6 476 449 байт), локально в
   `/var/backups/jtd/daily/`, в S3 —
   `s3://jtd-backups/backups/77-222-53-183.swtest.ru/db_20260707_225913.dump`
+
+## Инцидент: realtime 403 на /sb/realtime/v1/websocket (2026-07-07, устранён)
+
+Диагностика по слоям (без гадания, каждый шаг проверен отдельно):
+
+1. **Логи realtime**: `TenantNotFound: Tenant not found: realtime` на
+   каждой попытке подключения
+2. **`_realtime.tenants`**: таблица полностью ПУСТАЯ (0 строк) — тенант
+   никогда не создавался ни при первом деплое, ни позже
+3. **jwt_secret**: сверять было не с чем, тенанта не было вообще
+4. **nginx**: `/sb/` location уже содержит корректные WS-заголовки
+   (`Upgrade`, `Connection "upgrade"`, `proxy_http_version 1.1`) — не
+   источник проблемы
+5. **Kong**: маршрут `realtime-v1` (`/realtime/v1/` → `realtime:4000/socket/`)
+   настроен верно, key-auth + ACL на месте — не источник проблемы
+6. **Фронтенд**: стандартный `supabase-js`, `external_id` тенанта
+   определяется НЕ клиентом, а сервером — self-hosted Realtime берёт его
+   из своей же переменной `APP_NAME` (= `realtime` в docker-compose)
+
+**Главная причина**: тенант в `_realtime.tenants` никогда не был создан.
+Создаётся не прямым INSERT (чувствительные поля типа `jwt_secret`/
+`db_password` шифруются сервисом через Cloak/AES-128-ECB по ключу
+`DB_ENC_KEY`), а через Admin API самого realtime (`PUT /api/tenants/<id>`,
+авторизация — `SERVICE_ROLE_KEY` как Bearer-токен, не голый секрет).
+
+**Побочная находка при первой попытке создания тенанта**: `DB_ENC_KEY`
+в docker-compose был задан как `${JWT_SECRET}` (44 символа) — AES-128-ECB
+требует РОВНО 16 байт ключа, из-за чего Erlang-крипто падал с
+`{:badarg, "Bad key size"}` → 500 при любой попытке создать/обновить
+тенант. Заведена отдельная переменная `REALTIME_DB_ENC_KEY` (ровно 16
+байт), realtime-контейнер пересоздан.
+
+**Фикс**:
+- `REALTIME_DB_ENC_KEY` (16 байт) в `.env.supabase`, docker-compose
+  `DB_ENC_KEY: ${REALTIME_DB_ENC_KEY}`
+- `self-hosting/setup-realtime-tenant.sh` — идемпотентный скрипт создания
+  тенанта через Admin API (повторный запуск после смены секретов не
+  ломает, обновляет существующую запись)
+
+**Проверено**: `curl` WS-хендшейк через полный путь (nginx → Kong →
+realtime) — `HTTP/1.1 101 Switching Protocols`. Реальную доставку events
+в 2 вкладках браузера должен подтвердить пользователь — синтетический
+WS-клиент на сервере недоступен (нет pip/websockets).
