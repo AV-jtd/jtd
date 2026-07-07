@@ -1047,9 +1047,6 @@ export function useTaskMutations() {
       const { error } = await supabase.from("task_groups").update({ closed_at } as any).eq("id", id);
       if (error) throw error;
     },
-      const { error } = await supabase.from("task_groups").update({ closed_at } as any).eq("id", id);
-      if (error) throw error;
-    },
     onMutate: async ({ id, closed_at }) => {
       await qc.cancelQueries({ queryKey: ["task_groups"] });
       const snap = snapshotGroups(qc);
