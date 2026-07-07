@@ -1042,6 +1042,54 @@ export function useTaskMutations() {
     },
   });
 
+  // Link (or unlink) a whole project to a CRM client. Sets task_groups.client_id
+  // and cascades to the project's own tasks + all nested subprojects' tasks that
+  // don't already have a client, so their chats inherit the client logo too.
+  const linkGroupClient = useMutation({
+    mutationFn: async ({ id, client_id }: { id: string; client_id: string | null }) => {
+      const { error } = await supabase.from("task_groups").update({ client_id } as any).eq("id", id);
+      if (error) throw error;
+
+      if (client_id) {
+        // Collect this project + all descendant subprojects.
+        const { data: allGroups } = await supabase
+          .from("task_groups")
+          .select("id, parent_id")
+          .eq("user_id", user!.id);
+        const groupIds = new Set<string>([id]);
+        let changed = true;
+        const rows = (allGroups as any[]) || [];
+        while (changed) {
+          changed = false;
+          for (const g of rows) {
+            if (g.parent_id && groupIds.has(g.parent_id) && !groupIds.has(g.id)) {
+              groupIds.add(g.id);
+              changed = true;
+            }
+          }
+        }
+        // Cascade to tasks without a client yet.
+        await supabase
+          .from("tasks")
+          .update({ client_id } as any)
+          .in("group_id", [...groupIds])
+          .is("client_id", null);
+      }
+    },
+    onMutate: async ({ id, client_id }) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const snap = snapshotGroups(qc);
+      updateAllGroupCaches(qc, (groups) => groups.map(g => g.id === id ? { ...g, client_id } as TaskGroup : g));
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreGroups(qc, ctx.snap); toast.error("Не удалось привязать клиента"); },
+    onSuccess: (_d, { client_id }) => toast.success(client_id ? "Проект привязан к клиенту" : "Клиент отвязан"),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
   const closeProject = useMutation({
     mutationFn: async ({ id, closed_at }: { id: string; closed_at: string | null }) => {
       const { error } = await supabase.from("task_groups").update({ closed_at } as any).eq("id", id);
