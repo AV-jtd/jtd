@@ -237,3 +237,20 @@ OpenRouter — Lovable AI Gateway unavailable on VPS"): это предполо�
 Отложено пользователем — не блокирует основной функционал (создание задач
 через веб-интерфейс работает; проблема только в AI-разборе свободного
 текста через ботов).
+
+## Обновление: AI переведён на OpenRouter, добавлена смена пароля (2026-07-07)
+
+Смёржены доработки Lovable из main (10 коммитов):
+- `ChangePasswordSection.tsx` — самостоятельная смена пароля в настройках,
+  использует стандартные `signInWithPassword`+`updateUser` через GoTrue,
+  бэкенд трогать не пришлось
+- Все AI-функции (ai-assistant, telegram-webhook, max-webhook,
+  messenger-core.ts и др.) переведены с `ai.gateway.lovable.dev` на
+  `openrouter.ai` — закрывает инцидент с невалидным ByteString в
+  LOVABLE_API_KEY
+- `OPENROUTER_API_KEY` добавлен в docker-compose (проводка) и
+  `.env.supabase` (реальное значение, не в git), edge-runtime пересоздан
+- Проверено: прямой запрос к openrouter.ai с ключом → 200 OK
+
+Фронтенд пересобран и задеплоен. Мердж чистый, без конфликтов с
+self-hosting/*.
