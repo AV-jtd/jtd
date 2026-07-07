@@ -344,6 +344,32 @@ export function useTaskGroups() {
           .order("id")
           .range(from, to)
       );
+      // Enrich groups linked to a CRM client with the client's logo/name so
+      // ProjectIcon can show the client logo everywhere (sidebar, headers, cards).
+      const clientIds = [
+        ...new Set(
+          data
+            .map((g) => (g as any).client_id as string | null)
+            .filter((id): id is string => !!id),
+        ),
+      ];
+      if (clientIds.length > 0) {
+        const { data: clientRows } = await supabase
+          .from("clients")
+          .select("id, name, logo_url")
+          .in("id", clientIds);
+        const clientMap = new Map(
+          ((clientRows as any[]) || []).map((c) => [c.id, c]),
+        );
+        for (const g of data) {
+          const cid = (g as any).client_id as string | null;
+          if (cid && clientMap.has(cid)) {
+            const c = clientMap.get(cid);
+            (g as any).client_logo_url = c.logo_url ?? null;
+            (g as any).client_name = c.name ?? null;
+          }
+        }
+      }
       return data;
     },
     enabled: !loading && !!user,
