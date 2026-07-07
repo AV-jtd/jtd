@@ -22,6 +22,7 @@ const MigrateToNpdDialog = lazyWithRetry(() => import("@/components/MigrateToNpd
 import LensSettingsSection, { LensToggleInline } from "@/components/LensSettingsSection";
 import DecisionsSection from "@/components/decisions/DecisionsSection";
 import ProjectProtocolsSection from "@/components/ProjectProtocolsSection";
+import ProjectClientPicker from "@/components/ProjectClientPicker";
 import { toast } from "sonner";
 import { format, differenceInDays, addDays, startOfDay } from "date-fns";
 import { parseISO } from "date-fns";
