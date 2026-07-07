@@ -158,6 +158,9 @@ services:
       # Секреты edge functions:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       LOVABLE_API_KEY: ${LOVABLE_API_KEY}
+      # AI-функции переведены на OpenRouter (LOVABLE_API_KEY больше не
+      # используется в коде, но оставлен для обратной совместимости)
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       # Мессенджер MAX (значение — только в .env.supabase, не в git)
       MAX_BOT_TOKEN: ${MAX_BOT_TOKEN}
       # Публичный домен — используется функциями для self-registration
