@@ -5,6 +5,8 @@ interface ProjectIconLike {
   color?: string | null;
   logo_url?: string | null;
   name?: string;
+  /** Resolved logo of a linked CRM client — takes priority over logo_url. */
+  client_logo_url?: string | null;
 }
 
 interface Props {
@@ -40,11 +42,12 @@ export default function ProjectIcon({
 }: Props) {
   const s = SIZES[size];
 
-  // 1. Logo URL — высший приоритет
-  if (group.logo_url) {
+  // 1. Logo URL — высший приоритет (логотип клиента приоритетнее собственного)
+  const logo = group.client_logo_url || group.logo_url;
+  if (logo) {
     return (
       <img
-        src={group.logo_url}
+        src={logo}
         alt={group.name ?? ""}
         className={cn(s.img, "object-contain bg-white ring-1 ring-border shrink-0", className)}
       />
