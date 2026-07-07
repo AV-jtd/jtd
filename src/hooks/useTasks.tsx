@@ -16,7 +16,11 @@ export type Task = Tables<"tasks"> & {
   original_deadline?: string | null;
   deferred_until?: string | null;
 };
-export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null; closed_at?: string | null; baseline_status?: string; baseline_approver_id?: string | null; baseline_locked_at?: string | null; baseline_auto_lock_hours?: number };
+export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null; closed_at?: string | null; baseline_status?: string; baseline_approver_id?: string | null; baseline_locked_at?: string | null; baseline_auto_lock_hours?: number;
+  /** Resolved from the linked CRM client (task_groups.client_id → clients). Used so ProjectIcon shows the client's logo across the UI. */
+  client_logo_url?: string | null;
+  client_name?: string | null;
+};
 export type Tag = Tables<"tags"> & { category_id?: string | null };
 export type Subtask = Tables<"subtasks">;
 export type TaskParticipant = { id: string; task_id: string; user_id: string; role: string; created_at: string };
