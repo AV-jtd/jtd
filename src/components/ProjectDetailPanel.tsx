@@ -329,6 +329,9 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
         </div>
       </div>
 
+      {/* Привязка проекта к CRM-клиенту */}
+      <ProjectClientPicker group={group} />
+
       {/* Линза */}
       <LensSettingsSection group={group} />
 
