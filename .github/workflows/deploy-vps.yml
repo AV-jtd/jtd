@@ -1,67 +1,35 @@
 name: Deploy to VPS
 
+# Авто-деплой на VPS при пуше в main (Lovable пушит сюда) или вручную.
+# Собирает и деплоит НА VPS через SSH (см. self-hosting/deploy.sh):
+# git merge main → build → edge-runtime → миграции → nginx. С откатом.
+#
+# Требуемые секреты (Settings → Secrets and variables → Actions):
+#   VPS_SSH_KEY  — приватный SSH-ключ (публичный добавлен в authorized_keys VPS)
+#   VPS_HOST     — 189.74.120.232
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+# Не запускать параллельные деплои
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build frontend
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VPS_SUPABASE_URL }}
-          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VPS_SUPABASE_ANON_KEY }}
-        run: npm run build
-
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Deploy frontend to VPS
+      - name: Run deploy on VPS
         run: |
-          rsync -az --delete dist/ \
-            root@${{ secrets.VPS_HOST }}:/opt/jtd/dist/
-
-      - name: Apply migrations to VPS Supabase
-        run: |
-          ssh root@${{ secrets.VPS_HOST }} bash << 'EOF'
-            DB="postgresql://postgres:$(grep POSTGRES_PASSWORD /opt/jtd/self-hosting/.env.supabase | cut -d= -f2)@localhost:5432/postgres"
-            MIGRATIONS_DIR="/opt/jtd/supabase/migrations"
-            APPLIED_FILE="/opt/jtd/.applied-migrations"
-
-            touch "$APPLIED_FILE"
-
-            for sql in $(ls "$MIGRATIONS_DIR"/*.sql | sort); do
-              fname=$(basename "$sql")
-              if grep -qx "$fname" "$APPLIED_FILE"; then
-                continue
-              fi
-              echo "Applying migration: $fname"
-              docker exec self-hosting-db-1 psql -U postgres -f "/opt/jtd/supabase/migrations/$fname" 2>&1
-              echo "$fname" >> "$APPLIED_FILE"
-            done
-
-            echo "Migrations done."
-          EOF
-
-      - name: Reload nginx
-        run: |
-          ssh root@${{ secrets.VPS_HOST }} \
-            "docker exec self-hosting-nginx-1 nginx -s reload"
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} \
+            'bash /opt/jtd/self-hosting/deploy.sh'
