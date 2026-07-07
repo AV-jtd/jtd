@@ -2491,7 +2491,7 @@ export function useTaskMutations() {
   });
 
   return {
-    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType, closeProject,
+    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType, linkGroupClient, closeProject,
     updateBaselineSettings, lockBaseline, unlockBaseline,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     submitForApproval, approveTask, rejectTask,
