@@ -25,6 +25,12 @@ BACKUP_KEEP_MONTHS="${BACKUP_KEEP_MONTHS:-6}"
 STORAGE_DATA_DIR="${STORAGE_DATA_DIR:-/var/lib/jtd-storage}"
 COMPOSE_PROJECT="${COMPOSE_PROJECT:-self-hosting}"
 DB_CONTAINER="${DB_CONTAINER:-${COMPOSE_PROJECT}-db-1}"
+# ВАЖНО: pg_dump, встроенный в образ supabase/postgres:15.8.1.060 (внутри
+# DB_CONTAINER), стабильно падает с segfault (проверено 2026-07-07, 3/3
+# попыток, dmesg подтверждает crash в самом бинарнике). Используем pg_dump
+# из контейнера pg-backup (postgres:15-alpine, pg_dump 15.18) — он уже
+# работает каждый день по крону и подключается по сети через -h db.
+PGDUMP_CONTAINER="${PGDUMP_CONTAINER:-${COMPOSE_PROJECT}-pg-backup-1}"
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 DOW=$(date +%u)   # 1=пн … 7=вс
@@ -54,8 +60,8 @@ echo "[1/4] PostgreSQL dump..."
 
 DUMP_FILE="${BACKUP_DIR}/daily/db_${TIMESTAMP}.dump"
 
-docker exec "${DB_CONTAINER}" \
-  pg_dump -U postgres -Fc --no-acl postgres \
+PGPASSWORD="${POSTGRES_PASSWORD}" docker exec -e PGPASSWORD "${PGDUMP_CONTAINER}" \
+  pg_dump -h db -U postgres -Fc --no-acl postgres \
   > "${DUMP_FILE}"
 
 DUMP_SIZE=$(du -sh "${DUMP_FILE}" | cut -f1)
@@ -64,8 +70,8 @@ echo "  OK: ${DUMP_FILE} (${DUMP_SIZE})"
 # ---------- 2. Верификация дампа ----------
 if [ "$DO_VERIFY" = "true" ]; then
   echo "[2/4] Верификация дампа..."
-  docker exec "${DB_CONTAINER}" \
-    pg_restore --list /dev/stdin < "${DUMP_FILE}" > /dev/null
+  docker exec -i "${PGDUMP_CONTAINER}" \
+    pg_restore --list < "${DUMP_FILE}" > /dev/null
   echo "  OK: дамп валиден"
 else
   echo "[2/4] Верификация пропущена (передайте --verify для проверки)"
