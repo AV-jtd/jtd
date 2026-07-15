@@ -29,40 +29,50 @@ curl -fsSL https://raw.githubusercontent.com/AV-jtd/jtd/claude/modest-hawking-sf
 ## Промпт (копировать целиком)
 
 ```
-Ты работаешь НА VPS (189.74.120.232) в рамках переезда приложения JTD
-(task-менеджер React + Supabase) с облачного Lovable Supabase на этот
-сервер. У тебя прямой доступ к docker, psql и файловой системе — используй
-его, не проси пользователя копипастить команды.
+Ты работаешь НА VPS (189.74.120.232) с приложением JTD (task-менеджер
+React + Supabase), уже переехавшим с Lovable Cloud на self-hosted
+Supabase на этом сервере. Переезд ПОЛНОСТЬЮ завершён (go-live
+2026-07-06) — это не миграция, а обычная поддержка и доработки. У тебя
+прямой доступ к docker, psql и файловой системе — используй его, не
+проси пользователя копипастить команды.
 
 Прочитай в этом порядке и скажи в двух строках где мы и какой следующий шаг:
-1. /opt/jtd/self-hosting/migration-stream/PLAN.md   ← единый актуальный план
-2. /opt/jtd/self-hosting/migration-stream/PROGRESS.md ← статус и реквизиты
+1. /opt/jtd/self-hosting/migration-stream/PLAN.md   ← бэклог, что открыто/закрыто
+2. /opt/jtd/self-hosting/migration-stream/PROGRESS.md ← подробный журнал по датам
 
-Ключевые факты о ситуации:
-- VPS иностранный, IP 189.74.120.232, доступ из РФ без VPN уже проверен (Kong отвечает)
-- Supabase self-hosted стек работает (11 контейнеров, db healthy)
-- Схема БД применена (60 таблиц), 31 таблица данных импортирована из CSV
-- Бэкап от Lovable: /tmp/supabase-backup/ (schema.sql + csv/ + manifest.csv)
-  — если /tmp очистился после перезагрузки, скачай заново:
-    aws s3 cp s3://jtd-backups/supabase-backup.zip /tmp/supabasebackup.zip \
-      --endpoint-url https://s3.regru.cloud && cd /tmp && unzip -o supabasebackup.zip
-- auth.users НЕ переносятся (нет доступа к паролям облака) → после переезда
-  делаем МАССОВЫЙ СБРОС ПАРОЛЕЙ для 56 пользователей. Данные привязаны к UUID,
-  не к паролю, поэтому задачи/проекты/чаты не теряются.
+Ключевые факты о текущем состоянии (2026-07-15):
+- Стек: 11 контейнеров self-hosted Supabase (auth/rest/realtime/storage/
+  edge-runtime/kong/db) + nginx, все Up, схема и данные полные (59 юзеров,
+  все таблицы, FK-целостность OK)
+- Прод: https://justtodoit.ru — DNS, SSL, фронтенд, RLS, realtime — всё
+  рабочее. www.justtodoit.ru отдельно ещё не переключён (см. бэклог #10)
+- CI/CD: GitHub Actions `deploy-vps.yml` — push в main → SSH на VPS →
+  self-hosting/deploy.sh (build + миграции + nginx). Чинили 2026-07-15
+  (секрет VPS_SSH_KEY указывал не на тот ключ) — сейчас проходит.
+- Ветка разработки: claude/modest-hawking-sfszra (обгоняет origin/main
+  на инфра-коммиты; deploy.sh мёржит main в неё при каждом деплое)
+- Регистрация новых пользователей — через Telegram-бота (@Scope_todo_bot,
+  /register), НЕ через сайт: SMTP всё ещё не настроен (бэклог #5)
 
 Внутренние пароли PostgreSQL и ключи — в /opt/jtd/self-hosting/.env.supabase
 (POSTGRES_PASSWORD, ANON_KEY, SERVICE_ROLE_KEY). Читай оттуда, не спрашивай.
 
-Следующий крупный шаг по PLAN.md — Шаг 2: создать пользователей в VPS Supabase
-с теми же UUID из profiles.csv (через GoTrue Admin API или прямой INSERT в
-auth.users с случайным паролем), затем отключить FK-проверку и залить CSV
-задач/проектов/комментариев, затем включить FK и проверить целостность.
+Открытый бэклог (см. PLAN.md за подробностями) — по приоритету:
+1. SMTP (noreply@justtodoit.ru, smtp.yandex.ru) — без него нет
+   самообслуживания сброса пароля
+2. email_queue_dispatch() шлёт на чужой облачный Lovable URL — либо
+   переписать на локальный edge-function, либо отключить cron
+3. www.justtodoit.ru DNS (canChange:false, нужна заявка в SpaceWeb)
+4. Косметика: самохостинг шрифтов, FCM push смоук-тест
+Плюс: реагировать на баг-репорты пользователей по мере поступления
+(так была найдена и закрыта серия багов STM Mission Control 2026-07-15).
 
 Правила:
 - Действуй сам через shell, показывай вывод и интерпретируй
-- Необратимые шаги (переключение DNS, DROP) — стоп и подтверждение
+- Необратимые шаги (переключение DNS, push в main, DROP) — стоп и подтверждение
 - Секреты НЕ коммить в git
-- После каждого закрытого шага — обнови PROGRESS.md, закоммить и запушь
+- После каждого закрытого шага — обнови PROGRESS.md (и PLAN.md, если
+  меняется статус бэклога), закоммить и запушь в claude/modest-hawking-sfszra
 
 Начинай с чтения PLAN.md и PROGRESS.md.
 ```
