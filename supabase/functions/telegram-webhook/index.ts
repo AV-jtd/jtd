@@ -144,6 +144,7 @@ Deno.serve(async (req) => {
         { command: "protocol", description: "📋 Создать протокол встречи" },
         { command: "chat", description: "💬 Отправить сообщение в чат проекта" },
         { command: "ai", description: "✨ ИИ-ассистент" },
+        { command: "register", description: "📝 Регистрация (если нет аккаунта)" },
         { command: "cancel", description: "❌ Отменить текущую операцию" },
       ];
       const groupCommands = [
@@ -1373,6 +1374,7 @@ Deno.serve(async (req) => {
         "• `/protocol` — создать протокол встречи\n" +
         "• `/chat Проект Сообщение` — чат проекта\n" +
         "• `/ai Вопрос` — ИИ-ассистент\n" +
+        "• `/register` — регистрация (если ещё нет аккаунта)\n" +
         "• `/help` — справка",
         "Markdown"
       );
@@ -1408,10 +1410,172 @@ Deno.serve(async (req) => {
         "*Чат проекта:*\n" +
         "• `/chat Название Сообщение` — отправить в чат проекта\n\n" +
         "*ИИ\\-ассистент:*\n" +
-        "• `/ai Вопрос` — спросить ИИ о проектах, статусе, советах",
+        "• `/ai Вопрос` — спросить ИИ о проектах, статусе, советах\n\n" +
+        "*Регистрация:*\n" +
+        "• `/register` — создать аккаунт, если его ещё нет",
         "Markdown"
       );
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // === /register, /cancel_register — регистрация нового пользователя через бота ===
+    // Пока не работает почта: обычная форма signUp на сайте требует
+    // подтверждения email через GoTrue, письмо никогда не придёт. Здесь
+    // создаём аккаунт напрямую через Admin API (email_confirm: true —
+    // подтверждение не требуется вообще), временный пароль шлём тем же
+    // сообщением. Доступно ТОЛЬКО в личке (chatId > 0).
+    if (message.text === "/register" || message.text === "/cancel_register") {
+      if (chatId <= 0) {
+        await sendTelegramMessage(BOT_TOKEN, chatId, "Регистрация доступна только в личном чате с ботом.");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      if (message.text === "/cancel_register") {
+        await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+        await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Регистрация отменена.");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // Уже зарегистрирован? Проверяем и по chat_id, и по username (если есть).
+      const { data: byChat } = await supabase
+        .from("profiles").select("id").eq("telegram_chat_id", chatId).maybeSingle();
+      const { data: byUsername } = username
+        ? await supabase.from("profiles").select("id").ilike("telegram_username", username).maybeSingle()
+        : { data: null };
+      if (byChat || byUsername) {
+        await sendTelegramMessage(BOT_TOKEN, chatId, "Вы уже зарегистрированы. Используйте /start.");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      await supabase.from("telegram_pending_context").upsert({
+        chat_id: chatId,
+        user_id: "00000000-0000-0000-0000-000000000000", // плейсхолдер: юзера ещё нет
+        context_type: "register_name",
+        parsed_payload: {},
+        created_at: new Date().toISOString(),
+      }, { onConflict: "chat_id" });
+
+      await sendTelegramMessage(
+        BOT_TOKEN, chatId,
+        "📝 Регистрация в JustTODOit.\n\n" +
+        "Шаг 1/3. Как вас зовут? (Имя Фамилия)\n\n" +
+        "⏰ Контекст активен 15 минут. Отмена: /cancel_register",
+      );
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // === Пошаговый визард регистрации (продолжение диалога) ===
+    {
+      const { data: regCtx } = await supabase
+        .from("telegram_pending_context")
+        .select("*")
+        .eq("chat_id", chatId)
+        .maybeSingle();
+
+      if (regCtx?.context_type?.startsWith("register_") &&
+          (Date.now() - new Date(regCtx.created_at).getTime()) < 15 * 60 * 1000 &&
+          !message.text.startsWith("/")) {
+
+        const payload = { ...(regCtx.parsed_payload || {}) };
+
+        if (regCtx.context_type === "register_name") {
+          const name = message.text.trim().slice(0, 100);
+          if (name.length < 2) {
+            await sendTelegramMessage(BOT_TOKEN, chatId, "Введите, пожалуйста, имя и фамилию текстом.");
+            return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+          }
+          payload.name = name;
+          await supabase.from("telegram_pending_context").update({
+            context_type: "register_company",
+            parsed_payload: payload,
+            created_at: new Date().toISOString(),
+          }).eq("chat_id", chatId);
+          await sendTelegramMessage(
+            BOT_TOKEN, chatId,
+            `✅ ${escapeMarkdown(name)}\n\nШаг 2/3. Название компании?`,
+            "Markdown",
+          );
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        if (regCtx.context_type === "register_company") {
+          const company = message.text.trim().slice(0, 200);
+          if (company.length < 2) {
+            await sendTelegramMessage(BOT_TOKEN, chatId, "Введите, пожалуйста, название компании текстом.");
+            return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+          }
+          payload.company = company;
+          await supabase.from("telegram_pending_context").update({
+            context_type: "register_email",
+            parsed_payload: payload,
+            created_at: new Date().toISOString(),
+          }).eq("chat_id", chatId);
+          await sendTelegramMessage(
+            BOT_TOKEN, chatId,
+            `✅ ${escapeMarkdown(company)}\n\nШаг 3/3. Ваш рабочий email?`,
+            "Markdown",
+          );
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        if (regCtx.context_type === "register_email") {
+          const email = message.text.trim().toLowerCase();
+          const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+          if (!emailOk) {
+            await sendTelegramMessage(BOT_TOKEN, chatId, "Похоже на неверный email. Введите ещё раз (например: name@company.ru).");
+            return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+          }
+
+          const admin = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+          );
+
+          const { data: existingProfile } = await admin
+            .from("profiles").select("id").ilike("email", email).maybeSingle();
+          if (existingProfile) {
+            await sendTelegramMessage(BOT_TOKEN, chatId, `⚠️ Пользователь с email ${email} уже существует. Обратитесь к администратору.`);
+            await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+            return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+          }
+
+          const tempPassword = generateTempPassword();
+
+          const { data: created, error: createErr } = await admin.auth.admin.createUser({
+            email,
+            password: tempPassword,
+            email_confirm: true,
+            user_metadata: { display_name: payload.name, must_change_password: true },
+          });
+
+          if (createErr || !created?.user) {
+            console.error("[/register] createUser failed:", createErr);
+            await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Не удалось создать аккаунт. Попробуйте позже или обратитесь к администратору.");
+            await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+            return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+          }
+
+          // handle_new_user уже создал profiles(id, email, display_name) —
+          // дозаполняем остальное.
+          await admin.from("profiles").update({
+            organization: payload.company,
+            work_email: email,
+            telegram_username: username ? username.toLowerCase() : null,
+            telegram_chat_id: chatId,
+          }).eq("id", created.user.id);
+
+          await supabase.from("telegram_pending_context").delete().eq("chat_id", chatId);
+
+          await sendTelegramMessage(
+            BOT_TOKEN, chatId,
+            `🎉 Готово! Аккаунт создан.\n\n` +
+            `Email: ${email}\n` +
+            `Временный пароль: ${tempPassword}\n\n` +
+            `Войдите на https://justtodoit.ru и смените пароль в настройках профиля.`,
+          );
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+      }
     }
 
     if (!username) {
@@ -2737,6 +2901,15 @@ async function answerCallbackQuery(token: string, callbackQueryId: string, text:
 
 function escapeMarkdown(text: string): string {
   return text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, "\\$1");
+}
+
+function generateTempPassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  const arr = new Uint32Array(16);
+  crypto.getRandomValues(arr);
+  let p = "";
+  for (let i = 0; i < 16; i++) p += chars[arr[i] % chars.length];
+  return p;
 }
 
 function fuzzyMatch(query: string, candidate: string): boolean {
