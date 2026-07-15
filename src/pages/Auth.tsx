@@ -229,7 +229,7 @@ export default function Auth() {
                   <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-3">
                     <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
                       <li>
-                        Откройте <a href="https://t.me/Scope_todo_bot" target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">@Scope_todo_bot</a> в Telegram
+                        Откройте <a href="https://t.me/Scope_todo_bot" target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">@Scope_todo_bot</a> в Telegram и нажмите <span className="font-medium text-foreground">Start</span> (если это первый чат с ботом)
                       </li>
                       <li>Отправьте боту команду <span className="font-medium text-foreground">/register</span></li>
                       <li>Ответьте на 3 вопроса: имя и фамилия, компания, рабочий email</li>
