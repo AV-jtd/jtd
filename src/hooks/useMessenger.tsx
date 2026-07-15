@@ -194,7 +194,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
       const clientIds = [
         ...new Set(
           groups
-            .filter((g) => g.project_type === "crm_client" && g.client_id)
+            .filter((g) => g.client_id)
             .map((g) => g.client_id as string),
         ),
       ];

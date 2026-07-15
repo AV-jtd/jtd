@@ -16,7 +16,11 @@ export type Task = Tables<"tasks"> & {
   original_deadline?: string | null;
   deferred_until?: string | null;
 };
-export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null; closed_at?: string | null; baseline_status?: string; baseline_approver_id?: string | null; baseline_locked_at?: string | null; baseline_auto_lock_hours?: number };
+export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null; closed_at?: string | null; baseline_status?: string; baseline_approver_id?: string | null; baseline_locked_at?: string | null; baseline_auto_lock_hours?: number;
+  /** Resolved from the linked CRM client (task_groups.client_id → clients). Used so ProjectIcon shows the client's logo across the UI. */
+  client_logo_url?: string | null;
+  client_name?: string | null;
+};
 export type Tag = Tables<"tags"> & { category_id?: string | null };
 export type Subtask = Tables<"subtasks">;
 export type TaskParticipant = { id: string; task_id: string; user_id: string; role: string; created_at: string };
@@ -349,6 +353,32 @@ export function useTaskGroups() {
           .order("id")
           .range(from, to)
       );
+      // Enrich groups linked to a CRM client with the client's logo/name so
+      // ProjectIcon can show the client logo everywhere (sidebar, headers, cards).
+      const clientIds = [
+        ...new Set(
+          data
+            .map((g) => (g as any).client_id as string | null)
+            .filter((id): id is string => !!id),
+        ),
+      ];
+      if (clientIds.length > 0) {
+        const { data: clientRows } = await supabase
+          .from("clients")
+          .select("id, name, logo_url")
+          .in("id", clientIds);
+        const clientMap = new Map(
+          ((clientRows as any[]) || []).map((c) => [c.id, c]),
+        );
+        for (const g of data) {
+          const cid = (g as any).client_id as string | null;
+          if (cid && clientMap.has(cid)) {
+            const c = clientMap.get(cid);
+            (g as any).client_logo_url = c.logo_url ?? null;
+            (g as any).client_name = c.name ?? null;
+          }
+        }
+      }
       return data;
     },
     enabled: !loading && !!user,
@@ -1018,6 +1048,54 @@ export function useTaskMutations() {
       qc.invalidateQueries({ queryKey: ["task_groups"] });
       qc.invalidateQueries({ queryKey: ["crm-groups-list"] });
       qc.invalidateQueries({ queryKey: ["crm-tasks"] });
+    },
+  });
+
+  // Link (or unlink) a whole project to a CRM client. Sets task_groups.client_id
+  // and cascades to the project's own tasks + all nested subprojects' tasks that
+  // don't already have a client, so their chats inherit the client logo too.
+  const linkGroupClient = useMutation({
+    mutationFn: async ({ id, client_id }: { id: string; client_id: string | null }) => {
+      const { error } = await supabase.from("task_groups").update({ client_id } as any).eq("id", id);
+      if (error) throw error;
+
+      if (client_id) {
+        // Collect this project + all descendant subprojects.
+        const { data: allGroups } = await supabase
+          .from("task_groups")
+          .select("id, parent_id")
+          .eq("user_id", user!.id);
+        const groupIds = new Set<string>([id]);
+        let changed = true;
+        const rows = (allGroups as any[]) || [];
+        while (changed) {
+          changed = false;
+          for (const g of rows) {
+            if (g.parent_id && groupIds.has(g.parent_id) && !groupIds.has(g.id)) {
+              groupIds.add(g.id);
+              changed = true;
+            }
+          }
+        }
+        // Cascade to tasks without a client yet.
+        await supabase
+          .from("tasks")
+          .update({ client_id } as any)
+          .in("group_id", [...groupIds])
+          .is("client_id", null);
+      }
+    },
+    onMutate: async ({ id, client_id }) => {
+      await qc.cancelQueries({ queryKey: ["task_groups"] });
+      const snap = snapshotGroups(qc);
+      updateAllGroupCaches(qc, (groups) => groups.map(g => g.id === id ? { ...g, client_id } as TaskGroup : g));
+      return { snap };
+    },
+    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreGroups(qc, ctx.snap); toast.error("Не удалось привязать клиента"); },
+    onSuccess: (_d, { client_id }) => toast.success(client_id ? "Проект привязан к клиенту" : "Клиент отвязан"),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["task_groups"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 
@@ -2428,7 +2506,7 @@ export function useTaskMutations() {
   });
 
   return {
-    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType, closeProject,
+    addGroup, renameGroup, deleteGroup, updateGroupAppearance, updateGroupDescription, updateGroupParent, updateGroupProjectType, linkGroupClient, closeProject,
     updateBaselineSettings, lockBaseline, unlockBaseline,
     addTask, updateTask, deleteTask, toggleTask, toggleImportant,
     submitForApproval, approveTask, rejectTask,
