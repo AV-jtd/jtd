@@ -126,8 +126,12 @@ export function computeStmAnalytics(projects: StmProject[], flow: StmFlow): StmA
   const stageCount = new Map<string, number>();
 
   projects.forEach(p => {
+    // Freeze the clock at archive time — otherwise archived SKUs keep
+    // accumulating "overdue" as real time passes, even though the row is
+    // no longer being worked on.
+    const ref = p.archivedAt ? new Date(p.archivedAt).getTime() : now;
     const od = p.stageTasks.filter(
-      t => !t.is_completed && t.deadline && new Date(t.deadline).getTime() < now,
+      t => !t.is_completed && t.deadline && new Date(t.deadline).getTime() < ref,
     );
     overdueTasks += od.length;
     if (od.length) overdueSkus++;

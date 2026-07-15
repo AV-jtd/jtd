@@ -49,12 +49,15 @@ export function useRealtimeSubscriptions() {
     // Tasks: changes from other users (or other tabs/devices). Optimistic updates
     // already cover the local user's own actions, but realtime ensures changes
     // made elsewhere become visible. Debounced (1s) to absorb burst replays.
+    // STM Mission Control's stage tasks (task_type='stm_stage') are rows in
+    // this same table, cached separately under ["stm-stage-tasks", userId] —
+    // include it so cross-user/cross-tab edits reach the STM matrix too.
     const tasksChannel = supabase
       .channel("global-tasks-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "tasks" },
-        () => debouncedInvalidate(tasksTimer, [["tasks"], ["client_room_tasks"], ["client_task_threads"]])
+        () => debouncedInvalidate(tasksTimer, [["tasks"], ["client_room_tasks"], ["client_task_threads"], ["stm-stage-tasks"]])
       )
       .subscribe();
 

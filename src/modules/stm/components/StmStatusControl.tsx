@@ -83,8 +83,11 @@ export default function StmStatusControl({ groupId, groupName, meta, current, ar
         closed_at: opt.archives ? (archivedAt ?? new Date().toISOString()) : null,
         archive_comment: vars.status === "stop" ? vars.comment : null,
       };
-      const { error } = await supabase.from("task_groups").update(payload as any).eq("id", groupId);
+      const { data, error } = await supabase.from("task_groups").update(payload as any).eq("id", groupId).select("id");
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("нет прав на изменение этого SKU");
+      }
     },
     onMutate: async (vars) => {
       await qc.cancelQueries({ queryKey: STM_KEYS.groups() });

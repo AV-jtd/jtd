@@ -223,7 +223,9 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
       .filter((v): v is number => v != null);
     const minStart = starts.length ? Math.min(...starts) : null;
     const maxEnd = ends.length ? Math.max(...ends) : null;
-    const today = Date.now();
+    // Freeze at archive time so an archived SKU's "days left" doesn't keep
+    // drifting further into overdue as real time passes.
+    const today = project.archivedAt ? new Date(project.archivedAt).getTime() : Date.now();
     const left = maxEnd ? Math.ceil((maxEnd - today) / 86_400_000) : null;
     const drifts = stageTasks.map(t => calcDrift(t)).filter((v): v is number => v != null && v > 0);
     const drift = drifts.length ? drifts.reduce((s, v) => s + v, 0) : 0;
@@ -233,7 +235,7 @@ function StmExpandedRowInner({ project, stages, onOpenGantt, activeStageKey: con
       daysLeft: left,
       globalDrift: drift,
     };
-  }, [stageTasks]);
+  }, [stageTasks, project.archivedAt]);
 
   // ---- Active task for inline TaskItem ----
   const activeTask = activeStageKey

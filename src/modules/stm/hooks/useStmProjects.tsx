@@ -412,9 +412,19 @@ export function useCreateStmStage() {
 }
 
 /**
- * Shift a stage's deadline. If `cascade` is true (default), all downstream
- * stages of the same SKU are pushed by the same delta — matches Gantt
- * cascade behavior so dates stay consistent across views.
+ * Shift a stage's deadline. If `cascade` is true (default), downstream
+ * stages of the same SKU that were already scheduled chronologically after
+ * this one are pushed by the same delta — matches Gantt cascade behavior so
+ * dates stay consistent across views.
+ *
+ * Stage ARRAY position alone is not used to decide what cascades: it's only
+ * the nominal/average process order, not a real per-SKU dependency chain.
+ * A later-position stage can legitimately have been dated (independently,
+ * manually) earlier in real time than the stage being edited — e.g. a
+ * "branch_open" entered before "production_run" was ever filled in. Only
+ * stages whose stored deadline was already after the edited stage's OLD
+ * deadline are treated as real downstream successors and shifted; anything
+ * dated earlier is left untouched.
  */
 export function useShiftStmStageDate() {
   const qc = useQueryClient();
@@ -448,7 +458,8 @@ export function useShiftStmStageDate() {
           t.group_id === task.group_id &&
           (t as any).stage_key &&
           laterKeys.has((t as any).stage_key) &&
-          t.deadline,
+          t.deadline &&
+          oldDeadline && new Date(t.deadline).getTime() > oldDeadline.getTime(),
         );
         for (const t of later) {
           const newDl = new Date(new Date(t.deadline as string).getTime() + deltaMs).toISOString();
@@ -485,7 +496,8 @@ export function useShiftStmStageDate() {
           t.group_id === target?.group_id &&
           (t as any).stage_key &&
           laterKeys.has((t as any).stage_key) &&
-          t.deadline
+          t.deadline &&
+          oldDl && new Date(t.deadline).getTime() > oldDl.getTime()
         ) {
           return { ...t, deadline: new Date(new Date(t.deadline).getTime() + deltaMs).toISOString() };
         }
@@ -672,11 +684,18 @@ export function useUpdateStmGroupMeta() {
         const meta = { ...(((g as any)?.stm_meta) || {}) } as StmMeta;
         if (value) (meta as any)[input.field] = value;
         else delete (meta as any)[input.field];
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("task_groups")
           .update({ stm_meta: meta as any })
-          .eq("id", id);
+          .eq("id", id)
+          .select("id");
         if (error) throw error;
+        // RLS can silently no-op an update (0 rows, no error) instead of
+        // throwing — that used to look like a successful save which then
+        // reverted on the next refetch. Surface it as a real failure.
+        if (!data || data.length === 0) {
+          throw new Error("нет прав на изменение этого SKU");
+        }
       }
       return { count: input.groupIds.length };
     },
@@ -699,11 +718,15 @@ export function useSetStmGroupManager() {
         const meta = { ...(((g as any)?.stm_meta) || {}) } as StmMeta;
         if (input.managerId) (meta as any).manager_id = input.managerId;
         else delete (meta as any).manager_id;
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("task_groups")
           .update({ stm_meta: meta as any })
-          .eq("id", id);
+          .eq("id", id)
+          .select("id");
         if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error("нет прав на изменение этого SKU");
+        }
       }
       return { count: input.groupIds.length };
     },

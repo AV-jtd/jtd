@@ -29,6 +29,12 @@ export type TagCategory = { id: string; name: string; color: string | null; posi
 
 function updateAllTaskCaches(qc: QueryClient, updater: (tasks: Task[]) => Task[]) {
   qc.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) => old ? updater(old) : old);
+  // STM Mission Control reads task_type='stm_stage' rows under a separate
+  // query key (["stm-stage-tasks", userId]) — same underlying tasks table,
+  // different cache. Without this, edits made via the generic TaskItem
+  // editor (e.g. the inline stage editor in the STM expanded row) never
+  // reach the STM matrix until a full page reload.
+  qc.setQueriesData<Task[]>({ queryKey: ["stm-stage-tasks"] }, (old) => old ? updater(old) : old);
 }
 
 function updateAllGroupCaches(qc: QueryClient, updater: (groups: TaskGroup[]) => TaskGroup[]) {
@@ -38,6 +44,9 @@ function updateAllGroupCaches(qc: QueryClient, updater: (groups: TaskGroup[]) =>
 function snapshotTasks(qc: QueryClient) {
   const cache: [readonly unknown[], Task[] | undefined][] = [];
   qc.getQueriesData<Task[]>({ queryKey: ["tasks"] }).forEach(([key, data]) => {
+    cache.push([key, data]);
+  });
+  qc.getQueriesData<Task[]>({ queryKey: ["stm-stage-tasks"] }).forEach(([key, data]) => {
     cache.push([key, data]);
   });
   return cache;
@@ -1490,6 +1499,7 @@ export function useTaskMutations() {
     },
     onMutate: async ({ id, ...updates }) => {
       await qc.cancelQueries({ queryKey: ["tasks"] });
+      await qc.cancelQueries({ queryKey: ["stm-stage-tasks"] });
       const snap = snapshotTasks(qc);
       updateAllTaskCaches(qc, (tasks) => tasks.map(t => t.id === id ? { ...t, ...updates } : t));
       return { snap };
@@ -1501,6 +1511,7 @@ export function useTaskMutations() {
       // across all useTasks(groupId, filterTags) variants.
       qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["crm-tasks"], refetchType: "none" });
+      qc.invalidateQueries({ queryKey: ["stm-stage-tasks"], refetchType: "none" });
     },
   });
 
@@ -1516,7 +1527,10 @@ export function useTaskMutations() {
       return { snap };
     },
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" }),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" });
+      qc.invalidateQueries({ queryKey: ["stm-stage-tasks"], refetchType: "none" });
+    },
   });
 
   const toggleTask = useMutation({
@@ -1602,6 +1616,7 @@ export function useTaskMutations() {
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" });
+      qc.invalidateQueries({ queryKey: ["stm-stage-tasks"], refetchType: "none" });
       // Закрытие/открытие задачи влияет на отображение в чатах
       // (зачёркивание + pill «Закрыта» в TaskChat header, ProjectChat
       // CreatedTaskCard и шапке/списке тредов мессенджера).
