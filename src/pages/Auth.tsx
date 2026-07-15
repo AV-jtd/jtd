@@ -216,104 +216,101 @@ export default function Auth() {
           ) : (
             /* Main form */
             <>
-              <h2 className="text-2xl font-semibold text-foreground mb-2">
-                {isSignUp ? "Создать аккаунт" : "Добро пожаловать!"}
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                {isSignUp ? "Заполните данные для регистрации" : "Войдите в свой аккаунт"}
-              </p>
+              {isSignUp ? (
+                /* Регистрация теперь только через Telegram-бота — сайт сам
+                   аккаунты не создаёт (email-подтверждение через GoTrue
+                   сейчас не работает, SMTP не настроен). */
+                <>
+                  <h2 className="text-2xl font-semibold text-foreground mb-2">Регистрация через Telegram</h2>
+                  <p className="text-muted-foreground mb-6">
+                    Пока это единственный способ создать аккаунт.
+                  </p>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {isSignUp && (
-                  <>
-                    {/* Step-by-step guide */}
-                    <div className="rounded-lg border border-border bg-muted/50 p-4 mb-2 space-y-3">
-                      <p className="text-sm font-medium text-foreground">Как зарегистрироваться:</p>
-                      <ol className="text-xs text-muted-foreground space-y-2 list-decimal list-inside">
-                        <li>
-                          Откройте <a href="https://t.me/Scope_todo_bot" target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">@Scope_todo_bot</a> в Telegram и нажмите <span className="font-medium text-foreground">/start</span>
-                        </li>
-                        <li>Заполните форму ниже — укажите имя, Telegram username, email и пароль</li>
-                        <li>Нажмите «Получить код в Telegram» — бот пришлёт 6-значный код</li>
-                        <li>Введите код — регистрация завершена!</li>
-                      </ol>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="displayName">Имя</Label>
-                      <Input
-                        id="displayName"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        placeholder="Ваше имя"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="telegram" className="flex items-center gap-2">
-                        <MessageCircle className="h-4 w-4" />
-                        Telegram username
-                      </Label>
-                      <Input
-                        id="telegram"
-                        value={telegramUsername}
-                        onChange={(e) => setTelegramUsername(e.target.value)}
-                        placeholder="username (без @)"
-                        required
-                      />
-                    </div>
-                  </>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="email@example.com"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Пароль</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    minLength={6}
-                  />
-                </div>
-                {!isSignUp && (
-                  <div className="text-right">
-                    <button
-                      type="button"
-                      onClick={handleForgotPassword}
-                      disabled={submitting}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Забыли пароль?
-                    </button>
+                  <div className="rounded-lg border border-border bg-muted/50 p-4 space-y-3">
+                    <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
+                      <li>
+                        Откройте <a href="https://t.me/Scope_todo_bot" target="_blank" rel="noreferrer" className="text-primary hover:underline font-medium">@Scope_todo_bot</a> в Telegram
+                      </li>
+                      <li>Отправьте боту команду <span className="font-medium text-foreground">/register</span></li>
+                      <li>Ответьте на 3 вопроса: имя и фамилия, компания, рабочий email</li>
+                      <li>Бот пришлёт временный пароль тем же сообщением</li>
+                      <li>Вернитесь сюда, нажмите «Войти» и авторизуйтесь этим паролем</li>
+                    </ol>
                   </div>
-                )}
-                <Button type="submit" className="w-full" disabled={submitting}>
-                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isSignUp ? "Получить код в Telegram" : "Войти"}
-                </Button>
-              </form>
 
-              <p className="mt-6 text-center text-sm text-muted-foreground">
-                {isSignUp ? "Уже есть аккаунт?" : "Нет аккаунта?"}{" "}
-                <button
-                  onClick={() => { setIsSignUp(!isSignUp); setStep("form"); setOtpCode(""); }}
-                  className="text-primary hover:underline font-medium"
-                >
-                  {isSignUp ? "Войти" : "Зарегистрироваться"}
-                </button>
-              </p>
+                  <a href="https://t.me/Scope_todo_bot" target="_blank" rel="noreferrer" className="block mt-4">
+                    <Button type="button" className="w-full">
+                      <MessageCircle className="mr-2 h-4 w-4" />
+                      Открыть бота в Telegram
+                    </Button>
+                  </a>
+
+                  <p className="mt-6 text-center text-sm text-muted-foreground">
+                    Уже есть аккаунт?{" "}
+                    <button
+                      onClick={() => setIsSignUp(false)}
+                      className="text-primary hover:underline font-medium"
+                    >
+                      Войти
+                    </button>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-semibold text-foreground mb-2">Добро пожаловать!</h2>
+                  <p className="text-muted-foreground mb-6">Войдите в свой аккаунт</p>
+
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="email@example.com"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Пароль</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        minLength={6}
+                      />
+                    </div>
+                    <div className="text-right">
+                      <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        disabled={submitting}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Забыли пароль?
+                      </button>
+                    </div>
+                    <Button type="submit" className="w-full" disabled={submitting}>
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Войти
+                    </Button>
+                  </form>
+
+                  <p className="mt-6 text-center text-sm text-muted-foreground">
+                    Нет аккаунта?{" "}
+                    <button
+                      onClick={() => setIsSignUp(true)}
+                      className="text-primary hover:underline font-medium"
+                    >
+                      Зарегистрироваться
+                    </button>
+                  </p>
+                </>
+              )}
             </>
           )}
         </div>
