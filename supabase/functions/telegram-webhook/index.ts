@@ -6,6 +6,7 @@ import {
   mirrorTaskCreatedCard,
   fanOutToGroups,
   formatRelayMessage,
+  bulkAutoJoinTelegramChatMembers,
 } from "../_shared/messenger-core.ts";
 
 const corsHeaders = {
@@ -640,6 +641,7 @@ Deno.serve(async (req) => {
             .maybeSingle();
           if (tokenRow) {
             const res = await linkGroupChat(supabase, "telegram", chatId, rawArg);
+            let joinedMsg = "";
             if (res.ok) {
               await supabase.from("telegram_group_chats").upsert(
                 {
@@ -651,8 +653,10 @@ Deno.serve(async (req) => {
                 },
                 { onConflict: "telegram_chat_id" },
               );
+              const joined = await bulkAutoJoinTelegramChatMembers(supabase, BOT_TOKEN, chatId, tokenRow.group_id, userId);
+              if (joined > 0) joinedMsg = `\n👥 Добавлено в проект: ${joined}`;
             }
-            await sendTelegramMessage(BOT_TOKEN, chatId, res.message, "Markdown");
+            await sendTelegramMessage(BOT_TOKEN, chatId, res.message + joinedMsg, "Markdown");
             return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
           }
           // no matching code → fall through to project-name matching below
@@ -704,9 +708,11 @@ Deno.serve(async (req) => {
               chat_mirror_enabled: existingGroup?.chat_mirror_enabled ?? true,
             })
             .eq("id", group.id);
+          const joined = await bulkAutoJoinTelegramChatMembers(supabase, BOT_TOKEN, chatId, group.id, userId);
+          const joinedMsg = joined > 0 ? `\n👥 Добавлено в проект: ${joined}` : "";
           await sendTelegramMessage(
             BOT_TOKEN, chatId,
-            `✅ Чат привязан к проекту ${group.icon || "📁"} *${escapeMarkdown(group.name)}*\n\nТеперь используйте /task для создания задач.`,
+            `✅ Чат привязан к проекту ${group.icon || "📁"} *${escapeMarkdown(group.name)}*\n\nТеперь используйте /task для создания задач.${joinedMsg}`,
             "Markdown"
           );
         }

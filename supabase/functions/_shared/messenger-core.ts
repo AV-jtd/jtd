@@ -1297,6 +1297,51 @@ export async function ensureGroupMembership(
   return true;
 }
 
+/**
+ * At link time, bulk-add every JTD user who is already a member of the
+ * linked Telegram chat — not just those who happen to send a message there
+ * afterwards (that incremental path is ensureGroupMembership, called from
+ * message handlers). Checks membership via getChatMember for every profile
+ * that has a telegram_chat_id; best-effort, a single failed lookup doesn't
+ * abort the rest.
+ *
+ * Telegram-only: the Bot API has no "list all members" endpoint, but
+ * getChatMember lets us check specific known users one by one. MAX has no
+ * documented equivalent in this codebase yet, so MAX projects still rely
+ * solely on the incremental per-message auto-join.
+ */
+export async function bulkAutoJoinTelegramChatMembers(
+  supabase: any,
+  botToken: string,
+  chatId: string | number,
+  groupId: string,
+  invitedBy: string,
+): Promise<number> {
+  const { data: candidates } = await supabase
+    .from("profiles")
+    .select("id, telegram_chat_id")
+    .not("telegram_chat_id", "is", null);
+  if (!candidates || candidates.length === 0) return 0;
+
+  let added = 0;
+  await Promise.all(candidates.map(async (p: any) => {
+    try {
+      const resp = await fetch(
+        `https://api.telegram.org/bot${botToken}/getChatMember?chat_id=${chatId}&user_id=${p.telegram_chat_id}`,
+      );
+      const json = await resp.json();
+      const status = json?.result?.status;
+      if (json?.ok && status && status !== "left" && status !== "kicked") {
+        const joined = await ensureGroupMembership(supabase, groupId, p.id, invitedBy);
+        if (joined) added++;
+      }
+    } catch (_e) {
+      // best-effort — one bad lookup shouldn't break linking
+    }
+  }));
+  return added;
+}
+
 /** Bind a messenger group chat to a JTD project using a short-lived code. */
 export async function linkGroupChat(
   supabase: any,
