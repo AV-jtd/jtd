@@ -84,19 +84,46 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Include subgroups, mirroring send-weekly-group-report.
-    const { data: subgroups } = await svc.from("task_groups").select("id").eq("parent_id", groupId);
-    const allGroupIds = [groupId, ...(subgroups ?? []).map((s: any) => s.id)];
+    // Subgroups (categories) — mirroring send-weekly-group-report.
+    const { data: subgroups } = await svc.from("task_groups").select("id, name").eq("parent_id", groupId);
+    const subgroupList = subgroups ?? [];
+    const allGroupIds = [groupId, ...subgroupList.map((s: any) => s.id)];
+
+    // Team = actual project membership (group_members), not task assignee —
+    // a single person can be assigned_to on every task while the real team
+    // is much bigger (or vice versa).
+    const { data: members } = await svc.from("group_members").select("user_id").eq("group_id", groupId);
+    const participants = new Set((members ?? []).map((m: any) => m.user_id)).size;
 
     const { data: tasks } = await svc
       .from("tasks")
-      .select("id, is_completed, assigned_to")
+      .select("id, is_completed, deadline, completed_at, group_id")
       .in("group_id", allGroupIds);
     const allTasks = tasks ?? [];
     const total = allTasks.length;
     const completed = allTasks.filter((t: any) => t.is_completed).length;
     const pct = total > 0 ? Math.round((completed / total) * 100) : 100;
-    const participants = new Set(allTasks.map((t: any) => t.assigned_to).filter(Boolean)).size;
+
+    const lateTasks = allTasks.filter((t: any) =>
+      t.is_completed && t.deadline && t.completed_at && new Date(t.completed_at) > new Date(t.deadline),
+    );
+    const avgLateDays = lateTasks.length > 0
+      ? Math.round(
+          lateTasks.reduce((sum: number, t: any) =>
+            sum + (new Date(t.completed_at).getTime() - new Date(t.deadline).getTime()) / 86_400_000, 0)
+          / lateTasks.length,
+        )
+      : 0;
+
+    const taskIds = allTasks.map((t: any) => t.id);
+    let commentCount = 0;
+    if (taskIds.length > 0) {
+      const { count } = await svc
+        .from("task_comments")
+        .select("id", { count: "exact", head: true })
+        .in("task_id", taskIds);
+      commentCount = count ?? 0;
+    }
 
     const closedAt = group.closed_at ? new Date(group.closed_at) : new Date();
     const createdAt = group.created_at ? new Date(group.created_at) : null;
@@ -107,10 +134,32 @@ Deno.serve(async (req) => {
     const lines = [
       `🎉 <b>Проект «${escapeHtml(group.name)}» завершён!</b> Молодцы! 👏`,
       ``,
-      `📊 Задач: <b>${completed}/${total}</b>${total > 0 ? ` (${pct}%)` : ""}`,
     ];
-    if (durationDays != null) lines.push(`⏱ Длительность: <b>${durationDays} дн.</b>`);
+    if (createdAt) {
+      lines.push(`📅 ${createdAt.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} — ${closedAt.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}${durationDays != null ? ` (${durationDays} дн.)` : ""}`);
+    }
+    lines.push(`📊 Задач: <b>${completed}/${total}</b>${total > 0 ? ` (${pct}%)` : ""}`);
     if (participants > 0) lines.push(`👥 Участников: <b>${participants}</b>`);
+    if (commentCount > 0) {
+      const perTask = total > 0 ? commentCount / total : 0;
+      const engagementLabel = perTask >= 0.5 ? " — высокая вовлечённость!" : perTask >= 0.15 ? " — хорошая вовлечённость" : "";
+      lines.push(`💬 Комментариев: <b>${commentCount}</b>${engagementLabel}`);
+    }
+    if (lateTasks.length > 0) {
+      lines.push(`⏰ С опозданием: <b>${lateTasks.length}/${total}</b> (в среднем +${avgLateDays} дн.)`);
+    }
+
+    const categoryRows = subgroupList
+      .map((s: any) => {
+        const inCat = allTasks.filter((t: any) => t.group_id === s.id);
+        return { name: s.name, total: inCat.length, done: inCat.filter((t: any) => t.is_completed).length };
+      })
+      .filter((c) => c.total > 0)
+      .sort((a, b) => b.total - a.total);
+    if (categoryRows.length > 1) {
+      lines.push(``, `📂 <b>По направлениям:</b>`);
+      categoryRows.forEach((c) => lines.push(`  • ${escapeHtml(c.name)}: ${c.done}/${c.total}`));
+    }
 
     const tgResp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: "POST",
