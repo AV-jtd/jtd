@@ -1103,6 +1103,20 @@ export function useTaskMutations() {
     mutationFn: async ({ id, closed_at }: { id: string; closed_at: string | null }) => {
       const { error } = await supabase.from("task_groups").update({ closed_at } as any).eq("id", id);
       if (error) throw error;
+
+      // Archiving (not un-archiving): announce in the project's linked
+      // Telegram group with brief stats, if one is linked.
+      if (closed_at) {
+        try {
+          const { data: session } = await supabase.auth.getSession();
+          if (session.session) {
+            supabase.functions.invoke("notify-project-archived", {
+              body: { groupId: id },
+              headers: { Authorization: `Bearer ${session.session.access_token}` },
+            }).catch(() => {});
+          }
+        } catch {}
+      }
     },
     onMutate: async ({ id, closed_at }) => {
       await qc.cancelQueries({ queryKey: ["task_groups"] });
