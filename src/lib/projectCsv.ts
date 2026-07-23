@@ -383,7 +383,7 @@ export async function importCsvToProject(
     for (const name of supportNames) {
       const uid = findUserId(name);
       if (uid && uid !== assignedUserId && !participantInserts.find(p => p.user_id === uid)) {
-        participantInserts.push({ task_id: task.id, user_id: uid, role: "support" });
+        participantInserts.push({ task_id: task.id, user_id: uid, role: "participant" });
       }
     }
     if (participantInserts.length > 0) {

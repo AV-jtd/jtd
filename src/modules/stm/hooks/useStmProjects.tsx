@@ -771,7 +771,7 @@ export function useAddStmGroupParticipants() {
       for (const tid of taskIds) {
         for (const uid of input.userIds) {
           if (existingSet.has(`${tid}:${uid}`)) continue;
-          rows.push({ task_id: tid, user_id: uid, role: "support" });
+          rows.push({ task_id: tid, user_id: uid, role: "participant" });
         }
       }
       if (rows.length) {
