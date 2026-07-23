@@ -954,6 +954,12 @@ export default function NpdBoard({ projectFilter, onProjectFilterChange }: {
               >
                 СТМ Mission Control
               </button>
+              <button
+                onClick={() => navigate("/npd/km")}
+                className="text-xs font-medium px-3 py-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+              >
+                KM Brand Control
+              </button>
             </div>
           </div>
 

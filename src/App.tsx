@@ -33,6 +33,7 @@ const Crm = lazyWithRetry(() => import("./pages/Crm"));
 const Npd = lazyWithRetry(() => import("./pages/Npd"));
 const NpdMatrix = lazyWithRetry(() => import("./pages/NpdMatrix"));
 const StmMatrix = lazyWithRetry(() => import("./pages/StmMatrix"));
+const KmMatrix = lazyWithRetry(() => import("./pages/KmMatrix"));
 const ProjectPage = lazyWithRetry(() => import("./pages/ProjectPage"));
 const WikiDemo = lazyWithRetry(() => import("./pages/WikiDemo"));
 const PublicReport = lazyWithRetry(() => import("./pages/PublicReport"));
@@ -124,6 +125,7 @@ function AppContent() {
               <Route path="/npd" element={<ConsultantBlocked><Npd /></ConsultantBlocked>} />
               <Route path="/npd/matrix/:id" element={<ConsultantBlocked><NpdMatrix /></ConsultantBlocked>} />
               <Route path="/npd/stm" element={<ConsultantBlocked><StmMatrix /></ConsultantBlocked>} />
+              <Route path="/npd/km" element={<ConsultantBlocked><KmMatrix /></ConsultantBlocked>} />
               <Route path="/protocols" element={<ConsultantBlocked><Protocols /></ConsultantBlocked>} />
               <Route path="/protocols/:id" element={<ConsultantBlocked><ProtocolDetail /></ConsultantBlocked>} />
               <Route path="/kanban" element={<ConsultantBlocked><Kanban /></ConsultantBlocked>} />

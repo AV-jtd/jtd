@@ -1,22 +1,20 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, LayoutGrid, Filter, FileSpreadsheet, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle, CheckCircle2, Clock, Rocket, CircleDashed, Pencil, Trash2, Tag, FolderKanban, Package, Boxes } from "lucide-react";
+import { Plus, Search, LayoutGrid, Filter, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Rows3, Rows2, AlertTriangle, CheckCircle2, Clock, Rocket, CircleDashed, Pencil, Trash2, Tag, FolderKanban, Boxes, Package } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { useStmProjects, useStmStructureNodes, useDeleteStmStructureNode } from "../hooks/useStmProjects";
-import { getStmStages, type StmFlow } from "../lib/stages";
-import { StmMatrixHeader } from "../components/StmMatrixHeader";
-import { StmMatrixRow } from "../components/StmMatrixRow";
-import { StmDashboardBar } from "../components/StmDashboardBar";
-import { computeStmAnalytics, isStmProjectOverdue, isStmProjectBlocked, isStmProjectStuck } from "../lib/stmAnalytics";
-import StmCreateSkuDialog from "../components/StmCreateSkuDialog";
-import StmExcelImportDialog from "../components/StmExcelImportDialog";
-import StmEditGroupDialog from "../components/StmEditGroupDialog";
-import StmCreateStructureDialog from "../components/StmCreateStructureDialog";
+import { useKmProjects, useKmStructureNodes, useDeleteKmStructureNode } from "../hooks/useKmProjects";
+import { KM_STAGES } from "../lib/stages";
+import { KmMatrixHeader } from "../components/KmMatrixHeader";
+import { KmMatrixRow } from "../components/KmMatrixRow";
+import { KmDashboardBar } from "../components/KmDashboardBar";
+import { computeKmAnalytics, isKmProjectOverdue, isKmProjectBlocked, isKmProjectStuck, KM_READY_TO_LAUNCH_STAGE } from "../lib/kmAnalytics";
+import KmCreateSkuDialog from "../components/KmCreateSkuDialog";
+import KmEditGroupDialog from "../components/KmEditGroupDialog";
+import KmCreateStructureDialog from "../components/KmCreateStructureDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import type { StmGroupField } from "../hooks/useStmProjects";
+import type { KmGroupField } from "../hooks/useKmProjects";
 import { cn } from "@/lib/utils";
 
 /** Aggregate stats shape shared by group + subgroup headers. */
@@ -63,7 +61,7 @@ function GroupMetrics({ s, size = "md" }: { s: GroupStat; size?: "md" | "sm" }) 
         </span>
       )}
       {s.readyCount > 0 && (
-        <span className={cn(badge, "text-primary")} title="Готовы к запуску (вкус утверждён)">
+        <span className={cn(badge, "text-primary")} title="Готовы к запуску">
           <Rocket className={ic} />{s.readyCount}
         </span>
       )}
@@ -87,45 +85,42 @@ function GroupMetrics({ s, size = "md" }: { s: GroupStat; size?: "md" | "sm" }) 
 }
 
 /**
- * STM (Private Label) Mission Control matrix.
- * Architectural Glass aesthetic: dark glass surfaces, glowing accent on active stage.
+ * KM Brand Control matrix — clone of STM Mission Control with a different
+ * 18-gate single-flow pipeline. Architectural Glass aesthetic reused as-is.
  */
-export default function StmMatrixView() {
+export default function KmMatrixView() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const projects = useStmProjects();
-  const { data: structureNodes = [] } = useStmStructureNodes();
-  const deleteNode = useDeleteStmStructureNode();
-  const [flow, setFlow] = useState<StmFlow>("in");
+  const projects = useKmProjects();
+  const { data: structureNodes = [] } = useKmStructureNodes();
+  const deleteNode = useDeleteKmStructureNode();
   const [groupBy, setGroupBy] = useState<"none" | "retailer" | "drop" | "brand" | "project">("retailer");
   // Secondary grouping: within a brand/retailer group, split rows by project.
   const [subGroupProject, setSubGroupProject] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("stm:subGroupProject") === "1";
+    return window.localStorage.getItem("km:subGroupProject") === "1";
   });
   useEffect(() => {
-    try { window.localStorage.setItem("stm:subGroupProject", subGroupProject ? "1" : "0"); } catch { /* ignore */ }
+    try { window.localStorage.setItem("km:subGroupProject", subGroupProject ? "1" : "0"); } catch { /* ignore */ }
   }, [subGroupProject]);
   // Default = active only ("чтобы лишнего не показывать"). Persist to localStorage.
   const [statusFilter, setStatusFilter] = useState<"active" | "archived" | "all">(() => {
     if (typeof window === "undefined") return "active";
-    const v = window.localStorage.getItem("stm:statusFilter");
+    const v = window.localStorage.getItem("km:statusFilter");
     return v === "archived" || v === "all" ? v : "active";
   });
   useEffect(() => {
-    try { window.localStorage.setItem("stm:statusFilter", statusFilter); } catch { /* ignore */ }
+    try { window.localStorage.setItem("km:statusFilter", statusFilter); } catch { /* ignore */ }
   }, [statusFilter]);
-  // Поддержка ?q= из карточки клиента («Открыть в СТМ Mission Control»).
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [createOpen, setCreateOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   // "+ Создать" → structure placeholder dialog (brand/project/drop/retailer).
-  const [createStructure, setCreateStructure] = useState<StmGroupField | null>(null);
+  const [createStructure, setCreateStructure] = useState<KmGroupField | null>(null);
   // "+ SKU" from a group/project header → pre-filled create-SKU dialog.
-  const [createSkuPrefill, setCreateSkuPrefill] = useState<Partial<Record<StmGroupField, string>> | null>(null);
+  const [createSkuPrefill, setCreateSkuPrefill] = useState<Partial<Record<KmGroupField, string>> | null>(null);
   // Group-header editor (rename/merge + manager + participants).
   const [editGroup, setEditGroup] = useState<{
-    field: StmGroupField;
+    field: KmGroupField;
     value: string;
     groupIds: string[];
     managerId: string | null;
@@ -133,20 +128,20 @@ export default function StmMatrixView() {
   // Row density: comfortable (full) or compact (single-line dot heat-map).
   const [density, setDensity] = useState<"comfortable" | "compact">(() => {
     if (typeof window === "undefined") return "comfortable";
-    return window.localStorage.getItem("stm:density") === "compact" ? "compact" : "comfortable";
+    return window.localStorage.getItem("km:density") === "compact" ? "compact" : "comfortable";
   });
   useEffect(() => {
-    try { window.localStorage.setItem("stm:density", density); } catch { /* ignore */ }
+    try { window.localStorage.setItem("km:density", density); } catch { /* ignore */ }
   }, [density]);
   // Dashboard funnel filter: show only SKUs whose current stage matches.
   const [focusStage, setFocusStage] = useState<string | null>(null);
   // Persist collapsed groups per groupBy mode in localStorage so that the
   // layout survives reloads and tab navigation.
-  const storageKey = `stm:collapsedGroups:${groupBy}`;
+  const storageKey = `km:collapsedGroups:${groupBy}`;
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
-      const raw = window.localStorage.getItem(`stm:collapsedGroups:${groupBy}`);
+      const raw = window.localStorage.getItem(`km:collapsedGroups:${groupBy}`);
       if (!raw) return new Set();
       const arr = JSON.parse(raw);
       return Array.isArray(arr) ? new Set(arr as string[]) : new Set();
@@ -207,19 +202,11 @@ export default function StmMatrixView() {
     );
   };
 
-  // If the expanded SKU belongs to the other flow, switch tabs to keep it visible.
-  useEffect(() => {
-    if (!expandedSku) return;
-    const target = projects.find(p => p.group.id === expandedSku);
-    if (target && target.flow !== flow) setFlow(target.flow);
-  }, [expandedSku, projects, flow]);
-
-  const stages = getStmStages(flow);
+  const stages = KM_STAGES;
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return projects
-      .filter(p => p.flow === flow)
       .filter(p => {
         if (statusFilter === "active") return !p.archivedAt;
         if (statusFilter === "archived") return !!p.archivedAt;
@@ -235,34 +222,30 @@ export default function StmMatrixView() {
           (meta.drop || "").toLowerCase().includes(q)
         );
       });
-  }, [projects, flow, search, statusFilter]);
+  }, [projects, search, statusFilter]);
 
   // Analytics are computed on the search/status-filtered set (before the
   // funnel focus filter) so the dashboard always reflects the full portfolio.
-  const analytics = useMemo(() => computeStmAnalytics(visible, flow), [visible, flow]);
-
-  // Reset funnel focus when the flow changes (stage keys differ between flows).
-  useEffect(() => { setFocusStage(null); }, [flow]);
+  const analytics = useMemo(() => computeKmAnalytics(visible), [visible]);
 
   const focused = useMemo(
     () => (focusStage ? visible.filter(p => p.currentStageKey === focusStage) : visible),
     [visible, focusStage],
   );
 
-  // Distinct existing values per dimension (within current flow) — for merge hint.
+  // Distinct existing values per dimension — for merge hint.
   const distinctValues = useMemo(() => {
-    const flowProjects = projects.filter(p => p.flow === flow);
-    const pick = (f: StmGroupField) => Array.from(new Set(
+    const pick = (f: KmGroupField) => Array.from(new Set(
       [
-        ...flowProjects.map(p => ((p.meta as any)[f] || "").toString().trim()),
-        ...structureNodes.filter(n => n.flow === flow && n.field === f).map(n => n.value.trim()),
+        ...projects.map(p => ((p.meta as any)[f] || "").toString().trim()),
+        ...structureNodes.filter(n => n.field === f).map(n => n.value.trim()),
       ].filter(Boolean),
     ));
     return { retailer: pick("retailer"), brand: pick("brand"), drop: pick("drop"), project: pick("project") };
-  }, [projects, flow, structureNodes]);
+  }, [projects, structureNodes]);
 
   // Open the group editor for a header. Derives a shared manager if all SKUs agree.
-  const openGroupEditor = (field: StmGroupField, value: string, items: typeof visible) => {
+  const openGroupEditor = (field: KmGroupField, value: string, items: typeof visible) => {
     const groupIds = items.map(p => p.group.id);
     const mgrs = new Set(items.map(p => ((p.meta as any).manager_id as string | undefined) || null));
     const managerId = mgrs.size === 1 ? (Array.from(mgrs)[0] ?? null) : null;
@@ -271,39 +254,38 @@ export default function StmMatrixView() {
 
   const NO_GROUP = new Set(["Без группы", "Без проекта"]);
   // Open the create-SKU dialog pre-filled with a group/project's structure context.
-  const openCreateSku = (meta: Partial<Record<StmGroupField, string>> | null) => {
+  const openCreateSku = (meta: Partial<Record<KmGroupField, string>> | null) => {
     setCreateSkuPrefill(meta && Object.keys(meta).length ? meta : null);
     setCreateOpen(true);
   };
 
-  // Counts per status for the tab labels (within current flow).
+  // Counts per status for the tab labels.
   const statusCounts = useMemo(() => {
-    const inFlow = projects.filter(p => p.flow === flow);
     return {
-      active: inFlow.filter(p => !p.archivedAt).length,
-      archived: inFlow.filter(p => !!p.archivedAt).length,
-      all: inFlow.length,
+      active: projects.filter(p => !p.archivedAt).length,
+      archived: projects.filter(p => !!p.archivedAt).length,
+      all: projects.length,
     };
-  }, [projects, flow]);
+  }, [projects]);
 
   const stat = (items: typeof visible) => {
     const count = items.length;
     const avgProgress = count ? Math.round(items.reduce((s, p) => s + p.progress, 0) / count) : 0;
-    const overdueCount = items.filter(isStmProjectOverdue).length;
+    const overdueCount = items.filter(isKmProjectOverdue).length;
     // Завершённые SKU (100%).
     const doneCount = items.filter(p => p.progress >= 100).length;
     // В работе (начаты, но не закрыты и не просрочены).
-    const activeCount = items.filter(p => p.progress > 0 && p.progress < 100 && !isStmProjectOverdue(p)).length;
+    const activeCount = items.filter(p => p.progress > 0 && p.progress < 100 && !isKmProjectOverdue(p)).length;
     // Ещё не начаты.
     const notStartedCount = items.filter(p => p.progress === 0).length;
     // Риск: завис/заблокирован (без учёта уже просроченных — те идут в overdue).
     const riskCount = items.filter(p =>
-      !p.archivedAt && p.progress < 100 && !isStmProjectOverdue(p) &&
-      (isStmProjectBlocked(p) || isStmProjectStuck(p)),
+      !p.archivedAt && p.progress < 100 && !isKmProjectOverdue(p) &&
+      (isKmProjectBlocked(p) || isKmProjectStuck(p)),
     ).length;
-    // Готовы к запуску: вкус утверждён, но SKU ещё не закрыт.
+    // Готовы к запуску: последняя веха перед запуском пройдена, SKU ещё не закрыт.
     const readyCount = items.filter(p =>
-      p.progress < 100 && p.stageTasks.some(t => (t as any).stage_key === "approval" && t.is_completed),
+      p.progress < 100 && p.stageTasks.some(t => (t as any).stage_key === KM_READY_TO_LAUNCH_STAGE && t.is_completed),
     ).length;
     return { count, avgProgress, overdueCount, doneCount, activeCount, notStartedCount, riskCount, readyCount };
   };
@@ -320,7 +302,7 @@ export default function StmMatrixView() {
     const placeholderNodeByKey = new Map<string, string>();
     if (!focusStage && statusFilter !== "archived") {
       structureNodes
-        .filter(n => n.flow === flow && n.field === groupBy)
+        .filter(n => n.field === groupBy)
         .forEach(n => {
           if (!map.has(n.value)) { map.set(n.value, []); placeholderNodeByKey.set(n.value, n.id); }
         });
@@ -345,7 +327,7 @@ export default function StmMatrixView() {
         return { key, label: key, items, subgroups, placeholder: !!nodeId, nodeId, ...stat(items) };
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focused, groupBy, subGroupProject, structureNodes, flow, focusStage, statusFilter]);
+  }, [focused, groupBy, subGroupProject, structureNodes, focusStage, statusFilter]);
 
   // Aggregates-first: on every page entry start with every group collapsed
   // (portfolio "from above") regardless of saved preference. The user can
@@ -414,7 +396,7 @@ export default function StmMatrixView() {
 
   return (
     <div className="stm-matrix flex flex-col h-full bg-background text-foreground">
-      {/* NPD / STM workflow switcher */}
+      {/* NPD / STM / KM workflow switcher */}
       <div className="px-4 pt-2 shrink-0">
         <div className="inline-flex items-center gap-1 p-0.5 rounded-lg bg-muted/60 border border-border">
           <button
@@ -424,14 +406,14 @@ export default function StmMatrixView() {
             NPD проекты
           </button>
           <button
-            className="text-xs font-medium px-3 py-1 rounded-md bg-primary/15 text-primary shadow-sm"
-            aria-pressed
+            onClick={() => navigate("/npd/stm")}
+            className="text-xs font-medium px-3 py-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
           >
             СТМ Mission Control
           </button>
           <button
-            onClick={() => navigate("/npd/km")}
-            className="text-xs font-medium px-3 py-1 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+            className="text-xs font-medium px-3 py-1 rounded-md bg-primary/15 text-primary shadow-sm"
+            aria-pressed
           >
             KM Brand Control
           </button>
@@ -442,7 +424,7 @@ export default function StmMatrixView() {
       <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-border bg-card">
         <div className="flex items-center gap-2 min-w-0">
           <LayoutGrid className="h-5 w-5 text-primary" />
-          <h1 className="text-lg font-semibold text-foreground whitespace-nowrap">STM Mission Control</h1>
+          <h1 className="text-lg font-semibold text-foreground whitespace-nowrap">KM Brand Control</h1>
           <span className="text-xs text-muted-foreground ml-2">{visible.length} SKU · {totalProgress}% средний прогресс {overdueCount > 0 && (
             <span className="text-destructive ml-1">· ⚠ {overdueCount} просрочено</span>
           )}</span>
@@ -542,14 +524,6 @@ export default function StmMatrixView() {
             </button>
           </div>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setImportOpen(true)}
-            className="h-8"
-          >
-            <FileSpreadsheet className="h-3.5 w-3.5 mr-1" /> Импорт Excel
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" className="h-8">
@@ -576,20 +550,9 @@ export default function StmMatrixView() {
         </div>
       </div>
 
-      {/* Flow tabs */}
+      {/* Status filter row */}
       <div className="px-4 py-2 border-b border-border bg-muted/30">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <Tabs value={flow} onValueChange={(v) => setFlow(v as StmFlow)}>
-            <TabsList>
-              <TabsTrigger value="in">
-                Ввод SKU <span className="ml-1.5 text-[10px] opacity-60">{projects.filter(p => p.flow === "in" && !p.archivedAt).length}</span>
-              </TabsTrigger>
-              <TabsTrigger value="out">
-                Вывод SKU <span className="ml-1.5 text-[10px] opacity-60">{projects.filter(p => p.flow === "out" && !p.archivedAt).length}</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
+        <div className="flex items-center justify-end gap-3 flex-wrap">
           {/* Status filter: active / archived / all */}
           <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-muted/60 border border-border">
             {[
@@ -618,7 +581,7 @@ export default function StmMatrixView() {
       </div>
 
       {/* Dashboard summary band */}
-      <StmDashboardBar analytics={analytics} />
+      <KmDashboardBar analytics={analytics} />
 
       {/* Matrix scroll area */}
       <div ref={scrollRef} className="flex-1 overflow-auto">
@@ -626,9 +589,7 @@ export default function StmMatrixView() {
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 py-16">
             <LayoutGrid className="h-10 w-10 opacity-40" />
             <div className="text-sm">
-              {focusStage
-                ? "Нет SKU на выбранном этапе"
-                : `Нет SKU в потоке «${flow === "in" ? "Ввод" : "Вывод"}»`}
+              {focusStage ? "Нет SKU на выбранном этапе" : "Нет SKU в KM Brand Control"}
             </div>
             {focusStage ? (
               <Button size="sm" variant="outline" onClick={() => setFocusStage(null)}>
@@ -642,7 +603,7 @@ export default function StmMatrixView() {
           </div>
         ) : (
           <div style={{ width: matrixWidth }} className="relative">
-            <StmMatrixHeader stages={stages} />
+            <KmMatrixHeader stages={stages} />
             <div style={{ height: rowVirtualizer.getTotalSize(), position: "relative" }}>
               {rowVirtualizer.getVirtualItems().map(vi => {
                 const it = flatItems[vi.index];
@@ -680,7 +641,7 @@ export default function StmMatrixView() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => openCreateSku(NO_GROUP.has(it.group.label) ? null : { [groupBy as StmGroupField]: it.group.label })}
+                          onClick={() => openCreateSku(NO_GROUP.has(it.group.label) ? null : { [groupBy as KmGroupField]: it.group.label })}
                           className={cn(
                             "shrink-0 inline-flex items-center gap-0.5 h-6 px-1.5 rounded text-[10px] font-medium border border-border/60 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-background/60 transition-colors",
                             it.group.placeholder ? "opacity-100" : "opacity-0 group-hover/hdr:opacity-100",
@@ -701,7 +662,7 @@ export default function StmMatrixView() {
                         ) : groupBy !== "none" && (
                           <button
                             type="button"
-                            onClick={() => openGroupEditor(groupBy as StmGroupField, it.group.label, it.group.items)}
+                            onClick={() => openGroupEditor(groupBy as KmGroupField, it.group.label, it.group.items)}
                             className="shrink-0 p-1 rounded text-muted-foreground/50 hover:text-foreground hover:bg-background/60 opacity-0 group-hover/hdr:opacity-100 transition-opacity"
                             title="Редактировать группу (название, объединение, участники)"
                           >
@@ -733,8 +694,8 @@ export default function StmMatrixView() {
                           type="button"
                           onClick={() => {
                             const parent = it.subgroup.key.split("//")[0];
-                            const meta: Partial<Record<StmGroupField, string>> = {};
-                            if (groupBy !== "none" && !NO_GROUP.has(parent)) meta[groupBy as StmGroupField] = parent;
+                            const meta: Partial<Record<KmGroupField, string>> = {};
+                            if (groupBy !== "none" && !NO_GROUP.has(parent)) meta[groupBy as KmGroupField] = parent;
                             if (!NO_GROUP.has(it.subgroup.label)) meta.project = it.subgroup.label;
                             openCreateSku(meta);
                           }}
@@ -753,7 +714,7 @@ export default function StmMatrixView() {
                         </button>
                       </div>
                     ) : (
-                      <StmMatrixRow
+                      <KmMatrixRow
                         project={it.project}
                         stages={stages}
                         density={density}
@@ -772,24 +733,21 @@ export default function StmMatrixView() {
         )}
       </div>
 
-      <StmCreateSkuDialog
+      <KmCreateSkuDialog
         open={createOpen}
         onOpenChange={(v) => { setCreateOpen(v); if (!v) setCreateSkuPrefill(null); }}
-        defaultFlow={flow}
         defaultMeta={createSkuPrefill ?? undefined}
       />
-      <StmExcelImportDialog open={importOpen} onOpenChange={setImportOpen} defaultFlow={flow} />
       {createStructure && (
-        <StmCreateStructureDialog
+        <KmCreateStructureDialog
           open={!!createStructure}
           onOpenChange={(v) => { if (!v) setCreateStructure(null); }}
           field={createStructure}
-          flow={flow}
           existingValues={distinctValues[createStructure]}
         />
       )}
       {editGroup && (
-        <StmEditGroupDialog
+        <KmEditGroupDialog
           open={!!editGroup}
           onOpenChange={(v) => { if (!v) setEditGroup(null); }}
           field={editGroup.field}

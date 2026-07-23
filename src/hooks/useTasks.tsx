@@ -39,6 +39,8 @@ function updateAllTaskCaches(qc: QueryClient, updater: (tasks: Task[]) => Task[]
   // editor (e.g. the inline stage editor in the STM expanded row) never
   // reach the STM matrix until a full page reload.
   qc.setQueriesData<Task[]>({ queryKey: ["stm-stage-tasks"] }, (old) => old ? updater(old) : old);
+  // Same rationale for KM Brand Control (task_type='km_stage', ["km-stage-tasks", userId]).
+  qc.setQueriesData<Task[]>({ queryKey: ["km-stage-tasks"] }, (old) => old ? updater(old) : old);
 }
 
 function updateAllGroupCaches(qc: QueryClient, updater: (groups: TaskGroup[]) => TaskGroup[]) {
@@ -51,6 +53,9 @@ function snapshotTasks(qc: QueryClient) {
     cache.push([key, data]);
   });
   qc.getQueriesData<Task[]>({ queryKey: ["stm-stage-tasks"] }).forEach(([key, data]) => {
+    cache.push([key, data]);
+  });
+  qc.getQueriesData<Task[]>({ queryKey: ["km-stage-tasks"] }).forEach(([key, data]) => {
     cache.push([key, data]);
   });
   return cache;
@@ -436,7 +441,7 @@ export function useTasks(
       const filterChunk = (chunk: Task[]): Task[] => {
         if (groupId) return chunk;
         return chunk.filter(
-          (t) => !(t as any).is_draft && (t as any).task_type !== "stm_stage",
+          (t) => !(t as any).is_draft && (t as any).task_type !== "stm_stage" && (t as any).task_type !== "km_stage",
         );
       };
 
@@ -475,11 +480,11 @@ export function useTasks(
         if (groupId) {
           query = query.eq("group_id", groupId);
         } else {
-          // ⚡ Server-side exclusion of stm_stage tasks from global lists.
+          // ⚡ Server-side exclusion of stm_stage/km_stage tasks from global lists.
           // 60%+ of tasks in mature accounts are stm_stage; excluding them
           // server-side cuts payload by ~3x and avoids parsing them client-side.
           // Client-side filter below remains as a safety net (also strips drafts).
-          query = query.or("task_type.is.null,task_type.neq.stm_stage");
+          query = query.or("task_type.is.null,and(task_type.neq.stm_stage,task_type.neq.km_stage)");
         }
 
         if (completedWindowDays === 0) {
@@ -508,11 +513,12 @@ export function useTasks(
       // Любой компонент внутри страницы протокола ДОЛЖЕН вызывать useTasks(protocolId),
       // а не useTasks() без аргументов.
       //
-      // STM stage tasks (task_type='stm_stage') живут только в /npd/stm matrix.
-      // Из глобальных списков (Inbox/Today/All) они скрываются, чтобы не засорять GTD-фокус.
-      // На странице конкретного SKU (groupId задан) они остаются видны.
+      // STM/KM stage tasks (task_type='stm_stage'/'km_stage') живут только в
+      // своих матрицах (/npd/stm, /npd/km). Из глобальных списков (Inbox/
+      // Today/All) они скрываются, чтобы не засорять GTD-фокус. На странице
+      // конкретного SKU (groupId задан) они остаются видны.
       if (!groupId) {
-        filteredTasks = filteredTasks.filter(t => !(t as any).is_draft && (t as any).task_type !== "stm_stage");
+        filteredTasks = filteredTasks.filter(t => !(t as any).is_draft && (t as any).task_type !== "stm_stage" && (t as any).task_type !== "km_stage");
       }
 
       if (filterTags && filterTags.length > 0) {
@@ -1592,6 +1598,7 @@ export function useTaskMutations() {
     onMutate: async ({ id, ...updates }) => {
       await qc.cancelQueries({ queryKey: ["tasks"] });
       await qc.cancelQueries({ queryKey: ["stm-stage-tasks"] });
+      await qc.cancelQueries({ queryKey: ["km-stage-tasks"] });
       const snap = snapshotTasks(qc);
       updateAllTaskCaches(qc, (tasks) => tasks.map(t => t.id === id ? { ...t, ...updates } : t));
       return { snap };
@@ -1604,6 +1611,7 @@ export function useTaskMutations() {
       qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["crm-tasks"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["stm-stage-tasks"], refetchType: "none" });
+      qc.invalidateQueries({ queryKey: ["km-stage-tasks"], refetchType: "none" });
     },
   });
 
@@ -1622,6 +1630,7 @@ export function useTaskMutations() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["stm-stage-tasks"], refetchType: "none" });
+      qc.invalidateQueries({ queryKey: ["km-stage-tasks"], refetchType: "none" });
     },
   });
 
@@ -1709,6 +1718,7 @@ export function useTaskMutations() {
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["stm-stage-tasks"], refetchType: "none" });
+      qc.invalidateQueries({ queryKey: ["km-stage-tasks"], refetchType: "none" });
       // Закрытие/открытие задачи влияет на отображение в чатах
       // (зачёркивание + pill «Закрыта» в TaskChat header, ProjectChat
       // CreatedTaskCard и шапке/списке тредов мессенджера).
