@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import fs from "fs";
 import { componentTagger } from "lovable-tagger";
+import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 
 /** Writes version.json into the build output so the app can detect stale caches */
 function versionJsonPlugin(version: string): Plugin {
@@ -38,6 +39,7 @@ export default defineConfig(({ mode }) => ({
     react(),
     mode === "development" && componentTagger(),
     mode === "production" && versionJsonPlugin(buildVersion),
+    mcpPlugin(),
   ].filter(Boolean),
   resolve: {
     alias: {
