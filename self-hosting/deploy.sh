@@ -31,24 +31,41 @@ git merge --no-edit -X theirs origin/main || {
 # Гарантированно наши инфра-файлы
 git checkout HEAD -- self-hosting/ 2>/dev/null || true
 
-# ---------- 2. Бэкап текущего фронта для отката ----------
-log "Бэкап dist/ для отката"
-rm -rf "$REPO_DIR/dist.backup"
-[ -d "$REPO_DIR/dist" ] && cp -r "$REPO_DIR/dist" "$REPO_DIR/dist.backup"
-
-# ---------- 3. Сборка фронтенда ----------
-log "Сборка фронтенда"
-# VITE-переменные публичные (клиентские). ANON_KEY берём из .env.supabase.
+# ---------- 2-3. Сборка фронтенда (в temp, атомарная замена) ----------
+# Собираем в dist.new и только при успехе синхронизируем в dist/ через rsync
+# (сохраняет inode каталога → bind-mount nginx НЕ устаревает; именно смена
+# inode ловилась как 403). При падении сборки dist/ НЕ трогаем — прод жив.
+# npm install (а не npm ci): Lovable коммитит bun-локфайл, npm ci на нём падает.
+log "Сборка фронтенда (в dist.new)"
 ANON_KEY="$(grep -E '^ANON_KEY=' "$ENV_FILE" | cut -d= -f2-)"
+rm -rf "$REPO_DIR/dist.new"
 if ! VITE_SUPABASE_URL="https://justtodoit.ru" \
      VITE_SUPABASE_PROXY_URL="https://justtodoit.ru/sb" \
      VITE_SUPABASE_ANON_KEY="$ANON_KEY" \
      VITE_SUPABASE_PUBLISHABLE_KEY="$ANON_KEY" \
-     bash -c 'npm ci && npm run build'; then
-  log "СБОРКА УПАЛА — откат dist/, деплой прерван"
-  [ -d "$REPO_DIR/dist.backup" ] && rm -rf "$REPO_DIR/dist" && mv "$REPO_DIR/dist.backup" "$REPO_DIR/dist"
+     bash -c 'npm install --no-audit --no-fund && npm run build -- --outDir dist.new'; then
+  log "СБОРКА УПАЛА — dist/ не тронут, прод остаётся на прежней версии"
+  rm -rf "$REPO_DIR/dist.new"
+  # На всякий случай убеждаемся, что nginx отдаёт текущий (рабочий) dist/
+  docker restart self-hosting-nginx-1 >/dev/null 2>&1 || true
   exit 1
 fi
+# Проверка что билд реально создал index.html — иначе не подменяем
+if [ ! -f "$REPO_DIR/dist.new/index.html" ]; then
+  log "СБОРКА без index.html — подмену не делаю, прод не тронут"
+  rm -rf "$REPO_DIR/dist.new"
+  exit 1
+fi
+log "Атомарная замена содержимого dist/ (inode сохраняется)"
+mkdir -p "$REPO_DIR/dist"
+if command -v rsync >/dev/null 2>&1; then
+  rsync -a --delete "$REPO_DIR/dist.new/" "$REPO_DIR/dist/"
+else
+  # fallback без rsync: чистим и копируем содержимое, не удаляя сам каталог
+  find "$REPO_DIR/dist" -mindepth 1 -delete
+  cp -a "$REPO_DIR/dist.new/." "$REPO_DIR/dist/"
+fi
+rm -rf "$REPO_DIR/dist.new"
 
 # ---------- 4. Обновление edge-функций ----------
 log "Перезапуск edge-runtime (подхватит новый код функций)"
@@ -77,9 +94,9 @@ docker restart self-hosting-nginx-1 >/dev/null
 log "Health-check"
 code="$(curl -sk -o /dev/null -w '%{http_code}' https://justtodoit.ru/ || echo 000)"
 if [ "$code" != "200" ]; then
-  log "⚠️ Сайт вернул $code — проверь. Откат: rm -rf dist && mv dist.backup dist && docker restart self-hosting-nginx-1"
+  log "⚠️ Сайт вернул $code. dist/ обновлён атомарно (inode сохранён). Проверь: docker restart self-hosting-nginx-1; docker logs self-hosting-nginx-1 --tail 30"
   exit 1
 fi
 
-rm -rf "$REPO_DIR/dist.backup"
+log "Деплой завершён успешно (site $code)"
 log "Деплой успешен: https://justtodoit.ru → $code"
