@@ -1,0 +1,45 @@
+name: Ops on VPS
+
+# Обслуживающие операции на VPS по кнопке (workflow_dispatch).
+# Запускается вручную из Actions или через GitHub API/MCP. Выполняет ТОЛЬКО
+# предопределённые операции из self-hosting/ops.sh (без произвольных команд).
+#
+# Секреты: VPS_SSH_KEY, VPS_HOST (те же, что у deploy-vps.yml).
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Операция"
+        required: true
+        type: choice
+        options:
+          - health-check
+          - backup-now
+          - restart
+          - logs
+          - reset-password
+      arg:
+        description: "Аргумент (сервис для restart/logs, email для reset-password)"
+        required: false
+        type: string
+
+concurrency:
+  group: ops-vps
+  cancel-in-progress: false
+
+jobs:
+  ops:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Run operation
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} \
+            "bash /opt/jtd/self-hosting/ops.sh '${{ inputs.operation }}' '${{ inputs.arg }}'"
