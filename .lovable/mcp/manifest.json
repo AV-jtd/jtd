@@ -1,0 +1,384 @@
+{
+  "version": 1,
+  "sdk_version": "0.24.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://nvfioycpwyzwukvokwql.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "justtodoit-mcp",
+      "version": "0.1.0",
+      "title": "JustTODOit"
+    },
+    "tools": [
+      {
+        "name": "list_tasks",
+        "title": "Список задач",
+        "description": "Возвращает задачи текущего пользователя JustTODOit. Можно фильтровать: overdue (просрочены), today (дедлайн сегодня), this_week (на этой неделе), by project_id, assignee_me (я исполнитель), status. По умолчанию — только открытые задачи.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "filter": {
+              "description": "Быстрый фильтр по срокам. По умолчанию all_open.",
+              "type": "string",
+              "enum": [
+                "overdue",
+                "today",
+                "this_week",
+                "all_open"
+              ]
+            },
+            "project_id": {
+              "description": "UUID проекта (task_groups.id).",
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "assignee_me": {
+              "description": "Только задачи, где я исполнитель (assigned_to = me).",
+              "type": "boolean"
+            },
+            "include_completed": {
+              "description": "Включать закрытые задачи.",
+              "type": "boolean"
+            },
+            "limit": {
+              "description": "Максимум задач в ответе. По умолчанию 50.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_task",
+        "title": "Задача — детали",
+        "description": "Возвращает подробную карточку задачи: описание, шаги (подзадачи), комментарии, участники.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "task_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "required": [
+            "task_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_task",
+        "title": "Создать задачу",
+        "description": "Создаёт новую задачу в JustTODOit. Обязательно title. Опционально: deadline (ISO datetime), project_id (task_groups.id), client_id, assigned_to (user_id — по умолчанию я).",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            },
+            "description": {
+              "type": "string"
+            },
+            "deadline": {
+              "description": "ISO datetime, например 2026-08-15T18:00:00Z",
+              "type": "string"
+            },
+            "project_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "client_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "assigned_to": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "is_important": {
+              "type": "boolean"
+            },
+            "priority": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4
+            }
+          },
+          "required": [
+            "title"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "complete_task",
+        "title": "Закрыть задачу",
+        "description": "Помечает задачу как выполненную (is_completed = true, completed_at = now).",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "task_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "required": [
+            "task_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_task_deadline",
+        "title": "Сдвинуть дедлайн",
+        "description": "Меняет дедлайн задачи. Если у задачи был baseline lock — сдвиг зафиксируется как drift.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "task_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "deadline": {
+              "type": "string",
+              "description": "Новый дедлайн, ISO datetime"
+            }
+          },
+          "required": [
+            "task_id",
+            "deadline"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_projects",
+        "title": "Список проектов",
+        "description": "Проекты (task_groups), доступные пользователю. Можно отфильтровать по типу и статусу архива.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "project_type": {
+              "type": "string",
+              "enum": [
+                "standard",
+                "npd",
+                "crm",
+                "protocol"
+              ]
+            },
+            "include_archived": {
+              "type": "boolean"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_project",
+        "title": "Проект — карточка и метрики",
+        "description": "Детали проекта + агрегаты: всего задач, открыто, просрочено, ближайшие вехи.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "project_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "required": [
+            "project_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_protocols",
+        "title": "Список протоколов встреч",
+        "description": "Возвращает протоколы (task_groups с project_type='protocol'). Фильтры: клиент, статус (draft/published), диапазон дат.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "client_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "published"
+              ]
+            },
+            "date_from": {
+              "description": "ISO date, включительно",
+              "type": "string"
+            },
+            "date_to": {
+              "description": "ISO date, включительно",
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_protocol",
+        "title": "Протокол — содержимое и связанные задачи",
+        "description": "Возвращает протокол, задачи повестки и задачи, порождённые из встречи (source_protocol_id).",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "protocol_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "required": [
+            "protocol_id"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_clients",
+        "title": "Список CRM-клиентов",
+        "description": "Возвращает CRM-клиентов. Можно искать по имени и фильтровать по территории/рангу/менеджеру.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "search": {
+              "description": "Подстрока в имени клиента",
+              "type": "string"
+            },
+            "territory": {
+              "type": "string"
+            },
+            "rank": {
+              "type": "string"
+            },
+            "manager_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_client",
+        "title": "Клиент — карточка и активность",
+        "description": "Возвращает CRM-клиента, привязанные открытые задачи, проекты и протоколы за 90 дней.",
+        "annotations": {
+          "readOnlyHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "client_id": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "required": [
+            "client_id"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
