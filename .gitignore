@@ -26,3 +26,6 @@ dist-ssr
 # Секреты self-hosting стека
 self-hosting/.env.supabase
 self-hosting/kong.yml
+
+# Claude Code worktrees / служебное
+.claude/
