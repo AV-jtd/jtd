@@ -45,6 +45,7 @@ const ConsultantAreasDemo = lazyWithRetry(() => import("./pages/dev/ConsultantAr
 const SwStatus = lazyWithRetry(() => import("./pages/dev/SwStatus"));
 const CrmChatDemo = lazyWithRetry(() => import("./pages/dev/CrmChatDemo"));
 const ChatFullscreen = lazyWithRetry(() => import("./pages/ChatFullscreen"));
+const OAuthConsent = lazyWithRetry(() => import("./pages/OAuthConsent"));
 
 /**
  * Redirects consultants away from modules they are not allowed to see.
@@ -133,6 +134,7 @@ function AppContent() {
               <Route path="/my-department" element={<ConsultantBlocked><MyDepartment /></ConsultantBlocked>} />
               <Route path="/wiki-demo" element={<ConsultantBlocked><WikiDemo /></ConsultantBlocked>} />
               <Route path="/report" element={<PublicReport />} />
+              <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
               <Route path="/dev/consultant-areas" element={<ConsultantAreasDemo />} />
               <Route path="/dev/sw-status" element={<SwStatus />} />
               <Route path="/dev/crm-chat" element={<CrmChatDemo />} />
