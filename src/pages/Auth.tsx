@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,10 @@ type Step = "form" | "otp";
 export default function Auth() {
   const { user, loading, signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rawNext = searchParams.get("next");
+  // Разрешаем только same-origin относительные пути, чтобы не редиректить наружу.
+  const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +30,7 @@ export default function Auth() {
   // Уже залогиненный юзер — мгновенный редирект, не ждём fetchProfile.
   // Иначе на медленной сети spinner на /auth висит до 8 сек и юзер думает,
   // что вход не работает.
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to={nextPath} replace />;
 
   if (loading) {
     return (
@@ -123,7 +127,7 @@ export default function Auth() {
       }
       // Явный navigate сразу после успешного логина — не ждём, пока
       // useAuth закончит fetchProfile и Auth.tsx перерендерится.
-      navigate("/", { replace: true });
+      navigate(nextPath, { replace: true });
     } finally {
       setSubmitting(false);
     }
