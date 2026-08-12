@@ -41,6 +41,13 @@ function updateAllTaskCaches(qc: QueryClient, updater: (tasks: Task[]) => Task[]
   qc.setQueriesData<Task[]>({ queryKey: ["stm-stage-tasks"] }, (old) => old ? updater(old) : old);
   // Same rationale for KM Brand Control (task_type='km_stage', ["km-stage-tasks", userId]).
   qc.setQueriesData<Task[]>({ queryKey: ["km-stage-tasks"] }, (old) => old ? updater(old) : old);
+  // Gantt (opened from a project card) reads via useTasksByGroupIds, cached
+  // under ["tasks-by-groups", userId, groupIds, window] — a third separate
+  // cache over the same tasks table. Missing this meant drag/resize date
+  // edits in the Gantt looked applied (mid-drag local state) but the
+  // underlying cache never picked up the change, so it reverted on the next
+  // render unless the page was hard-reloaded.
+  qc.setQueriesData<Task[]>({ queryKey: ["tasks-by-groups"] }, (old) => old ? updater(old) : old);
 }
 
 function updateAllGroupCaches(qc: QueryClient, updater: (groups: TaskGroup[]) => TaskGroup[]) {
@@ -56,6 +63,9 @@ function snapshotTasks(qc: QueryClient) {
     cache.push([key, data]);
   });
   qc.getQueriesData<Task[]>({ queryKey: ["km-stage-tasks"] }).forEach(([key, data]) => {
+    cache.push([key, data]);
+  });
+  qc.getQueriesData<Task[]>({ queryKey: ["tasks-by-groups"] }).forEach(([key, data]) => {
     cache.push([key, data]);
   });
   return cache;
@@ -1585,8 +1595,17 @@ export function useTaskMutations() {
         }
       }
 
-      const { error } = await supabase.from("tasks").update(updates).eq("id", id);
+      // .select() is required here: without it, an UPDATE that RLS silently
+      // filters down to 0 affected rows returns error=null (Postgres/PostgREST
+      // don't treat "0 rows matched" as an error) — the mutation would look
+      // successful, the optimistic cache patch would stick, and the task
+      // would silently revert to its old value on the next real refetch
+      // (e.g. a page reload) with no feedback to the user in between.
+      const { data: updated, error } = await supabase.from("tasks").update(updates).eq("id", id).select("id");
       if (error) throw error;
+      if (!updated || updated.length === 0) {
+        throw new Error("Нет прав на изменение этой задачи");
+      }
 
       // Notify on assignment or delegation
       if (updates.assigned_to && updates.assigned_to !== user?.id) {
@@ -1599,19 +1618,27 @@ export function useTaskMutations() {
       await qc.cancelQueries({ queryKey: ["tasks"] });
       await qc.cancelQueries({ queryKey: ["stm-stage-tasks"] });
       await qc.cancelQueries({ queryKey: ["km-stage-tasks"] });
+      await qc.cancelQueries({ queryKey: ["tasks-by-groups"] });
       const snap = snapshotTasks(qc);
       updateAllTaskCaches(qc, (tasks) => tasks.map(t => t.id === id ? { ...t, ...updates } : t));
       return { snap };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
+    onError: (e, _v, ctx) => {
+      if (ctx?.snap) restoreTasks(qc, ctx.snap);
+      toast.error(e instanceof Error ? e.message : "Не удалось сохранить изменения");
+    },
     onSettled: () => {
       // Mark stale only — optimistic update has applied; realtime will deliver
       // any server-side changes within ~1.5s. Avoids parallel refetch storm
-      // across all useTasks(groupId, filterTags) variants.
+      // across all useTasks(groupId, filterTags) variants. A failed write now
+      // throws (see .select() above) and is caught by onError, which restores
+      // the pre-mutation snapshot immediately — so a stuck/wrong optimistic
+      // state no longer requires a manual reload to notice or fix.
       qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["crm-tasks"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["stm-stage-tasks"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["km-stage-tasks"], refetchType: "none" });
+      qc.invalidateQueries({ queryKey: ["tasks-by-groups"], refetchType: "none" });
     },
   });
 
@@ -1631,6 +1658,7 @@ export function useTaskMutations() {
       qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["stm-stage-tasks"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["km-stage-tasks"], refetchType: "none" });
+      qc.invalidateQueries({ queryKey: ["tasks-by-groups"], refetchType: "none" });
     },
   });
 
@@ -1638,11 +1666,14 @@ export function useTaskMutations() {
     mutationFn: async ({ id, is_completed }: { id: string; is_completed: boolean }) => {
       const { data: taskData } = await supabase.from("tasks").select("*").eq("id", id).single();
       
-      const { error } = await supabase.from("tasks").update({
+      const { data: toggled, error } = await supabase.from("tasks").update({
         is_completed,
         completed_at: is_completed ? new Date().toISOString() : null,
-      }).eq("id", id);
+      }).eq("id", id).select("id");
       if (error) throw error;
+      if (!toggled || toggled.length === 0) {
+        throw new Error("Нет прав на изменение этой задачи");
+      }
 
       // Auto-create next recurring task
       if (is_completed && taskData && (taskData as any).recurrence) {
@@ -1714,11 +1745,15 @@ export function useTaskMutations() {
       );
       return { snap };
     },
-    onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); },
+    onError: (e, _v, ctx) => {
+      if (ctx?.snap) restoreTasks(qc, ctx.snap);
+      toast.error(e instanceof Error ? e.message : "Не удалось сохранить изменения");
+    },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["tasks"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["stm-stage-tasks"], refetchType: "none" });
       qc.invalidateQueries({ queryKey: ["km-stage-tasks"], refetchType: "none" });
+      qc.invalidateQueries({ queryKey: ["tasks-by-groups"], refetchType: "none" });
       // Закрытие/открытие задачи влияет на отображение в чатах
       // (зачёркивание + pill «Закрыта» в TaskChat header, ProjectChat
       // CreatedTaskCard и шапке/списке тредов мессенджера).
