@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useUndo } from "@/hooks/useUndoStack";
 import { useTaskGroups, useTasks, useTasksByGroupIds, useTaskMutations, useAvailableUsers, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useMilestones, useMilestoneMutations, type Milestone } from "@/hooks/useMilestones";
 import { useDependencies, useDependencyMutations } from "@/hooks/useDependencies";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -152,7 +153,18 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const [newProjectName, setNewProjectName] = useState("");
   const [showNewProject, setShowNewProject] = useState(false);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
-  const [leftPanelWidth, setLeftPanelWidth] = useState(440);
+  const isMobile = useIsMobile();
+  // Both the left panel AND the splitter that resizes it are `position:
+  // sticky; left: leftPanelWidth` — on a real phone viewport (~390px) the
+  // old fixed default of 440 made the panel wider than the whole screen
+  // AND pushed the splitter itself off-screen, so the timeline (bars) was
+  // 100% unreachable and there was no way to even manually shrink the
+  // panel to get to it. Start narrow on mobile so both are on-screen from
+  // the first paint. window.innerWidth (not the isMobile hook, which is
+  // undefined until its effect runs) so this is correct on first render.
+  const [leftPanelWidth, setLeftPanelWidth] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 640 ? 130 : 440,
+  );
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
   const [taskSearch, setTaskSearch] = useState("");
   const [density, setDensity] = useState<GanttDensity>(() => {
@@ -644,10 +656,14 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   // Splitter drag handlers
   useEffect(() => {
     if (!splitterDragging) return;
+    // Lower floor on mobile — the desktop MIN_LEFT_PANEL (250) is still
+    // over half a phone's screen width, which would leave the splitter
+    // itself off-screen again the moment someone drags it that far.
+    const minPanel = isMobile ? 90 : MIN_LEFT_PANEL;
     const handleMouseMove = (e: PointerEvent) => {
       if (splitterStartRef.current) {
         const delta = e.clientX - splitterStartRef.current.x;
-        const newWidth = Math.max(MIN_LEFT_PANEL, Math.min(MAX_LEFT_PANEL, splitterStartRef.current.width + delta));
+        const newWidth = Math.max(minPanel, Math.min(MAX_LEFT_PANEL, splitterStartRef.current.width + delta));
         setLeftPanelWidth(newWidth);
       }
     };
@@ -661,7 +677,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       window.removeEventListener("pointermove", handleMouseMove);
       window.removeEventListener("pointerup", handleMouseUp);
     };
-  }, [splitterDragging]);
+  }, [splitterDragging, isMobile]);
 
   // Compute subtask progress per task
   const taskProgress = useMemo(() => {
