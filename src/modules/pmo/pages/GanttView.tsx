@@ -1971,9 +1971,13 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                                 </div>
                               )}
 
-                              {/* Left-edge resize handle (start_at) */}
+                              {/* Left-edge resize handle (start_at). group-hover/bar gives a
+                                  faint always-there hint the moment the cursor enters the bar
+                                  at all — the precise hover:bg-white/30 stays for exact targeting.
+                                  Without this, the 8px hit zone had zero visual affordance and
+                                  users had no way to discover dragging was possible. */}
                               <div
-                                className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 rounded-l-sm"
+                                className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize bg-white/0 group-hover/bar:bg-white/15 hover:!bg-white/30 rounded-l-sm transition-colors"
                                 onMouseDown={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
@@ -2019,7 +2023,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               {/* Resize handle (right edge) */}
                               {task.deadline && (
                                 <div
-                                  className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 rounded-r-sm"
+                                  className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize bg-white/0 group-hover/bar:bg-white/15 hover:!bg-white/30 rounded-r-sm transition-colors"
                                   onMouseDown={(e) => {
                                     e.stopPropagation();
                                     e.preventDefault();

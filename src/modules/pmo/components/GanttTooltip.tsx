@@ -63,6 +63,9 @@ export default function GanttTooltip({ task, project, children, progress, disabl
               {driftDays > 0 ? "⚠️" : "✅"} Перенос: {format(parseISO(task.original_deadline!), "d MMM", { locale: ru })} → {format(parseISO(task.deadline!), "d MMM", { locale: ru })} ({driftDays > 0 ? "+" : ""}{driftDays}д)
             </div>
           )}
+          <div className="text-muted-foreground/70 text-[10px] italic pt-0.5 border-t border-border/50">
+            ↔ Тяните за края — срок · за центр — перенос всей задачи
+          </div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
