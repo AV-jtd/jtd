@@ -14,7 +14,7 @@ import {
   startOfMonth, getMonth, getYear
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye, MoreHorizontal, BotMessageSquare } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye, MoreHorizontal, BotMessageSquare, Search, X, Rows3, Rows2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from "@/components/ui/dropdown-menu";
 import UndoRedoButtons from "@/components/UndoRedoButtons";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -38,8 +38,11 @@ type Scale = "day" | "week" | "month";
 
 const SCALE_ORDER: Scale[] = ["month", "week", "day"];
 const COL_WIDTHS: Record<Scale, number> = { day: 36, week: 120, month: 180 };
-const ROW_HEIGHT = 44;
-const MILESTONE_ROW_HEIGHT = 28;
+type GanttDensity = "comfortable" | "compact";
+const ROW_HEIGHTS: Record<GanttDensity, { task: number; milestone: number }> = {
+  comfortable: { task: 44, milestone: 28 },
+  compact: { task: 30, milestone: 20 },
+};
 const MIN_LEFT_PANEL = 250;
 const MAX_LEFT_PANEL = 1200;
 
@@ -150,6 +153,14 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
   const [leftPanelWidth, setLeftPanelWidth] = useState(440);
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
+  const [taskSearch, setTaskSearch] = useState("");
+  const [density, setDensity] = useState<GanttDensity>(() => {
+    if (typeof window === "undefined") return "comfortable";
+    return window.localStorage.getItem("gantt:density") === "compact" ? "compact" : "comfortable";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("gantt:density", density); } catch { /* ignore */ }
+  }, [density]);
   const [hideEmpty, setHideEmpty] = useState(false);
   // Off by default: preserves the historical behavior (completed tasks
   // vanish from the Gantt) for anyone who relies on it, while making it
@@ -732,6 +743,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   }, [allDependencies, allTasks]);
 
   // Build rows with collapse and summary bars
+  const searchQuery = taskSearch.trim().toLowerCase();
   const rows: GanttRow[] = useMemo(() => {
     const rootProjects = groups.filter(g => !g.parent_id).sort((a, b) => a.position - b.position);
     const result: GanttRow[] = [];
@@ -740,7 +752,11 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       if (!isDescendant && selectedProjectId && selectedProjectId !== project.id) return;
 
       const projectTasks = allTasks
-        .filter(t => t.group_id === project.id && (showCompleted || !t.is_completed))
+        .filter(t =>
+          t.group_id === project.id &&
+          (showCompleted || !t.is_completed) &&
+          (!searchQuery || t.title.toLowerCase().includes(searchQuery)),
+        )
         .sort((a, b) => a.position - b.position);
       const allProjectTasks = allTasks.filter(t => t.group_id === project.id);
       const projectMilestones = allMilestones.filter(m => m.group_id === project.id);
@@ -837,7 +853,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       }
     });
     return result;
-  }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress, hideEmpty, showCompleted]);
+  }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress, hideEmpty, showCompleted, searchQuery]);
 
   // ── Multi-select handlers (need rows + handleChangeTaskGate) ──
   const handleToggleSelect = useCallback((taskId: string, shiftKey?: boolean) => {
@@ -1200,16 +1216,20 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     return users.filter(u => ids.has(u.id));
   }, [allTasks, users]);
 
-  const getRowHeight = useCallback((i: number) => rows[i]?.type === "milestone" ? MILESTONE_ROW_HEIGHT : ROW_HEIGHT, [rows]);
+  const getRowHeight = useCallback(
+    (i: number) => rows[i]?.type === "milestone" ? ROW_HEIGHTS[density].milestone : ROW_HEIGHTS[density].task,
+    [rows, density],
+  );
   const rowTops = useMemo(() => {
+    const h = ROW_HEIGHTS[density];
     const tops: number[] = [];
     let acc = 0;
     for (let i = 0; i < rows.length; i++) {
       tops.push(acc);
-      acc += rows[i].type === "milestone" ? MILESTONE_ROW_HEIGHT : ROW_HEIGHT;
+      acc += rows[i].type === "milestone" ? h.milestone : h.task;
     }
     return tops;
-  }, [rows]);
+  }, [rows, density]);
   const totalRowsHeight = useMemo(() => {
     if (rows.length === 0) return 0;
     return rowTops[rows.length - 1] + getRowHeight(rows.length - 1);
@@ -1310,6 +1330,56 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
             <option key={u.id} value={u.id}>{u.display_name || u.email}</option>
           ))}
         </select>
+
+        {/* Density toggle: comfortable / compact rows */}
+        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-muted/60 border border-border shrink-0">
+          <button
+            type="button"
+            onClick={() => setDensity("comfortable")}
+            className={cn(
+              "flex items-center justify-center h-6 w-6 rounded-md transition-colors",
+              density === "comfortable" ? "bg-primary/15 text-primary shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+            aria-pressed={density === "comfortable"}
+            title="Комфортный режим"
+          >
+            <Rows3 className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDensity("compact")}
+            className={cn(
+              "flex items-center justify-center h-6 w-6 rounded-md transition-colors",
+              density === "compact" ? "bg-primary/15 text-primary shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+            aria-pressed={density === "compact"}
+            title="Плотный режим"
+          >
+            <Rows2 className="h-3 w-3" />
+          </button>
+        </div>
+
+        {/* Task title search — actually filters rows (unlike filterAssignee,
+            which only dims), since the point is finding one task in a long
+            list, not highlighting. */}
+        <div className="relative">
+          <Search className="h-3 w-3 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            value={taskSearch}
+            onChange={e => setTaskSearch(e.target.value)}
+            placeholder="Поиск задачи..."
+            className="text-xs bg-muted border-0 rounded-md pl-6 pr-6 py-1 text-foreground outline-none w-32 focus:w-48 transition-all placeholder:text-muted-foreground"
+          />
+          {taskSearch && (
+            <button
+              onClick={() => setTaskSearch("")}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Очистить поиск"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
 
         {/* Hide empty toggle - inline since it's a frequent action */}
         {hideEmpty && (
@@ -1678,7 +1748,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
           <div className="sticky left-0 z-20 shrink-0 bg-card" style={{ width: leftPanelWidth }}>
             <GanttLeftPanel
               rows={rows}
-              rowHeight={ROW_HEIGHT}
+              rowHeight={ROW_HEIGHTS[density].task}
               getRowHeight={getRowHeight}
               width={leftPanelWidth}
               allProjects={groups}
@@ -1809,7 +1879,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
               <GanttDependencyLines
                 rows={rows}
                 dependencies={allDependencies}
-                rowHeight={ROW_HEIGHT}
+                rowHeight={ROW_HEIGHTS[density].task}
                 rowTops={rowTops}
                 totalRowsHeight={totalRowsHeight}
                 getRowHeight={getRowHeight}
