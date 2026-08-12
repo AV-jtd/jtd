@@ -40,19 +40,46 @@ Supabase на этом сервере. Переезд ПОЛНОСТЬЮ зав�
 1. /opt/jtd/self-hosting/migration-stream/PLAN.md   ← бэклог, что открыто/закрыто
 2. /opt/jtd/self-hosting/migration-stream/PROGRESS.md ← подробный журнал по датам
 
-Ключевые факты о текущем состоянии (2026-07-15):
+Ключевые факты о текущем состоянии (обновлено 2026-08-12):
 - Стек: 11 контейнеров self-hosted Supabase (auth/rest/realtime/storage/
-  edge-runtime/kong/db) + nginx, все Up, схема и данные полные (59 юзеров,
+  edge-runtime/kong/db) + nginx, все Up, схема и данные полные (59+ юзеров,
   все таблицы, FK-целостность OK)
 - Прод: https://justtodoit.ru — DNS, SSL, фронтенд, RLS, realtime — всё
   рабочее. www.justtodoit.ru отдельно ещё не переключён (см. бэклог #10)
+- deploy.sh: НЕ npm ci (Lovable коммитит bun-локфейл) — npm install +
+  сборка в dist.new + атомарная rsync-замена dist/ (сохраняет inode,
+  иначе bind-mount nginx устаревает → 403). Чинили 2026-07-25/26 после
+  реального инцидента. Health-check иногда возвращает 000 сразу после
+  restart nginx (гонка запуска контейнера) — не паниковать, curl ещё
+  раз через пару секунд обычно 200.
 - CI/CD: GitHub Actions `deploy-vps.yml` — push в main → SSH на VPS →
-  self-hosting/deploy.sh (build + миграции + nginx). Чинили 2026-07-15
-  (секрет VPS_SSH_KEY указывал не на тот ключ) — сейчас проходит.
+  deploy.sh. Секрет VPS_SSH_KEY — актуальный ключ gh_deploy, проходит.
 - Ветка разработки: claude/modest-hawking-sfszra (обгоняет origin/main
   на инфра-коммиты; deploy.sh мёржит main в неё при каждом деплое)
 - Регистрация новых пользователей — через Telegram-бота (@Scope_todo_bot,
   /register), НЕ через сайт: SMTP всё ещё не настроен (бэклог #5)
+- KM Brand Control — новая доска в NPD (/npd/km, 2026-07-23), клон STM
+  Mission Control с 18 гейтами вместо STM in/out-потока. Тот же паттерн
+  RLS (project_subtype='npd_km').
+- Gantt (PMO-модуль) получил серию фиксов 2026-08-12: (1) даты не
+  сохранялись без reload — RLS-молчание + пропущенный кэш-ключ
+  tasks-by-groups, тот же класс бага что был в STM/KM; (2) добавлены
+  поиск задач, плотный/комфортный режим, групповой сдвиг дат, touch-
+  поддержка drag (Pointer Events); (3) КРИТИЧНЫЙ баг найден живым
+  тестом в браузере (Playwright + эмуляция телефона) — левая панель
+  Ганта была шире экрана и НИКАК не давала увидеть таймлайн на
+  мобильном (sticky-панель+sticky-сплиттер оба уезжали за viewport),
+  пофикшено. Остался открытый, осознанно отложенный хвост: колонки
+  внутри GanttLeftPanel визуально накладываются на очень узких экранах
+  (не адаптированы под <640px) — см. PROGRESS.md запись за 2026-08-12.
+- Реальный live-тест в браузере теперь возможен: `npx playwright install
+  chromium --with-deps` на VPS + инъекция валидной сессии в localStorage
+  (`sb-justtodoit-auth-token`, JWT подписан JWT_SECRET из .env.supabase)
+  вместо логина реальным паролем. Полезно для будущих UI-проверок.
+- WireGuard/AmneziaWG для Telegram (split-tunnel) настроен, но клиенты
+  не могут установить handshake ни на одном порту (53607/53608/443) —
+  подозрение на firewall самого хостинг-провайдера (Sweb), не на
+  конфиг сервера. Не решено, требует проверки в панели Sweb.
 
 Внутренние пароли PostgreSQL и ключи — в /opt/jtd/self-hosting/.env.supabase
 (POSTGRES_PASSWORD, ANON_KEY, SERVICE_ROLE_KEY). Читай оттуда, не спрашивай.
@@ -63,9 +90,14 @@ Supabase на этом сервере. Переезд ПОЛНОСТЬЮ зав�
 2. email_queue_dispatch() шлёт на чужой облачный Lovable URL — либо
    переписать на локальный edge-function, либо отключить cron
 3. www.justtodoit.ru DNS (canChange:false, нужна заявка в SpaceWeb)
-4. Косметика: самохостинг шрифтов, FCM push смоук-тест
+4. GanttLeftPanel колонки не адаптированы под мобильные экраны
+   (визуально накладываются на <640px) — отложено пользователем
+5. WireGuard/AmneziaWG handshake не проходит — подозрение на firewall
+   хостера, нужна проверка в панели Sweb
+6. Косметика: самохостинг шрифтов, FCM push смоук-тест
 Плюс: реагировать на баг-репорты пользователей по мере поступления
-(так была найдена и закрыта серия багов STM Mission Control 2026-07-15).
+(так была найдена и закрыта серия багов STM Mission Control 2026-07-15
+и Gantt 2026-08-12).
 
 Правила:
 - Действуй сам через shell, показывай вывод и интерпретируй
