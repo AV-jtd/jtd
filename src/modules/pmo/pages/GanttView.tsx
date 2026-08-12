@@ -465,10 +465,12 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   // Drag handlers (resize deadline OR move whole bar) with cascading
   useEffect(() => {
     if (!dragState) return;
-    const handleMouseMove = (e: MouseEvent) => {
+    // Pointer Events (not mouse-only) so bar resize/move works via touch too —
+    // clientX/clientY have the same shape as MouseEvent, body is unchanged.
+    const handleMouseMove = (e: PointerEvent) => {
       setDragDelta(e.clientX - dragState.startX);
     };
-    const handleMouseUp = (e: MouseEvent) => {
+    const handleMouseUp = (e: PointerEvent) => {
       const delta = e.clientX - dragState.startX;
       const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
       if (daysDelta !== 0) {
@@ -576,11 +578,11 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       setDragState(null);
       setDragDelta(0);
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
     };
   }, [dragState, scale, updateTask, updateMilestone, allDependencies, allTasks, allMilestones, groups, pushUndo]);
 
@@ -588,10 +590,10 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const updateMilestoneDateRef = useRef<((ms: Milestone, newDateISO: string) => void) | null>(null);
   useEffect(() => {
     if (!msDragState) return;
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (e: PointerEvent) => {
       setMsDragDelta(e.clientX - msDragState.startX);
     };
-    const handleMouseUp = (e: MouseEvent) => {
+    const handleMouseUp = (e: PointerEvent) => {
       const delta = e.clientX - msDragState.startX;
       const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
       if (daysDelta !== 0) {
@@ -604,18 +606,25 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       setMsDragState(null);
       setMsDragDelta(0);
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
     };
   }, [msDragState, scale, allMilestones]);
 
   // Dependency drag handlers
   useEffect(() => {
     if (!depDrag) return;
-    const handleMouseMove = (e: MouseEvent) => {
+    // NOTE: touch input is implicitly pointer-captured to the element where
+    // the gesture started (per the Pointer Events spec), so dragging a
+    // dependency connector to a DIFFERENT bar/milestone and releasing there
+    // won't reliably fire pointerup on that target via touch the way it does
+    // for mouse — the "drop on target" onPointerUp handlers below stay
+    // mouse-reliable; touch dependency-creation is a known, disclosed gap
+    // (not the ask here — date/bar dragging is).
+    const handleMouseMove = (e: PointerEvent) => {
       setDepDrag(prev => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null);
     };
     const handleMouseUp = () => {
@@ -624,18 +633,18 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       // Reset ref after click events have fired
       setTimeout(() => { wasDepDragRef.current = false; }, 0);
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
     };
   }, [depDrag]);
 
   // Splitter drag handlers
   useEffect(() => {
     if (!splitterDragging) return;
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (e: PointerEvent) => {
       if (splitterStartRef.current) {
         const delta = e.clientX - splitterStartRef.current.x;
         const newWidth = Math.max(MIN_LEFT_PANEL, Math.min(MAX_LEFT_PANEL, splitterStartRef.current.width + delta));
@@ -646,11 +655,11 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       setSplitterDragging(false);
       splitterStartRef.current = null;
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
     };
   }, [splitterDragging]);
 
@@ -1890,8 +1899,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
               "shrink-0 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors relative group/splitter sticky z-[15] bg-card",
               splitterDragging && "bg-primary/50"
             )}
-            style={{ left: leftPanelWidth, width: 6 }}
-            onMouseDown={(e) => {
+            style={{ left: leftPanelWidth, width: 6, touchAction: "none" }}
+            onPointerDown={(e) => {
               e.preventDefault();
               setSplitterDragging(true);
               splitterStartRef.current = { x: e.clientX, width: leftPanelWidth };
@@ -2010,7 +2019,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                         <div
                           className="absolute top-[13px] rounded-full h-2.5 opacity-70 group/proj"
                           style={{ left, width, backgroundColor: color }}
-                          onMouseUp={() => handleBarMouseUp(row.project.id, "project")}
+                          onPointerUp={() => handleBarMouseUp(row.project.id, "project")}
                         >
                           {row.progress !== undefined && row.progress > 0 && (
                             <div
@@ -2024,7 +2033,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                           {/* Project dependency connector */}
                           <div
                             className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background opacity-0 group-hover/proj:opacity-100 cursor-crosshair z-20 transition-opacity"
-                            onMouseDown={(e) => {
+                            style={{ touchAction: "none" }}
+                            onPointerDown={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
                               setDepDrag({
@@ -2081,7 +2091,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               )}
                               style={{ left, width, backgroundColor: isOverdue ? "hsl(var(--destructive))" : color, minWidth: 8 }}
                               title={`${task.title}${task.deadline ? ` → ${format(parseISO(task.deadline), "d MMM", { locale: ru })}` : ""}${violationIds.has(task.id) ? "  ⚠ Нарушение зависимости" : ""}`}
-                              onMouseUp={() => handleBarMouseUp(task.id)}
+                              onPointerUp={() => handleBarMouseUp(task.id)}
                             >
                               {/* Progress fill inside bar */}
                               {progress > 0 && progress < 100 && (
@@ -2109,7 +2119,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                                   users had no way to discover dragging was possible. */}
                               <div
                                 className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize bg-white/0 group-hover/bar:bg-white/15 hover:!bg-white/30 rounded-l-sm transition-colors"
-                                onMouseDown={(e) => {
+                                style={{ touchAction: "none" }}
+                                onPointerDown={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
                                   setDragState({
@@ -2125,7 +2136,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               {/* Move handle (grab area between edges) */}
                               <div
                                 className="absolute left-2 top-0 bottom-0 right-2 cursor-grab"
-                                onMouseDown={(e) => {
+                                style={{ touchAction: "none" }}
+                                onPointerDown={(e) => {
                                   if (!task.deadline) return;
                                   e.stopPropagation();
                                   e.preventDefault();
@@ -2155,7 +2167,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               {task.deadline && (
                                 <div
                                   className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize bg-white/0 group-hover/bar:bg-white/15 hover:!bg-white/30 rounded-r-sm transition-colors"
-                                  onMouseDown={(e) => {
+                                  style={{ touchAction: "none" }}
+                                  onPointerDown={(e) => {
                                     e.stopPropagation();
                                     e.preventDefault();
                                     setDragState({
@@ -2171,7 +2184,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               {/* Dependency connector dot (right side) */}
                               <div
                                 className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background opacity-0 group-hover/bar:opacity-100 cursor-crosshair z-20 transition-opacity"
-                                onMouseDown={(e) => {
+                                style={{ touchAction: "none" }}
+                                onPointerDown={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
                                   const barRect = (e.target as HTMLElement).parentElement!;
@@ -2288,7 +2302,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                         <div
                           className="absolute inset-0 group/ms"
                           style={{ backgroundColor: "rgba(239,68,68,0.03)" }}
-                          onMouseUp={() => handleBarMouseUp(ms.id, "milestone")}
+                          onPointerUp={() => handleBarMouseUp(ms.id, "milestone")}
                         >
                           <div
                             className={cn(
@@ -2296,9 +2310,9 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               hasViolation && "ring-2 ring-destructive ring-offset-1 ring-offset-background rounded-sm",
                               isCascaded && "animate-pulse drop-shadow-[0_0_8px_hsl(var(--primary))]"
                             )}
-                            style={{ left: x - 5 }}
+                            style={{ left: x - 5, touchAction: "none" }}
                             title={isCascaded ? "↻ Веха перенесена каскадом зависимостей" : (hasViolation ? "⚠ Веха нарушает зависимости (раньше предшественника)" : ms.name)}
-                            onMouseDown={(e) => {
+                            onPointerDown={(e) => {
                               if (e.button !== 0) return;
                               e.stopPropagation();
                               e.preventDefault();
@@ -2321,8 +2335,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                           </div>
                           <div
                             className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#EF4444] border-2 border-background opacity-0 group-hover/ms:opacity-100 cursor-crosshair z-20 transition-opacity"
-                            style={{ left: x + 6 }}
-                            onMouseDown={(e) => {
+                            style={{ left: x + 6, touchAction: "none" }}
+                            onPointerDown={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
                               setDepDrag({
