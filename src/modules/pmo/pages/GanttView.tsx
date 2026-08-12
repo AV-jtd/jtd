@@ -16,6 +16,7 @@ import {
 import { ru } from "date-fns/locale";
 import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye, MoreHorizontal, BotMessageSquare, Search, X, Rows3, Rows2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import UndoRedoButtons from "@/components/UndoRedoButtons";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
@@ -174,6 +175,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const [savedCols, setSavedCols] = useUserSetting<GanttColumnConfig[]>("gantt_columns", DEFAULT_COLUMNS);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [bulkShiftOpen, setBulkShiftOpen] = useState(false);
+  const [bulkShiftDays, setBulkShiftDays] = useState("");
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   // Cascade highlight: ids of milestones/tasks recently shifted by dependency cascade
   const [cascadeHighlight, setCascadeHighlight] = useState<Set<string>>(new Set());
@@ -895,6 +898,23 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     selectedTaskIds.forEach(id => deleteTask.mutate(id));
     setSelectedTaskIds(new Set());
   }, [selectedTaskIds, deleteTask]);
+
+  // Shift every selected task's dates by N days (both start_at and deadline,
+  // whichever the task has — mirrors the single-task "move whole bar" drag
+  // behavior). Frequent scenario: a project phase slips, need to push a
+  // whole batch of tasks at once instead of dragging each bar individually.
+  const handleBulkShiftDates = useCallback((days: number) => {
+    if (!days) return;
+    selectedTaskIds.forEach(id => {
+      const t = allTasks.find(x => x.id === id);
+      if (!t) return;
+      const updates: { id: string; deadline?: string; start_at?: string } = { id };
+      if (t.deadline) updates.deadline = addDays(parseISO(t.deadline), days).toISOString();
+      if (t.start_at) updates.start_at = addDays(parseISO(t.start_at), days).toISOString();
+      if (updates.deadline || updates.start_at) updateTask.mutate(updates);
+    });
+    setSelectedTaskIds(new Set());
+  }, [selectedTaskIds, allTasks, updateTask]);
 
   // Заполнить пустые дедлайны по зависимостям и стартам (последовательная цепочка).
   const handleFillDeadlines = useCallback(() => {
@@ -1722,6 +1742,47 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Shift dates */}
+          <Popover open={bulkShiftOpen} onOpenChange={(o) => { setBulkShiftOpen(o); if (o) setBulkShiftDays(""); }}>
+            <PopoverTrigger asChild>
+              <button className="px-2 py-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                📅 Сдвинуть даты
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="start">
+              <div className="text-xs font-medium mb-2">Сдвинуть на N дней</div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  autoFocus
+                  value={bulkShiftDays}
+                  onChange={e => setBulkShiftDays(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      const n = parseInt(bulkShiftDays, 10);
+                      if (n) { handleBulkShiftDates(n); setBulkShiftOpen(false); }
+                    }
+                  }}
+                  placeholder="напр. 3 или -2"
+                  className="flex-1 text-xs bg-muted border-0 rounded-md px-2 py-1.5 outline-none"
+                />
+                <button
+                  onClick={() => {
+                    const n = parseInt(bulkShiftDays, 10);
+                    if (n) { handleBulkShiftDates(n); setBulkShiftOpen(false); }
+                  }}
+                  disabled={!parseInt(bulkShiftDays, 10)}
+                  className="px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors"
+                >
+                  ОК
+                </button>
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1.5">
+                Положительное число — позже, отрицательное — раньше. Сдвигает и старт, и срок.
+              </div>
+            </PopoverContent>
+          </Popover>
 
           <div className="h-3 w-px bg-border" />
           <button onClick={handleBulkDelete} className="px-2 py-1 rounded-md text-destructive hover:bg-destructive/10 transition-colors">
