@@ -151,6 +151,10 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const [leftPanelWidth, setLeftPanelWidth] = useState(440);
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
   const [hideEmpty, setHideEmpty] = useState(false);
+  // Off by default: preserves the historical behavior (completed tasks
+  // vanish from the Gantt) for anyone who relies on it, while making it
+  // possible to see finished work + how late it actually landed vs plan.
+  const [showCompleted, setShowCompleted] = useState(false);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [tlScrollLeft, setTlScrollLeft] = useState(0);
   const [depStyle, setDepStyle] = useState<"bezier" | "dashed" | "gradient" | "dots">("bezier");
@@ -736,7 +740,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       if (!isDescendant && selectedProjectId && selectedProjectId !== project.id) return;
 
       const projectTasks = allTasks
-        .filter(t => t.group_id === project.id && !t.is_completed)
+        .filter(t => t.group_id === project.id && (showCompleted || !t.is_completed))
         .sort((a, b) => a.position - b.position);
       const allProjectTasks = allTasks.filter(t => t.group_id === project.id);
       const projectMilestones = allMilestones.filter(m => m.group_id === project.id);
@@ -833,7 +837,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       }
     });
     return result;
-  }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress, hideEmpty]);
+  }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress, hideEmpty, showCompleted]);
 
   // ── Multi-select handlers (need rows + handleChangeTaskGate) ──
   const handleToggleSelect = useCallback((taskId: string, shiftKey?: boolean) => {
@@ -1026,6 +1030,20 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     if (driftWidth <= 0) return null;
     return { left: driftLeft, width: driftWidth };
   }, [timelineStart, totalDays, totalWidth, getBarStyle]);
+
+  // Completion drift: for a DONE task, how many days after the baseline
+  // (original_deadline, falling back to deadline if the task was never
+  // rescheduled) it was actually marked complete. Distinct from
+  // getDriftOverlay above, which only visualizes a rescheduled *plan* —
+  // this instead answers "did the team actually finish on time," which is
+  // the whole point of a baseline once a task is done.
+  const getCompletionDrift = useCallback((task: Task): number | null => {
+    if (!task.is_completed || !task.completed_at) return null;
+    const baseline = task.original_deadline || task.deadline;
+    if (!baseline) return null;
+    const days = differenceInCalendarDays(startOfDay(parseISO(task.completed_at)), startOfDay(parseISO(baseline)));
+    return days > 0 ? days : null;
+  }, []);
 
   const getMilestoneX = (ms: Milestone) => {
     const d = startOfDay(parseISO(ms.planned_date));
@@ -1403,6 +1421,10 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
             <DropdownMenuItem onClick={() => setHideEmpty(prev => !prev)}>
               {hideEmpty ? <Eye className="h-3.5 w-3.5 mr-2" /> : <EyeOff className="h-3.5 w-3.5 mr-2" />}
               {hideEmpty ? "Показать пустые" : "Скрыть пустые"}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowCompleted(prev => !prev)}>
+              {showCompleted ? <EyeOff className="h-3.5 w-3.5 mr-2" /> : <Eye className="h-3.5 w-3.5 mr-2" />}
+              {showCompleted ? "Скрыть закрытые" : "Показать закрытые"}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleFillDeadlines}>
               <LocateFixed className="h-3.5 w-3.5 mr-2 text-primary" />
@@ -1910,6 +1932,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                       }
                       const isOverdue = task.deadline && isPast(parseISO(task.deadline)) && !task.is_completed;
                       const color = row.project.color || "#3b82f6";
+                      const completionDrift = getCompletionDrift(task);
 
                       return (
                         <>
@@ -1919,6 +1942,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               className={cn(
                                 "absolute top-2 rounded-md h-5 flex items-center text-[10px] font-medium text-white truncate transition-colors group/bar shadow-[0_1px_3px_rgba(0,0,0,0.15)]",
                                 isOverdue && "opacity-85",
+                                task.is_completed && "opacity-55 saturate-50",
                                 (dragState?.taskId === task.id) && "cursor-grabbing",
                                 isCritical && "ring-1 ring-destructive ring-offset-1 ring-offset-background",
                                 violationIds.has(task.id) && !isCritical && "ring-2 ring-destructive ring-offset-1 ring-offset-background",
@@ -1989,7 +2013,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                                 onDelete={(id) => { const t = allTasks.find(x => x.id === id); if (t) undoableDelete(t); else deleteTask.mutate(id); }}
                                 onOpenChange={(open) => setPopoverOpenTaskId(open ? task.id : null)}
                               >
-                                <span className="truncate px-3 flex-1 cursor-pointer">{width > 50 ? task.title : ""}</span>
+                                <span className="truncate px-3 flex-1 cursor-pointer">{width > 50 ? (task.is_completed ? "✓ " : "") + task.title : ""}</span>
                               </GanttTaskPopover>
 
                               {/* Resize handle (right edge) */}
@@ -2031,6 +2055,19 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               />
                             </div>
                           </GanttTooltip>
+
+                          {/* Completion drift badge — persistent (not hover-only), so a
+                              late finish is visible at a glance while scanning the chart,
+                              matching the "↗+Nд" convention used in STM/KM Brand Control. */}
+                          {completionDrift && (
+                            <div
+                              className="absolute top-2 h-5 flex items-center text-[10px] font-semibold text-amber-600 dark:text-amber-400 pointer-events-none whitespace-nowrap"
+                              style={{ left: left + width + 4 }}
+                              title={`Бейслайн: ${task.original_deadline ? format(parseISO(task.original_deadline), "d MMM", { locale: ru }) : task.deadline ? format(parseISO(task.deadline), "d MMM", { locale: ru }) : ""} · Закрыта: ${task.completed_at ? format(parseISO(task.completed_at), "d MMM", { locale: ru }) : ""}`}
+                            >
+                              ⚠ +{completionDrift}д
+                            </div>
+                          )}
                         </>
                       );
                     })()}
