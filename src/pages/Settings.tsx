@@ -603,7 +603,7 @@ export default function Settings() {
                       </div>
                       <div className="flex items-center justify-between py-2">
                         <div>
-                          <span className="text-sm">Колода маркетолога</span>
+                          <span className="text-sm">Strategy deck</span>
                           <p className="text-xs text-muted-foreground">Пятница в 15:00 МСК — один фреймворк из 50, по кругу без повторов</p>
                         </div>
                         <Switch

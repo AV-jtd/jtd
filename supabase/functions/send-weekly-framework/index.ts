@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { FRAMEWORKS, type Framework } from "../_shared/frameworks.ts";
 
 /**
- * Пятничная рассылка «Колода маркетолога» — один фреймворк в личку.
+ * Пятничная рассылка «Strategy deck» — один фреймворк в личку.
  *
  * Правила выбора:
  *  - всем подписчикам на неделе уходит ОДИН И ТОТ ЖЕ фреймворк (общий контекст
@@ -47,7 +47,7 @@ function buildMessage(f: Framework, cycle: number, indexInCycle: number): string
   const cat = CAT_LABELS[f.cat] ?? f.cat;
   const steps = f.steps.map((s, i) => `${i + 1}. ${escapeHtml(s)}`).join("\n");
   return [
-    `🧠 <b>Колода маркетолога</b> · ${escapeHtml(cat)}`,
+    `🧠 <b>Strategy deck</b> · ${escapeHtml(cat)}`,
     `<i>${indexInCycle} из ${FRAMEWORKS.length}${cycle > 1 ? ` · круг ${cycle}` : ""}</i>`,
     ``,
     `<b>${escapeHtml(f.name)}</b> — ${escapeHtml(f.nameRu)}`,
