@@ -27,5 +27,5 @@ dist-ssr
 self-hosting/.env.supabase
 self-hosting/kong.yml
 
-# Claude Code worktrees / служебное
-.claude/
+# Локальные настройки Claude Code (машинные, не общие)
+.claude/settings.local.json
