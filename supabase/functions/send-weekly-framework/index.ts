@@ -44,6 +44,40 @@ const CAT_LABELS: Record<string, string> = {
   comms: "Коммуникации",
 };
 
+/** Разовое приветствие перед самой первой карточкой — объясняет формат рассылки. */
+const WELCOME_TEXT = [
+  `👋 <b>Знакомство</b>`,
+  ``,
+  `Раз в неделю, по пятницам, сюда будет прилетать одна карточка знаний — не гороскоп, но тоже подскажет, как жить (по крайней мере, на работе).`,
+  ``,
+  `Фреймворк, метод или мысленная модель. Коротко и по делу, без «10 лайфхаков от гуру» — пара минут на чтение, и в голове на одну полезную штуку больше.`,
+  ``,
+  `Колода — 50 карточек, порядок случайный, без повторов, пока не пройдём все. Вся колода всегда под рукой: <a href="${SITE_URL}/frameworks/">${SITE_URL}/frameworks/</a>`,
+  ``,
+  `Не зашло — отключается в один клик в настройках уведомлений, никто не обидится.`,
+  ``,
+  `А теперь — первая карточка 👇`,
+].join("\n");
+
+async function sendTelegram(chatId: number, text: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+      }),
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, error: await res.text() };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 function buildMessage(f: Framework, cycle: number, indexInCycle: number): string {
   const cat = CAT_LABELS[f.cat] ?? f.cat;
   const steps = f.steps.map((s, i) => `${i + 1}. ${escapeHtml(s)}`).join("\n");
@@ -160,26 +194,19 @@ Deno.serve(async (req) => {
   }
 
   const text = buildMessage(chosen, cycle, indexInCycle);
+  const isFirstEver = history.length === 0;
   let sent = 0;
   const errors: string[] = [];
 
   for (const p of recipients) {
-    try {
-      const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: p.telegram_chat_id,
-          text,
-          parse_mode: "HTML",
-          disable_web_page_preview: true,
-        }),
-      });
-      if (res.ok) sent++;
-      else errors.push(`${p.display_name ?? p.id}: ${await res.text()}`);
-    } catch (e) {
-      errors.push(`${p.display_name ?? p.id}: ${String(e)}`);
+    // Перед самой первой карточкой в истории — отдельным сообщением приветствие
+    if (isFirstEver) {
+      const welcome = await sendTelegram(p.telegram_chat_id, WELCOME_TEXT);
+      if (!welcome.ok) errors.push(`${p.display_name ?? p.id} (welcome): ${welcome.error}`);
     }
+    const card = await sendTelegram(p.telegram_chat_id, text);
+    if (card.ok) sent++;
+    else errors.push(`${p.display_name ?? p.id}: ${card.error}`);
   }
 
   // Фактическое число доставленных
