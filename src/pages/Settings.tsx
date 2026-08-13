@@ -601,6 +601,16 @@ export default function Settings() {
                           onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_report: v } as any)}
                         />
                       </div>
+                      <div className="flex items-center justify-between py-2">
+                        <div>
+                          <span className="text-sm">Колода маркетолога</span>
+                          <p className="text-xs text-muted-foreground">Пятница в 15:00 МСК — один фреймворк из 50, по кругу без повторов</p>
+                        </div>
+                        <Switch
+                          checked={(prefs as any)?.telegram_weekly_framework !== false}
+                          onCheckedChange={(v) => updatePrefs.mutate({ telegram_weekly_framework: v } as any)}
+                        />
+                      </div>
                     </div>
                   </>
                 )}
