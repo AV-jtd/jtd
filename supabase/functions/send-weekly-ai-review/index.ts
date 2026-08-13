@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { isOverdue, startOfTodayMoscow } from "../_shared/time.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -111,6 +112,8 @@ function weekStartMoscow(): string {
 
 async function gatherWeekData(supabase: any, userId: string, profileMap: Record<string, string>) {
   const now = new Date();
+  // Граница просрочки — начало суток по МСК (как в UI), не момент запуска крона
+  const dayStart = startOfTodayMoscow();
   const weekAgo = new Date(now);
   weekAgo.setDate(weekAgo.getDate() - 7);
   const weekEnd = new Date(now);
@@ -173,19 +176,19 @@ async function gatherWeekData(supabase: any, userId: string, profileMap: Record<
   const completed = tasks.filter((t: any) => t.is_completed).length;
   const completedThisWeek = tasks.filter((t: any) => t.is_completed && t.completed_at && new Date(t.completed_at) >= weekAgo).length;
   const createdThisWeek = tasks.filter((t: any) => new Date(t.created_at) >= weekAgo).length;
-  const overdue = tasks.filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) < now);
+  const overdue = tasks.filter((t: any) => !t.is_completed && isOverdue(t.deadline, dayStart));
   const driftTasks = tasks.filter((t: any) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline);
-  const upcomingWeek = tasks.filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekEnd);
+  const upcomingWeek = tasks.filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) >= dayStart && new Date(t.deadline) <= weekEnd);
   const noDeadline = tasks.filter((t: any) => !t.is_completed && !t.deadline);
   const noAssignee = tasks.filter((t: any) => !t.is_completed && !t.assigned_to);
 
-  const overdueSteps = allSubtasks.filter((s: any) => !s.is_completed && s.deadline && new Date(s.deadline) < now);
+  const overdueSteps = allSubtasks.filter((s: any) => !s.is_completed && isOverdue(s.deadline, dayStart));
 
   // Per-project summary
   const projectSummaries = groups.map((g: any) => {
     const gt = tasks.filter((t: any) => t.group_id === g.id);
     const gc = gt.filter((t: any) => t.is_completed).length;
-    const go = gt.filter((t: any) => !t.is_completed && t.deadline && new Date(t.deadline) < now).length;
+    const go = gt.filter((t: any) => !t.is_completed && isOverdue(t.deadline, dayStart)).length;
     return { name: g.name, total: gt.length, completed: gc, overdue: go };
   }).filter((p: any) => p.total > 0);
 

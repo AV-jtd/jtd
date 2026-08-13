@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { isOverdue, startOfTodayMoscow } from "../_shared/time.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -48,6 +49,7 @@ Deno.serve(async (req) => {
   (allProfiles || []).forEach((p: any) => { profileName[p.id] = p.display_name || "Без имени"; });
 
   const now = new Date();
+  const dayStart = startOfTodayMoscow();
   const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
   const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7);
 
@@ -91,12 +93,15 @@ Deno.serve(async (req) => {
       const total = tasks.length;
       const completed = tasks.filter(t => t.is_completed).length;
       const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
-      const overdue = tasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now);
+      // Просрочка считается по началу суток (МСК), а не по моменту запуска крона:
+      // задача со сроком «сегодня» не просрочена. Та же граница используется для
+      // weekTasks, иначе задача на сегодня выпала бы из обоих списков.
+      const overdue = tasks.filter(t => !t.is_completed && isOverdue(t.deadline, dayStart));
       const completedThisWeek = tasks.filter(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= weekAgo);
       const createdThisWeek = tasks.filter(t => t.created_at && new Date(t.created_at) >= weekAgo);
-      const weekTasks = tasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekEnd);
+      const weekTasks = tasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) >= dayStart && new Date(t.deadline) <= weekEnd);
       const driftTasks = tasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline);
-      const overdueSteps = allSubtasks.filter(s => !s.is_completed && s.deadline && new Date(s.deadline) < now);
+      const overdueSteps = allSubtasks.filter(s => !s.is_completed && isOverdue(s.deadline, dayStart));
       const stepsNoDeadline = allSubtasks.filter(s => !s.is_completed && !s.deadline);
       const stepsNoAssignee = allSubtasks.filter(s => !s.is_completed && !s.assigned_to);
 
@@ -108,7 +113,7 @@ Deno.serve(async (req) => {
         if (t.is_completed) byAssignee[a].done++;
         else {
           byAssignee[a].open++;
-          if (t.deadline && new Date(t.deadline) < now) byAssignee[a].overdue++;
+          if (isOverdue(t.deadline, dayStart)) byAssignee[a].overdue++;
         }
       });
 
