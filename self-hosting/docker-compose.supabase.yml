@@ -139,6 +139,10 @@ services:
       GLOBAL_S3_FORCE_PATH_STYLE: ${STORAGE_S3_FORCE_PATH_STYLE:-true}
       AWS_ACCESS_KEY_ID: ${STORAGE_S3_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${STORAGE_S3_SECRET:-}
+      # AWS SDK v3 для некоторых батч-операций (deleteObjects) требует region
+      # именно в этой переменной, GLOBAL_S3_REGION ему не подхватывается —
+      # без неё падает "Region is missing" при загрузке файлов (2026-08-14)
+      AWS_REGION: ${STORAGE_S3_REGION:-ru-1}
     volumes:
       # file-бэкенд: том для локального хранения
       # при s3-бэкенде том не используется, но остаётся для возможного отката
