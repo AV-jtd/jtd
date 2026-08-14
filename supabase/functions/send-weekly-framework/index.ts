@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
   // ── Получатели: привязан Telegram + не отписан ──────────────────────
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, display_name, telegram_chat_id")
+    .select("id, display_name, telegram_chat_id, framework_welcome_sent_at")
     .not("telegram_chat_id", "is", null)
     .gt("telegram_chat_id", 0);
 
@@ -194,15 +194,23 @@ Deno.serve(async (req) => {
   }
 
   const text = buildMessage(chosen, cycle, indexInCycle);
-  const isFirstEver = history.length === 0;
   let sent = 0;
   const errors: string[] = [];
 
   for (const p of recipients) {
-    // Перед самой первой карточкой в истории — отдельным сообщением приветствие
-    if (isFirstEver) {
+    // Приветствие — не "самому первому в истории", а КАЖДОМУ перед ЕГО личной
+    // первой карточкой: кто подключил Telegram позже общего старта рассылки,
+    // всё равно должен получить объяснение формата, а не голую карточку.
+    if (!p.framework_welcome_sent_at) {
       const welcome = await sendTelegram(p.telegram_chat_id, WELCOME_TEXT);
-      if (!welcome.ok) errors.push(`${p.display_name ?? p.id} (welcome): ${welcome.error}`);
+      if (welcome.ok) {
+        await supabase
+          .from("profiles")
+          .update({ framework_welcome_sent_at: new Date().toISOString() })
+          .eq("id", p.id);
+      } else {
+        errors.push(`${p.display_name ?? p.id} (welcome): ${welcome.error}`);
+      }
     }
     const card = await sendTelegram(p.telegram_chat_id, text);
     if (card.ok) sent++;

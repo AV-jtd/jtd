@@ -227,3 +227,4 @@
 20260715110522_stm_team_participants_policy.sql
 20260723133803_km_brand_control.sql
 20260813120000_framework_broadcast.sql
+20260814140000_framework_welcome_per_user.sql
