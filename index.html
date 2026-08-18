@@ -1,7 +1,15 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru" translate="no">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Автоперевод страницы (Google/Яндекс Translate) подменяет текстовые узлы
+      в DOM. React об этой подмене не знает и при следующем рендере падает с
+      "Failed to execute 'insertBefore' on 'Node'". Раньше переводчик срабатывал
+      сам: контент русский, а lang стоял "en" — браузер считал страницу
+      английской и молча её «переводил». lang="ru" + notranslate закрывают это.
+    -->
+    <meta name="google" content="notranslate" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, viewport-fit=cover" />
     <!-- TODO: Set the document title to the name of your application -->
     <title>JustTODOit — менеджер задач</title>
