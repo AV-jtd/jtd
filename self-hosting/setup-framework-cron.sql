@@ -9,8 +9,8 @@
 --   docker exec -i self-hosting-db-1 psql -U postgres \
 --     -v anon="$ANON" -f - < /opt/jtd/self-hosting/setup-framework-cron.sql
 --
--- Время: пятница 12:00 UTC = 15:00 МСК. Намеренно отдельно от утренних отчётов
--- (08:08 МСК), чтобы знание не терялось в потоке цифр.
+-- Время: пятница 06:09 UTC = 09:09 МСК (решение владельца продукта перед
+-- первым запуском 2026-08-14; исходно в PR #7 планировалось 15:00 МСК).
 --
 -- Сама функция дополнительно проверяет, что сегодня пятница по Москве, и что
 -- на этой неделе рассылки ещё не было — так что повторный запуск безвреден.
@@ -21,7 +21,7 @@ WHERE EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'send-weekly-framework-frid
 
 SELECT cron.schedule(
   'send-weekly-framework-friday',
-  '0 12 * * 5',
+  '9 6 * * 5',
   format($job$
     SELECT net.http_post(
       url     := 'http://kong:8000/functions/v1/send-weekly-framework',

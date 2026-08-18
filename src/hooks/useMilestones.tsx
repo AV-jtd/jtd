@@ -64,8 +64,14 @@ export function useMilestoneMutations() {
   const updateMilestone = useMutation({
     mutationFn: async ({ id, ...updates }: { id: string; name?: string; planned_date?: string; description?: string; color?: string; status?: string; actual_date?: string | null; gate_key?: string | null; group_id?: string; position?: number }) => {
       const payload: MilestoneUpdate = updates;
-      const { error } = await supabase.from("project_milestones").update(payload).eq("id", id);
+      // .select() + row-count check: without it, an RLS-filtered 0-row UPDATE
+      // returns error=null and looks like a successful save (see the same
+      // fix applied to useTasks.tsx's updateTask/toggleTask).
+      const { data: updated, error } = await supabase.from("project_milestones").update(payload).eq("id", id).select("id");
       if (error) throw error;
+      if (!updated || updated.length === 0) {
+        throw new Error("Нет прав на изменение этой вехи");
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["milestones"] });

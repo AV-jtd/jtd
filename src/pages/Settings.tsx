@@ -604,7 +604,7 @@ export default function Settings() {
                       <div className="flex items-center justify-between py-2">
                         <div>
                           <span className="text-sm">Strategy deck</span>
-                          <p className="text-xs text-muted-foreground">Пятница в 15:00 МСК — один фреймворк из 50, по кругу без повторов</p>
+                          <p className="text-xs text-muted-foreground">Пятница в 09:09 МСК — один фреймворк из 50, по кругу без повторов</p>
                         </div>
                         <Switch
                           checked={(prefs as any)?.telegram_weekly_framework !== false}

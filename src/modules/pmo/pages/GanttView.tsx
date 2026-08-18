@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useUndo } from "@/hooks/useUndoStack";
 import { useTaskGroups, useTasks, useTasksByGroupIds, useTaskMutations, useAvailableUsers, type TaskGroup, type Task } from "@/hooks/useTasks";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useMilestones, useMilestoneMutations, type Milestone } from "@/hooks/useMilestones";
 import { useDependencies, useDependencyMutations } from "@/hooks/useDependencies";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,8 +15,9 @@ import {
   startOfMonth, getMonth, getYear
 } from "date-fns";
 import { ru } from "date-fns/locale";
-import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye, MoreHorizontal, BotMessageSquare } from "lucide-react";
+import { Minus, Plus, Diamond, FolderPlus, User, LocateFixed, Download, Upload, ArrowLeft, Printer, Sparkles, EyeOff, Eye, MoreHorizontal, BotMessageSquare, Search, X, Rows3, Rows2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import UndoRedoButtons from "@/components/UndoRedoButtons";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
@@ -38,8 +40,11 @@ type Scale = "day" | "week" | "month";
 
 const SCALE_ORDER: Scale[] = ["month", "week", "day"];
 const COL_WIDTHS: Record<Scale, number> = { day: 36, week: 120, month: 180 };
-const ROW_HEIGHT = 44;
-const MILESTONE_ROW_HEIGHT = 28;
+type GanttDensity = "comfortable" | "compact";
+const ROW_HEIGHTS: Record<GanttDensity, { task: number; milestone: number }> = {
+  comfortable: { task: 44, milestone: 28 },
+  compact: { task: 30, milestone: 20 },
+};
 const MIN_LEFT_PANEL = 250;
 const MAX_LEFT_PANEL = 1200;
 
@@ -148,9 +153,32 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const [newProjectName, setNewProjectName] = useState("");
   const [showNewProject, setShowNewProject] = useState(false);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
-  const [leftPanelWidth, setLeftPanelWidth] = useState(440);
+  const isMobile = useIsMobile();
+  // Both the left panel AND the splitter that resizes it are `position:
+  // sticky; left: leftPanelWidth` — on a real phone viewport (~390px) the
+  // old fixed default of 440 made the panel wider than the whole screen
+  // AND pushed the splitter itself off-screen, so the timeline (bars) was
+  // 100% unreachable and there was no way to even manually shrink the
+  // panel to get to it. Start narrow on mobile so both are on-screen from
+  // the first paint. window.innerWidth (not the isMobile hook, which is
+  // undefined until its effect runs) so this is correct on first render.
+  const [leftPanelWidth, setLeftPanelWidth] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 640 ? 130 : 440,
+  );
   const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
+  const [taskSearch, setTaskSearch] = useState("");
+  const [density, setDensity] = useState<GanttDensity>(() => {
+    if (typeof window === "undefined") return "comfortable";
+    return window.localStorage.getItem("gantt:density") === "compact" ? "compact" : "comfortable";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("gantt:density", density); } catch { /* ignore */ }
+  }, [density]);
   const [hideEmpty, setHideEmpty] = useState(false);
+  // Off by default: preserves the historical behavior (completed tasks
+  // vanish from the Gantt) for anyone who relies on it, while making it
+  // possible to see finished work + how late it actually landed vs plan.
+  const [showCompleted, setShowCompleted] = useState(false);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [tlScrollLeft, setTlScrollLeft] = useState(0);
   const [depStyle, setDepStyle] = useState<"bezier" | "dashed" | "gradient" | "dots">("bezier");
@@ -159,6 +187,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const [savedCols, setSavedCols] = useUserSetting<GanttColumnConfig[]>("gantt_columns", DEFAULT_COLUMNS);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [bulkShiftOpen, setBulkShiftOpen] = useState(false);
+  const [bulkShiftDays, setBulkShiftDays] = useState("");
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   // Cascade highlight: ids of milestones/tasks recently shifted by dependency cascade
   const [cascadeHighlight, setCascadeHighlight] = useState<Set<string>>(new Set());
@@ -447,10 +477,12 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   // Drag handlers (resize deadline OR move whole bar) with cascading
   useEffect(() => {
     if (!dragState) return;
-    const handleMouseMove = (e: MouseEvent) => {
+    // Pointer Events (not mouse-only) so bar resize/move works via touch too —
+    // clientX/clientY have the same shape as MouseEvent, body is unchanged.
+    const handleMouseMove = (e: PointerEvent) => {
       setDragDelta(e.clientX - dragState.startX);
     };
-    const handleMouseUp = (e: MouseEvent) => {
+    const handleMouseUp = (e: PointerEvent) => {
       const delta = e.clientX - dragState.startX;
       const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
       if (daysDelta !== 0) {
@@ -558,11 +590,11 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       setDragState(null);
       setDragDelta(0);
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
     };
   }, [dragState, scale, updateTask, updateMilestone, allDependencies, allTasks, allMilestones, groups, pushUndo]);
 
@@ -570,10 +602,10 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   const updateMilestoneDateRef = useRef<((ms: Milestone, newDateISO: string) => void) | null>(null);
   useEffect(() => {
     if (!msDragState) return;
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (e: PointerEvent) => {
       setMsDragDelta(e.clientX - msDragState.startX);
     };
-    const handleMouseUp = (e: MouseEvent) => {
+    const handleMouseUp = (e: PointerEvent) => {
       const delta = e.clientX - msDragState.startX;
       const daysDelta = Math.round(delta / (COL_WIDTHS[scale] / (scale === "day" ? 1 : scale === "week" ? 7 : 30)));
       if (daysDelta !== 0) {
@@ -586,18 +618,25 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       setMsDragState(null);
       setMsDragDelta(0);
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
     };
   }, [msDragState, scale, allMilestones]);
 
   // Dependency drag handlers
   useEffect(() => {
     if (!depDrag) return;
-    const handleMouseMove = (e: MouseEvent) => {
+    // NOTE: touch input is implicitly pointer-captured to the element where
+    // the gesture started (per the Pointer Events spec), so dragging a
+    // dependency connector to a DIFFERENT bar/milestone and releasing there
+    // won't reliably fire pointerup on that target via touch the way it does
+    // for mouse — the "drop on target" onPointerUp handlers below stay
+    // mouse-reliable; touch dependency-creation is a known, disclosed gap
+    // (not the ask here — date/bar dragging is).
+    const handleMouseMove = (e: PointerEvent) => {
       setDepDrag(prev => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY } : null);
     };
     const handleMouseUp = () => {
@@ -606,21 +645,25 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       // Reset ref after click events have fired
       setTimeout(() => { wasDepDragRef.current = false; }, 0);
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
     };
   }, [depDrag]);
 
   // Splitter drag handlers
   useEffect(() => {
     if (!splitterDragging) return;
-    const handleMouseMove = (e: MouseEvent) => {
+    // Lower floor on mobile — the desktop MIN_LEFT_PANEL (250) is still
+    // over half a phone's screen width, which would leave the splitter
+    // itself off-screen again the moment someone drags it that far.
+    const minPanel = isMobile ? 90 : MIN_LEFT_PANEL;
+    const handleMouseMove = (e: PointerEvent) => {
       if (splitterStartRef.current) {
         const delta = e.clientX - splitterStartRef.current.x;
-        const newWidth = Math.max(MIN_LEFT_PANEL, Math.min(MAX_LEFT_PANEL, splitterStartRef.current.width + delta));
+        const newWidth = Math.max(minPanel, Math.min(MAX_LEFT_PANEL, splitterStartRef.current.width + delta));
         setLeftPanelWidth(newWidth);
       }
     };
@@ -628,13 +671,13 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       setSplitterDragging(false);
       splitterStartRef.current = null;
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("pointermove", handleMouseMove);
+    window.addEventListener("pointerup", handleMouseUp);
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("pointermove", handleMouseMove);
+      window.removeEventListener("pointerup", handleMouseUp);
     };
-  }, [splitterDragging]);
+  }, [splitterDragging, isMobile]);
 
   // Compute subtask progress per task
   const taskProgress = useMemo(() => {
@@ -728,6 +771,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
   }, [allDependencies, allTasks]);
 
   // Build rows with collapse and summary bars
+  const searchQuery = taskSearch.trim().toLowerCase();
   const rows: GanttRow[] = useMemo(() => {
     const rootProjects = groups.filter(g => !g.parent_id).sort((a, b) => a.position - b.position);
     const result: GanttRow[] = [];
@@ -736,7 +780,11 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       if (!isDescendant && selectedProjectId && selectedProjectId !== project.id) return;
 
       const projectTasks = allTasks
-        .filter(t => t.group_id === project.id && !t.is_completed)
+        .filter(t =>
+          t.group_id === project.id &&
+          (showCompleted || !t.is_completed) &&
+          (!searchQuery || t.title.toLowerCase().includes(searchQuery)),
+        )
         .sort((a, b) => a.position - b.position);
       const allProjectTasks = allTasks.filter(t => t.group_id === project.id);
       const projectMilestones = allMilestones.filter(m => m.group_id === project.id);
@@ -833,7 +881,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
       }
     });
     return result;
-  }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress, hideEmpty]);
+  }, [groups, allTasks, allMilestones, selectedProjectId, collapsedProjects, taskProgress, hideEmpty, showCompleted, searchQuery]);
 
   // ── Multi-select handlers (need rows + handleChangeTaskGate) ──
   const handleToggleSelect = useCallback((taskId: string, shiftKey?: boolean) => {
@@ -875,6 +923,23 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     selectedTaskIds.forEach(id => deleteTask.mutate(id));
     setSelectedTaskIds(new Set());
   }, [selectedTaskIds, deleteTask]);
+
+  // Shift every selected task's dates by N days (both start_at and deadline,
+  // whichever the task has — mirrors the single-task "move whole bar" drag
+  // behavior). Frequent scenario: a project phase slips, need to push a
+  // whole batch of tasks at once instead of dragging each bar individually.
+  const handleBulkShiftDates = useCallback((days: number) => {
+    if (!days) return;
+    selectedTaskIds.forEach(id => {
+      const t = allTasks.find(x => x.id === id);
+      if (!t) return;
+      const updates: { id: string; deadline?: string; start_at?: string } = { id };
+      if (t.deadline) updates.deadline = addDays(parseISO(t.deadline), days).toISOString();
+      if (t.start_at) updates.start_at = addDays(parseISO(t.start_at), days).toISOString();
+      if (updates.deadline || updates.start_at) updateTask.mutate(updates);
+    });
+    setSelectedTaskIds(new Set());
+  }, [selectedTaskIds, allTasks, updateTask]);
 
   // Заполнить пустые дедлайны по зависимостям и стартам (последовательная цепочка).
   const handleFillDeadlines = useCallback(() => {
@@ -1026,6 +1091,20 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     if (driftWidth <= 0) return null;
     return { left: driftLeft, width: driftWidth };
   }, [timelineStart, totalDays, totalWidth, getBarStyle]);
+
+  // Completion drift: for a DONE task, how many days after the baseline
+  // (original_deadline, falling back to deadline if the task was never
+  // rescheduled) it was actually marked complete. Distinct from
+  // getDriftOverlay above, which only visualizes a rescheduled *plan* —
+  // this instead answers "did the team actually finish on time," which is
+  // the whole point of a baseline once a task is done.
+  const getCompletionDrift = useCallback((task: Task): number | null => {
+    if (!task.is_completed || !task.completed_at) return null;
+    const baseline = task.original_deadline || task.deadline;
+    if (!baseline) return null;
+    const days = differenceInCalendarDays(startOfDay(parseISO(task.completed_at)), startOfDay(parseISO(baseline)));
+    return days > 0 ? days : null;
+  }, []);
 
   const getMilestoneX = (ms: Milestone) => {
     const d = startOfDay(parseISO(ms.planned_date));
@@ -1182,16 +1261,20 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
     return users.filter(u => ids.has(u.id));
   }, [allTasks, users]);
 
-  const getRowHeight = useCallback((i: number) => rows[i]?.type === "milestone" ? MILESTONE_ROW_HEIGHT : ROW_HEIGHT, [rows]);
+  const getRowHeight = useCallback(
+    (i: number) => rows[i]?.type === "milestone" ? ROW_HEIGHTS[density].milestone : ROW_HEIGHTS[density].task,
+    [rows, density],
+  );
   const rowTops = useMemo(() => {
+    const h = ROW_HEIGHTS[density];
     const tops: number[] = [];
     let acc = 0;
     for (let i = 0; i < rows.length; i++) {
       tops.push(acc);
-      acc += rows[i].type === "milestone" ? MILESTONE_ROW_HEIGHT : ROW_HEIGHT;
+      acc += rows[i].type === "milestone" ? h.milestone : h.task;
     }
     return tops;
-  }, [rows]);
+  }, [rows, density]);
   const totalRowsHeight = useMemo(() => {
     if (rows.length === 0) return 0;
     return rowTops[rows.length - 1] + getRowHeight(rows.length - 1);
@@ -1292,6 +1375,56 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
             <option key={u.id} value={u.id}>{u.display_name || u.email}</option>
           ))}
         </select>
+
+        {/* Density toggle: comfortable / compact rows */}
+        <div className="inline-flex items-center gap-0.5 p-0.5 rounded-lg bg-muted/60 border border-border shrink-0">
+          <button
+            type="button"
+            onClick={() => setDensity("comfortable")}
+            className={cn(
+              "flex items-center justify-center h-6 w-6 rounded-md transition-colors",
+              density === "comfortable" ? "bg-primary/15 text-primary shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+            aria-pressed={density === "comfortable"}
+            title="Комфортный режим"
+          >
+            <Rows3 className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDensity("compact")}
+            className={cn(
+              "flex items-center justify-center h-6 w-6 rounded-md transition-colors",
+              density === "compact" ? "bg-primary/15 text-primary shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+            aria-pressed={density === "compact"}
+            title="Плотный режим"
+          >
+            <Rows2 className="h-3 w-3" />
+          </button>
+        </div>
+
+        {/* Task title search — actually filters rows (unlike filterAssignee,
+            which only dims), since the point is finding one task in a long
+            list, not highlighting. */}
+        <div className="relative">
+          <Search className="h-3 w-3 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <input
+            value={taskSearch}
+            onChange={e => setTaskSearch(e.target.value)}
+            placeholder="Поиск задачи..."
+            className="text-xs bg-muted border-0 rounded-md pl-6 pr-6 py-1 text-foreground outline-none w-32 focus:w-48 transition-all placeholder:text-muted-foreground"
+          />
+          {taskSearch && (
+            <button
+              onClick={() => setTaskSearch("")}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Очистить поиск"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
 
         {/* Hide empty toggle - inline since it's a frequent action */}
         {hideEmpty && (
@@ -1403,6 +1536,10 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
             <DropdownMenuItem onClick={() => setHideEmpty(prev => !prev)}>
               {hideEmpty ? <Eye className="h-3.5 w-3.5 mr-2" /> : <EyeOff className="h-3.5 w-3.5 mr-2" />}
               {hideEmpty ? "Показать пустые" : "Скрыть пустые"}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowCompleted(prev => !prev)}>
+              {showCompleted ? <EyeOff className="h-3.5 w-3.5 mr-2" /> : <Eye className="h-3.5 w-3.5 mr-2" />}
+              {showCompleted ? "Скрыть закрытые" : "Показать закрытые"}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleFillDeadlines}>
               <LocateFixed className="h-3.5 w-3.5 mr-2 text-primary" />
@@ -1631,6 +1768,47 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Shift dates */}
+          <Popover open={bulkShiftOpen} onOpenChange={(o) => { setBulkShiftOpen(o); if (o) setBulkShiftDays(""); }}>
+            <PopoverTrigger asChild>
+              <button className="px-2 py-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                📅 Сдвинуть даты
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="start">
+              <div className="text-xs font-medium mb-2">Сдвинуть на N дней</div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  autoFocus
+                  value={bulkShiftDays}
+                  onChange={e => setBulkShiftDays(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      const n = parseInt(bulkShiftDays, 10);
+                      if (n) { handleBulkShiftDates(n); setBulkShiftOpen(false); }
+                    }
+                  }}
+                  placeholder="напр. 3 или -2"
+                  className="flex-1 text-xs bg-muted border-0 rounded-md px-2 py-1.5 outline-none"
+                />
+                <button
+                  onClick={() => {
+                    const n = parseInt(bulkShiftDays, 10);
+                    if (n) { handleBulkShiftDates(n); setBulkShiftOpen(false); }
+                  }}
+                  disabled={!parseInt(bulkShiftDays, 10)}
+                  className="px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors"
+                >
+                  ОК
+                </button>
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-1.5">
+                Положительное число — позже, отрицательное — раньше. Сдвигает и старт, и срок.
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <div className="h-3 w-px bg-border" />
           <button onClick={handleBulkDelete} className="px-2 py-1 rounded-md text-destructive hover:bg-destructive/10 transition-colors">
             Удалить
@@ -1656,7 +1834,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
           <div className="sticky left-0 z-20 shrink-0 bg-card" style={{ width: leftPanelWidth }}>
             <GanttLeftPanel
               rows={rows}
-              rowHeight={ROW_HEIGHT}
+              rowHeight={ROW_HEIGHTS[density].task}
               getRowHeight={getRowHeight}
               width={leftPanelWidth}
               allProjects={groups}
@@ -1737,8 +1915,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
               "shrink-0 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors relative group/splitter sticky z-[15] bg-card",
               splitterDragging && "bg-primary/50"
             )}
-            style={{ left: leftPanelWidth, width: 6 }}
-            onMouseDown={(e) => {
+            style={{ left: leftPanelWidth, width: 6, touchAction: "none" }}
+            onPointerDown={(e) => {
               e.preventDefault();
               setSplitterDragging(true);
               splitterStartRef.current = { x: e.clientX, width: leftPanelWidth };
@@ -1787,7 +1965,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
               <GanttDependencyLines
                 rows={rows}
                 dependencies={allDependencies}
-                rowHeight={ROW_HEIGHT}
+                rowHeight={ROW_HEIGHTS[density].task}
                 rowTops={rowTops}
                 totalRowsHeight={totalRowsHeight}
                 getRowHeight={getRowHeight}
@@ -1857,7 +2035,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                         <div
                           className="absolute top-[13px] rounded-full h-2.5 opacity-70 group/proj"
                           style={{ left, width, backgroundColor: color }}
-                          onMouseUp={() => handleBarMouseUp(row.project.id, "project")}
+                          onPointerUp={() => handleBarMouseUp(row.project.id, "project")}
                         >
                           {row.progress !== undefined && row.progress > 0 && (
                             <div
@@ -1871,7 +2049,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                           {/* Project dependency connector */}
                           <div
                             className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background opacity-0 group-hover/proj:opacity-100 cursor-crosshair z-20 transition-opacity"
-                            onMouseDown={(e) => {
+                            style={{ touchAction: "none" }}
+                            onPointerDown={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
                               setDepDrag({
@@ -1910,6 +2089,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                       }
                       const isOverdue = task.deadline && isPast(parseISO(task.deadline)) && !task.is_completed;
                       const color = row.project.color || "#3b82f6";
+                      const completionDrift = getCompletionDrift(task);
 
                       return (
                         <>
@@ -1919,6 +2099,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               className={cn(
                                 "absolute top-2 rounded-md h-5 flex items-center text-[10px] font-medium text-white truncate transition-colors group/bar shadow-[0_1px_3px_rgba(0,0,0,0.15)]",
                                 isOverdue && "opacity-85",
+                                task.is_completed && "opacity-55 saturate-50",
                                 (dragState?.taskId === task.id) && "cursor-grabbing",
                                 isCritical && "ring-1 ring-destructive ring-offset-1 ring-offset-background",
                                 violationIds.has(task.id) && !isCritical && "ring-2 ring-destructive ring-offset-1 ring-offset-background",
@@ -1926,7 +2107,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               )}
                               style={{ left, width, backgroundColor: isOverdue ? "hsl(var(--destructive))" : color, minWidth: 8 }}
                               title={`${task.title}${task.deadline ? ` → ${format(parseISO(task.deadline), "d MMM", { locale: ru })}` : ""}${violationIds.has(task.id) ? "  ⚠ Нарушение зависимости" : ""}`}
-                              onMouseUp={() => handleBarMouseUp(task.id)}
+                              onPointerUp={() => handleBarMouseUp(task.id)}
                             >
                               {/* Progress fill inside bar */}
                               {progress > 0 && progress < 100 && (
@@ -1947,10 +2128,15 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                                 </div>
                               )}
 
-                              {/* Left-edge resize handle (start_at) */}
+                              {/* Left-edge resize handle (start_at). group-hover/bar gives a
+                                  faint always-there hint the moment the cursor enters the bar
+                                  at all — the precise hover:bg-white/30 stays for exact targeting.
+                                  Without this, the 8px hit zone had zero visual affordance and
+                                  users had no way to discover dragging was possible. */}
                               <div
-                                className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 rounded-l-sm"
-                                onMouseDown={(e) => {
+                                className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize bg-white/0 group-hover/bar:bg-white/15 hover:!bg-white/30 rounded-l-sm transition-colors"
+                                style={{ touchAction: "none" }}
+                                onPointerDown={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
                                   setDragState({
@@ -1966,7 +2152,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               {/* Move handle (grab area between edges) */}
                               <div
                                 className="absolute left-2 top-0 bottom-0 right-2 cursor-grab"
-                                onMouseDown={(e) => {
+                                style={{ touchAction: "none" }}
+                                onPointerDown={(e) => {
                                   if (!task.deadline) return;
                                   e.stopPropagation();
                                   e.preventDefault();
@@ -1989,14 +2176,15 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                                 onDelete={(id) => { const t = allTasks.find(x => x.id === id); if (t) undoableDelete(t); else deleteTask.mutate(id); }}
                                 onOpenChange={(open) => setPopoverOpenTaskId(open ? task.id : null)}
                               >
-                                <span className="truncate px-3 flex-1 cursor-pointer">{width > 50 ? task.title : ""}</span>
+                                <span className="truncate px-3 flex-1 cursor-pointer">{width > 50 ? (task.is_completed ? "✓ " : "") + task.title : ""}</span>
                               </GanttTaskPopover>
 
                               {/* Resize handle (right edge) */}
                               {task.deadline && (
                                 <div
-                                  className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 rounded-r-sm"
-                                  onMouseDown={(e) => {
+                                  className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize bg-white/0 group-hover/bar:bg-white/15 hover:!bg-white/30 rounded-r-sm transition-colors"
+                                  style={{ touchAction: "none" }}
+                                  onPointerDown={(e) => {
                                     e.stopPropagation();
                                     e.preventDefault();
                                     setDragState({
@@ -2012,7 +2200,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               {/* Dependency connector dot (right side) */}
                               <div
                                 className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary border-2 border-background opacity-0 group-hover/bar:opacity-100 cursor-crosshair z-20 transition-opacity"
-                                onMouseDown={(e) => {
+                                style={{ touchAction: "none" }}
+                                onPointerDown={(e) => {
                                   e.stopPropagation();
                                   e.preventDefault();
                                   const barRect = (e.target as HTMLElement).parentElement!;
@@ -2031,6 +2220,19 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               />
                             </div>
                           </GanttTooltip>
+
+                          {/* Completion drift badge — persistent (not hover-only), so a
+                              late finish is visible at a glance while scanning the chart,
+                              matching the "↗+Nд" convention used in STM/KM Brand Control. */}
+                          {completionDrift && (
+                            <div
+                              className="absolute top-2 h-5 flex items-center text-[10px] font-semibold text-amber-600 dark:text-amber-400 pointer-events-none whitespace-nowrap"
+                              style={{ left: left + width + 4 }}
+                              title={`Бейслайн: ${task.original_deadline ? format(parseISO(task.original_deadline), "d MMM", { locale: ru }) : task.deadline ? format(parseISO(task.deadline), "d MMM", { locale: ru }) : ""} · Закрыта: ${task.completed_at ? format(parseISO(task.completed_at), "d MMM", { locale: ru }) : ""}`}
+                            >
+                              ⚠ +{completionDrift}д
+                            </div>
+                          )}
                         </>
                       );
                     })()}
@@ -2116,7 +2318,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                         <div
                           className="absolute inset-0 group/ms"
                           style={{ backgroundColor: "rgba(239,68,68,0.03)" }}
-                          onMouseUp={() => handleBarMouseUp(ms.id, "milestone")}
+                          onPointerUp={() => handleBarMouseUp(ms.id, "milestone")}
                         >
                           <div
                             className={cn(
@@ -2124,9 +2326,9 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                               hasViolation && "ring-2 ring-destructive ring-offset-1 ring-offset-background rounded-sm",
                               isCascaded && "animate-pulse drop-shadow-[0_0_8px_hsl(var(--primary))]"
                             )}
-                            style={{ left: x - 5 }}
+                            style={{ left: x - 5, touchAction: "none" }}
                             title={isCascaded ? "↻ Веха перенесена каскадом зависимостей" : (hasViolation ? "⚠ Веха нарушает зависимости (раньше предшественника)" : ms.name)}
-                            onMouseDown={(e) => {
+                            onPointerDown={(e) => {
                               if (e.button !== 0) return;
                               e.stopPropagation();
                               e.preventDefault();
@@ -2149,8 +2351,8 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                           </div>
                           <div
                             className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-[#EF4444] border-2 border-background opacity-0 group-hover/ms:opacity-100 cursor-crosshair z-20 transition-opacity"
-                            style={{ left: x + 6 }}
-                            onMouseDown={(e) => {
+                            style={{ left: x + 6, touchAction: "none" }}
+                            onPointerDown={(e) => {
                               e.stopPropagation();
                               e.preventDefault();
                               setDepDrag({

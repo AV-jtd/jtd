@@ -11,8 +11,9 @@ import { FRAMEWORKS, type Framework } from "../_shared/frameworks.ts";
  *    выбор идёт только из неотправленных. Когда колода кончилась — новый цикл;
  *  - самый первый выпуск принудительно STP (договорённость с заказчиком).
  *
- * Время: пятница 15:00 МСК — намеренно отдельно от утренних отчётов (08:08),
- * чтобы знание не терялось в потоке цифр.
+ * Время: пятница 09:09 МСК (решение владельца продукта перед первым запуском
+ * 2026-08-14; исходно в PR #7 планировалось 15:00, отдельно от утренних
+ * отчётов 08:08 — время сдвинуто, сам принцип "не смешивать с цифрами" тот же).
  */
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -42,6 +43,40 @@ const CAT_LABELS: Record<string, string> = {
   money: "Деньги",
   comms: "Коммуникации",
 };
+
+/** Разовое приветствие перед самой первой карточкой — объясняет формат рассылки. */
+const WELCOME_TEXT = [
+  `👋 <b>Знакомство</b>`,
+  ``,
+  `Раз в неделю, по пятницам, сюда будет прилетать одна карточка знаний — не гороскоп, но тоже подскажет, как жить (по крайней мере, на работе).`,
+  ``,
+  `Фреймворк, метод или мысленная модель. Коротко и по делу, без «10 лайфхаков от гуру» — пара минут на чтение, и в голове на одну полезную штуку больше.`,
+  ``,
+  `Колода — 50 карточек, порядок случайный, без повторов, пока не пройдём все. Вся колода всегда под рукой: <a href="${SITE_URL}/frameworks/">${SITE_URL}/frameworks/</a>`,
+  ``,
+  `Не зашло — отключается в один клик в настройках уведомлений, никто не обидится.`,
+  ``,
+  `А теперь — первая карточка 👇`,
+].join("\n");
+
+async function sendTelegram(chatId: number, text: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+      }),
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, error: await res.text() };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
 
 function buildMessage(f: Framework, cycle: number, indexInCycle: number): string {
   const cat = CAT_LABELS[f.cat] ?? f.cat;
@@ -123,7 +158,7 @@ Deno.serve(async (req) => {
   // ── Получатели: привязан Telegram + не отписан ──────────────────────
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, display_name, telegram_chat_id")
+    .select("id, display_name, telegram_chat_id, framework_welcome_sent_at")
     .not("telegram_chat_id", "is", null)
     .gt("telegram_chat_id", 0);
 
@@ -163,22 +198,23 @@ Deno.serve(async (req) => {
   const errors: string[] = [];
 
   for (const p of recipients) {
-    try {
-      const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: p.telegram_chat_id,
-          text,
-          parse_mode: "HTML",
-          disable_web_page_preview: true,
-        }),
-      });
-      if (res.ok) sent++;
-      else errors.push(`${p.display_name ?? p.id}: ${await res.text()}`);
-    } catch (e) {
-      errors.push(`${p.display_name ?? p.id}: ${String(e)}`);
+    // Приветствие — не "самому первому в истории", а КАЖДОМУ перед ЕГО личной
+    // первой карточкой: кто подключил Telegram позже общего старта рассылки,
+    // всё равно должен получить объяснение формата, а не голую карточку.
+    if (!p.framework_welcome_sent_at) {
+      const welcome = await sendTelegram(p.telegram_chat_id, WELCOME_TEXT);
+      if (welcome.ok) {
+        await supabase
+          .from("profiles")
+          .update({ framework_welcome_sent_at: new Date().toISOString() })
+          .eq("id", p.id);
+      } else {
+        errors.push(`${p.display_name ?? p.id} (welcome): ${welcome.error}`);
+      }
     }
+    const card = await sendTelegram(p.telegram_chat_id, text);
+    if (card.ok) sent++;
+    else errors.push(`${p.display_name ?? p.id}: ${card.error}`);
   }
 
   // Фактическое число доставленных

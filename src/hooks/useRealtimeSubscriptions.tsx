@@ -57,7 +57,7 @@ export function useRealtimeSubscriptions() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "tasks" },
-        () => debouncedInvalidate(tasksTimer, [["tasks"], ["client_room_tasks"], ["client_task_threads"], ["stm-stage-tasks"], ["km-stage-tasks"]])
+        () => debouncedInvalidate(tasksTimer, [["tasks"], ["client_room_tasks"], ["client_task_threads"], ["stm-stage-tasks"], ["km-stage-tasks"], ["tasks-by-groups"]])
       )
       .subscribe();
 
