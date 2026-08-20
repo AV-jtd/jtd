@@ -35,15 +35,33 @@ git checkout HEAD -- self-hosting/ 2>/dev/null || true
 # Собираем в dist.new и только при успехе синхронизируем в dist/ через rsync
 # (сохраняет inode каталога → bind-mount nginx НЕ устаревает; именно смена
 # inode ловилась как 403). При падении сборки dist/ НЕ трогаем — прод жив.
-# npm install (а не npm ci): Lovable коммитит bun-локфайл, npm ci на нём падает.
+#
+# Про менеджер пакетов. В репозитории два локфайла, и они принадлежат разным
+# сторонам: bun.lock ведёт Lovable, package-lock.json — мы. Собирать на VPS
+# через bun НЕЛЬЗЯ: все 338 tarball-ссылок в bun.lock указывают на приватный
+# реестр Lovable (pkg.dev/lovable-core-prod), снаружи он отдаёт 403.
+# Поэтому здесь npm с нашим package-lock.json — он полный и целиком с
+# registry.npmjs.org.
+#
+# npm ci — основной путь: ставит строго по локфайлу, воспроизводимо.
+# Если Lovable добавил зависимость в package.json и наш локфайл отстал,
+# npm ci падает; тогда откатываемся на npm install, чтобы деплой не встал,
+# и громко просим обновить локфайл (иначе прод молча уедет на другие версии).
 log "Сборка фронтенда (в dist.new)"
 ANON_KEY="$(grep -E '^ANON_KEY=' "$ENV_FILE" | cut -d= -f2-)"
 rm -rf "$REPO_DIR/dist.new"
+install_deps() {
+  if npm ci --no-audit --no-fund; then return 0; fi
+  log "⚠️ npm ci не прошёл — package-lock.json отстал от package.json."
+  log "⚠️ Ставлю через npm install. Обнови локфайл: npm install && закоммить package-lock.json"
+  npm install --no-audit --no-fund
+}
+export -f install_deps log
 if ! VITE_SUPABASE_URL="https://justtodoit.ru" \
      VITE_SUPABASE_PROXY_URL="https://justtodoit.ru/sb" \
      VITE_SUPABASE_ANON_KEY="$ANON_KEY" \
      VITE_SUPABASE_PUBLISHABLE_KEY="$ANON_KEY" \
-     bash -c 'npm install --no-audit --no-fund && npm run build -- --outDir dist.new'; then
+     bash -c 'install_deps && npm run build -- --outDir dist.new'; then
   log "СБОРКА УПАЛА — dist/ не тронут, прод остаётся на прежней версии"
   rm -rf "$REPO_DIR/dist.new"
   # На всякий случай убеждаемся, что nginx отдаёт текущий (рабочий) dist/
