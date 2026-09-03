@@ -126,7 +126,9 @@ if [ -n "$BOT_TOKEN" ]; then
   url="$(printf '%s' "$wh" | grep -o '"url":"[^"]*"' | cut -d'"' -f4)"
   pending="$(printf '%s' "$wh" | grep -o '"pending_update_count":[0-9]*' | cut -d: -f2)"
   lasterr="$(printf '%s' "$wh" | grep -o '"last_error_message":"[^"]*"' | cut -d'"' -f4)"
-  [ -n "$url" ] && ok "вебхук зарегистрирован: $url" || bad "вебхук НЕ зарегистрирован — бот не будет отвечать"
+  # В URL вебхука лежит анонимный ключ. Он публичный (есть в сборке фронтенда),
+  # но в отчёте, который уходит скриншотом, ему делать нечего — обрезаем.
+  [ -n "$url" ] && ok "вебхук зарегистрирован: ${url%%\?*}" || bad "вебхук НЕ зарегистрирован — бот не будет отвечать"
   [ "${pending:-0}" = "0" ] && ok "очередь пуста" || warn "необработанных апдейтов: $pending"
   [ -z "$lasterr" ] && ok "ошибок доставки нет" || bad "последняя ошибка: $lasterr"
 else
@@ -134,13 +136,39 @@ else
 fi
 
 # ---------- 10. Резервные копии ----------
+# Ищем именно *.dump: pg_dump пишет в формате -Fc, а не в .gz.
+# (Первая версия проверки искала *.gz и давала ложную тревогу.)
 head_ "10. Резервные копии"
-last="$(docker exec self-hosting-pg-backup-1 sh -c "ls -t $BACKUP_DIR/*.gz $BACKUP_DIR/*/*.gz 2>/dev/null | head -1" 2>/dev/null)"
-if [ -n "$last" ]; then
-  info="$(docker exec self-hosting-pg-backup-1 sh -c "ls -l '$last'" 2>/dev/null | awk '{print $5" байт, "$6" "$7" "$8}')"
-  ok "последняя копия: $(basename "$last") — $info"
+bk() { docker exec self-hosting-pg-backup-1 sh -c "$1" 2>/dev/null; }
+last="$(bk "ls -t $BACKUP_DIR/daily/*.dump 2>/dev/null | head -1")"
+if [ -z "$last" ]; then
+  bad "в $BACKUP_DIR/daily нет ни одного .dump — ежедневный бэкап не работает"
 else
-  warn "копий не найдено в $BACKUP_DIR (проверьте вручную)"
+  info="$(bk "ls -lh '$last'" | awk '{print $5", "$6" "$7" "$8}')"
+  fresh="$(bk "find $BACKUP_DIR/daily -name '*.dump' -mmin -1500 | head -1")"
+  [ -n "$fresh" ] && ok "свежая копия: $(basename "$last") ($info)" \
+                  || bad "последняя копия старше суток: $(basename "$last") ($info)"
+  printf '  всего копий: daily %s, weekly %s, monthly %s\n' \
+    "$(bk "ls $BACKUP_DIR/daily/*.dump 2>/dev/null | wc -l")" \
+    "$(bk "ls $BACKUP_DIR/weekly/*.dump 2>/dev/null | wc -l")" \
+    "$(bk "ls $BACKUP_DIR/monthly/*.dump 2>/dev/null | wc -l")"
+fi
+
+# Где копии лежат физически. Том docker живёт на том же диске, что и всё
+# остальное: он спасает от порчи базы, но не от потери сервера или диска.
+mnt="$(docker inspect self-hosting-pg-backup-1 --format "{{range .Mounts}}{{if eq .Destination \"$BACKUP_DIR\"}}{{.Type}} {{.Source}}{{end}}{{end}}" 2>/dev/null)"
+case "$mnt" in
+  bind*) ok "хранилище: внешний каталог хоста (${mnt#bind })" ;;
+  volume*) warn "хранилище: том docker (${mnt#volume }) — тот же диск, что и база; от потери сервера не защищает" ;;
+  *) warn "не удалось определить, куда смонтирован $BACKUP_DIR" ;;
+esac
+
+# Выгрузка за пределы сервера — единственное, что спасает при потере машины.
+if crontab -l 2>/dev/null | grep -q "run-daily-s3-backup"; then
+  ok "выгрузка в S3: задание в кроне хоста есть"
+  printf '    %s\n' "$(crontab -l 2>/dev/null | grep run-daily-s3-backup)"
+else
+  bad "выгрузка в S3 НЕ настроена в кроне хоста — копии есть только на самом сервере"
 fi
 
 # ---------- 11. Постоянная сессия ----------
