@@ -72,8 +72,32 @@ h "8. Доступные дампы для восстановления"
 docker exec self-hosting-pg-backup-1 sh -c 'ls -lh /mnt/backup-disk/jtd/daily/*.dump 2>/dev/null | tail -5' 2>/dev/null \
   || echo "  каталог дампов не прочитался — проверьте вручную"
 
+h "9. Результаты HTTP-вызовов из крона (pg_net)"
+# Ключевое место. cron.job_run_details считает задание успешным, как только
+# запрос ПОСТАВЛЕН В ОЧЕРЕДЬ. Реальный ответ (или сетевая ошибка) лежит здесь.
+# Именно поэтому healthcheck показывал «нет неуспешных запусков», хотя
+# рассылки не дошли.
+q -c "SELECT id, status_code, left(coalesce(error_msg,''),60) AS ошибка,
+             created::timestamp(0) AS время
+      FROM net._http_response
+      WHERE created > now() - interval '36 hours'
+      ORDER BY created DESC LIMIT 15;"
+
+h "10. Журнал Strategy deck: запускалась ли пятничная рассылка"
+# Эта рассылка НЕ зависит от проектов — уходит всем с привязанным Telegram.
+# Если строка за текущую неделю есть, функция отработала и неделю заняла.
+# Если нет — до функции дело не дошло.
+q -c "SELECT week_start, cycle, framework_id, created_at::timestamp(0) AS создано
+      FROM framework_broadcast_log ORDER BY week_start DESC LIMIT 5;"
+
+h "11. Расписание крон-заданий и когда они должны были сработать"
+q -c "SELECT jobid, jobname, schedule, active FROM cron.job ORDER BY jobname;"
+
 printf '\n\033[1mЧто смотреть\033[0m\n'
 echo "  Раздел 1: если «открытых_корневых» ноль или почти ноль — причина найдена."
 echo "  Раздел 2: закрытие десятков проектов в один час = не ручная работа."
 echo "  Раздел 7: если проектов мало или ноль — строки удалены, нужен откат из дампа."
 echo "  Разделы 5-6: молчала рассылка сама или ей нечего было слать."
+echo "  Раздел 9: главное. Сетевые ошибки или коды не 200 = функции не вызвались."
+echo "  Раздел 10: Strategy deck не зависит от проектов. Нет строки за эту"
+echo "             неделю — значит дело не в проектах, а в вызове функций."
