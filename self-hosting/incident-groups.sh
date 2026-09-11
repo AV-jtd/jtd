@@ -77,10 +77,19 @@ h "9. Результаты HTTP-вызовов из крона (pg_net)"
 # запрос ПОСТАВЛЕН В ОЧЕРЕДЬ. Реальный ответ (или сетевая ошибка) лежит здесь.
 # Именно поэтому healthcheck показывал «нет неуспешных запусков», хотя
 # рассылки не дошли.
-q -c "SELECT id, status_code, left(coalesce(error_msg,''),60) AS ошибка,
-             created::timestamp(0) AS время
+# Код 200 ещё ничего не доказывает: обе рассылки возвращают 200 и тогда,
+# когда решили никому не слать ({"ok":true,"sent":0,"reason":"..."}).
+# Поэтому смотрим ТЕЛО ответа, а не только код.
+# Фильтр по содержимому отсекает protocol-buffer-flush — он идёт каждую
+# минуту и иначе вытесняет всё остальное из выборки.
+q -c "SELECT created::timestamp(0) AS время, status_code AS код,
+             left(coalesce(error_msg,''),40) AS ошибка,
+             left(content,200) AS ответ_функции
       FROM net._http_response
       WHERE created > now() - interval '36 hours'
+        AND (content::text ILIKE '%sent%' OR content::text ILIKE '%reason%'
+             OR content::text ILIKE '%framework%' OR status_code <> 200
+             OR error_msg IS NOT NULL)
       ORDER BY created DESC LIMIT 15;"
 
 h "10. Журнал Strategy deck: запускалась ли пятничная рассылка"
