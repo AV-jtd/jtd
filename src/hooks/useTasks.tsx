@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { Tables, TablesInsert } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { taskMatchesCacheKey } from "@/lib/taskCacheMatch";
 
 export type Task = Tables<"tasks"> & {
   subtasks?: Tables<"subtasks">[];
@@ -48,6 +49,26 @@ function updateAllTaskCaches(qc: QueryClient, updater: (tasks: Task[]) => Task[]
   // underlying cache never picked up the change, so it reverted on the next
   // render unless the page was hard-reloaded.
   qc.setQueriesData<Task[]>({ queryKey: ["tasks-by-groups"] }, (old) => old ? updater(old) : old);
+}
+
+/**
+ * Вставка НОВОЙ задачи в кэши — в отличие от updateAllTaskCaches, с оглядкой
+ * на фильтры каждого кэша.
+ *
+ * Правка существующей строки безопасна во всех кэшах сразу: строка уже там,
+ * где ей место. А вот вставка вслепую ломалась: задача попадала и в те списки,
+ * которым не принадлежит (чужой проект, активный фильтр по тегам), затем
+ * onSettled инвалидировал запросы, повторная выборка её оттуда убирала — и
+ * пользователь видел, как задача появилась и пропала, будто не сохранилась.
+ */
+function insertTaskIntoMatchingCaches(qc: QueryClient, task: Task) {
+  for (const scope of ["tasks", "stm-stage-tasks", "km-stage-tasks", "tasks-by-groups"] as const) {
+    qc.getQueriesData<Task[]>({ queryKey: [scope] }).forEach(([key, data]) => {
+      if (!data) return;
+      if (!taskMatchesCacheKey(key, task)) return;
+      qc.setQueryData<Task[]>(key, [task, ...data]);
+    });
+  }
 }
 
 function updateAllGroupCaches(qc: QueryClient, updater: (groups: TaskGroup[]) => TaskGroup[]) {
@@ -1518,7 +1539,7 @@ export function useTaskMutations() {
         task_tags: [],
         follow_up_of: (task as any).follow_up_of ?? null,
       };
-      updateAllTaskCaches(qc, (tasks) => [optimisticTask, ...tasks]);
+      insertTaskIntoMatchingCaches(qc, optimisticTask);
       return { snap };
     },
     onError: (_e, _v, ctx) => { if (ctx?.snap) restoreTasks(qc, ctx.snap); toast.error(_e.message); },

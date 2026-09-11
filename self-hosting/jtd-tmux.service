@@ -1,0 +1,48 @@
+[Unit]
+# Постоянная tmux-сессия "jtd" для ручной работы на сервере.
+#
+# Зачем: tmux-сессии не переживают перезагрузку. После ребута 22 августа
+# сессия исчезла, и обнаружилось это только через две недели — при попытке
+# сделать tmux attach. Юнит поднимает пустую сессию при старте системы,
+# чтобы attach всегда срабатывал.
+#
+# Внутри сессии запускается ОБЫЧНЫЙ SHELL, а не Claude: во-первых, выход из
+# Claude тогда не убивает сессию (вторая причина, по которой она пропадает);
+# во-вторых, запускать интерактивного агента без человека за терминалом —
+# плохая идея. Claude запускаете руками уже внутри.
+#
+# Установка:
+#   cp /opt/jtd/self-hosting/jtd-tmux.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable --now jtd-tmux.service
+#   tmux attach -t jtd
+#
+# Проверка после перезагрузки: tmux ls  →  должна быть сессия jtd.
+
+Description=Постоянная tmux-сессия jtd
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+# oneshot + RemainAfterExit — стандартный способ для команды, которая
+# запускает демона и сразу выходит. Type=forking тут не подходит: tmux
+# отсоединяет сервер в собственную сессию, и systemd теряет его PID.
+# Пока юнит числится активным, systemd не подчищает оставшиеся процессы,
+# поэтому tmux-сервер продолжает жить (KillMode=none не нужен — он устарел).
+Type=oneshot
+RemainAfterExit=yes
+
+User=root
+Environment=HOME=/root
+Environment=TERM=xterm-256color
+WorkingDirectory=/opt/jtd
+
+# has-session — чтобы юнит не падал, если сессию уже подняли руками:
+# tmux new-session -d на занятом имени возвращает ошибку.
+ExecStart=/bin/sh -c '/usr/bin/tmux has-session -t jtd 2>/dev/null || /usr/bin/tmux new-session -d -s jtd -c /opt/jtd'
+
+# Без "-" юнит покажет сбой при остановке, если сессии уже нет.
+ExecStop=-/usr/bin/tmux kill-session -t jtd
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# Разбор инцидента «пропали все проекты» + молчащие еженедельные рассылки.
+# Только чтение. Ничего не меняет и не восстанавливает.
+#
+# Запуск:  bash /opt/jtd/self-hosting/incident-groups.sh [фамилия]
+#          bash /opt/jtd/self-hosting/incident-groups.sh Плотникова
+#
+# Обе поломки объясняются одним: рассылки пропускают пользователя, если у
+# него нет ни одного ОТКРЫТОГО КОРНЕВОГО проекта (closed_at IS NULL и
+# parent_id IS NULL). Если проекты закрылись или исчезли — интерфейс пуст
+# и отчёты молчат. Скрипт проверяет, так ли это, и когда это случилось.
+
+set -uo pipefail
+WHO="${1:-Плотникова}"
+q() { docker exec self-hosting-db-1 psql -U postgres -X -P pager=off "$@" 2>&1; }
+h() { printf '\n\033[1m%s\033[0m\n' "$1"; }
+
+printf '\033[1mРазбор инцидента — %s\033[0m\n' "$(date '+%d.%m.%Y %H:%M:%S %Z')"
+q -tAc "SELECT 'Время в базе: '||now()"
+
+h "1. Проекты целиком: есть ли они вообще"
+q -c "SELECT count(*) AS всего,
+             count(*) FILTER (WHERE closed_at IS NULL) AS открытых,
+             count(*) FILTER (WHERE closed_at IS NOT NULL) AS закрытых,
+             count(*) FILTER (WHERE parent_id IS NULL AND closed_at IS NULL) AS открытых_корневых,
+             max(created_at)::timestamp(0) AS последний_создан
+      FROM task_groups;"
+
+h "2. Массовое закрытие: когда именно закрывались проекты"
+# Если в одном часе разом закрылись десятки — это не ручная работа.
+q -c "SELECT date_trunc('hour', closed_at)::timestamp(0) AS час, count(*) AS закрыто
+      FROM task_groups WHERE closed_at IS NOT NULL
+      GROUP BY 1 ORDER BY 1 DESC LIMIT 8;"
+
+h "3. Пользователь: $WHO"
+q -c "SELECT id, display_name, is_approved, telegram_chat_id IS NOT NULL AS телеграм_привязан
+      FROM profiles WHERE display_name ILIKE '%${WHO}%';"
+
+h "4. Его проекты: свои и те, где участник"
+q -c "WITH u AS (SELECT id FROM profiles WHERE display_name ILIKE '%${WHO}%' LIMIT 1)
+      SELECT 'свои' AS источник, count(*) AS всего,
+             count(*) FILTER (WHERE closed_at IS NULL AND parent_id IS NULL) AS открытых_корневых
+        FROM task_groups g, u WHERE g.user_id = u.id
+      UNION ALL
+      SELECT 'участник', count(*),
+             count(*) FILTER (WHERE g.closed_at IS NULL AND g.parent_id IS NULL)
+        FROM group_members m JOIN task_groups g ON g.id = m.group_id, u WHERE m.user_id = u.id;"
+
+h "5. Последние запуски крон-заданий за сутки"
+# Молчащая рассылка могла и не запускаться вовсе — это разные причины.
+q -c "SELECT j.jobname, d.status, d.start_time::timestamp(0) AS запуск,
+             left(coalesce(d.return_message,''), 50) AS сообщение
+      FROM cron.job_run_details d JOIN cron.job j USING (jobid)
+      WHERE d.start_time > now() - interval '24 hours'
+      ORDER BY d.start_time DESC LIMIT 10;"
+
+h "6. Журнал отправленных отчётов за неделю"
+# Если строки есть — функция отработала и решила, что слать нечего.
+# Если строк нет — она либо не запускалась, либо упала до отправки.
+q -c "SELECT report_type, week_start, count(*) AS отправок, max(created_at)::timestamp(0) AS последняя
+      FROM weekly_send_log WHERE created_at > now() - interval '8 days'
+      GROUP BY 1,2 ORDER BY 3 DESC;"
+
+h "7. Удаления: не пропали ли строки физически"
+# Свежий дамп есть, но важно понимать масштаб до восстановления.
+q -c "SELECT (SELECT count(*) FROM tasks) AS задач,
+             (SELECT count(*) FROM task_groups) AS проектов,
+             (SELECT count(*) FROM group_members) AS участий,
+             (SELECT count(*) FROM profiles) AS профилей;"
+
+h "8. Доступные дампы для восстановления"
+docker exec self-hosting-pg-backup-1 sh -c 'ls -lh /mnt/backup-disk/jtd/daily/*.dump 2>/dev/null | tail -5' 2>/dev/null \
+  || echo "  каталог дампов не прочитался — проверьте вручную"
+
+h "9. Результаты HTTP-вызовов из крона (pg_net)"
+# Ключевое место. cron.job_run_details считает задание успешным, как только
+# запрос ПОСТАВЛЕН В ОЧЕРЕДЬ. Реальный ответ (или сетевая ошибка) лежит здесь.
+# Именно поэтому healthcheck показывал «нет неуспешных запусков», хотя
+# рассылки не дошли.
+# Код 200 ещё ничего не доказывает: обе рассылки возвращают 200 и тогда,
+# когда решили никому не слать ({"ok":true,"sent":0,"reason":"..."}).
+# Поэтому смотрим ТЕЛО ответа, а не только код.
+# Фильтр по содержимому отсекает protocol-buffer-flush — он идёт каждую
+# минуту и иначе вытесняет всё остальное из выборки.
+q -c "SELECT created::timestamp(0) AS время, status_code AS код,
+             left(coalesce(error_msg,''),40) AS ошибка,
+             left(content,200) AS ответ_функции
+      FROM net._http_response
+      WHERE created > now() - interval '36 hours'
+        AND (content::text ILIKE '%sent%' OR content::text ILIKE '%reason%'
+             OR content::text ILIKE '%framework%' OR status_code <> 200
+             OR error_msg IS NOT NULL)
+      ORDER BY created DESC LIMIT 15;"
+
+h "10. Журнал Strategy deck: запускалась ли пятничная рассылка"
+# Эта рассылка НЕ зависит от проектов — уходит всем с привязанным Telegram.
+# Если строка за текущую неделю есть, функция отработала и неделю заняла.
+# Если нет — до функции дело не дошло.
+q -c "SELECT week_start, cycle, framework_id, recipients AS получателей,
+             sent_at::timestamp(0) AS отправлено
+      FROM framework_broadcast_log ORDER BY week_start DESC LIMIT 5;"
+
+h "12. Живой ли фоновый процесс pg_net"
+# Сам по себе pg_cron только СТАВИТ запрос в очередь через net.http_post.
+# Выполняет его отдельный фоновый процесс pg_net. Если он умер, задания
+# считаются успешными, очередь растёт, а наружу не уходит ничего.
+# Признак: последний ответ давно, при том что protocol-buffer-flush идёт
+# каждую минуту. Плюс перестаёт работать уборка старых ответов (ttl ~6 ч).
+q -c "SELECT (SELECT max(created)::timestamp(0) FROM net._http_response) AS последний_ответ,
+             now()::timestamp(0) AS сейчас,
+             (SELECT count(*) FROM net.http_request_queue) AS ждут_в_очереди;"
+q -c "SELECT pid, backend_type, application_name, state,
+             backend_start::timestamp(0) AS запущен
+      FROM pg_stat_activity
+      WHERE backend_type ILIKE '%pg_net%' OR application_name ILIKE '%pg_net%';"
+
+h "11. Расписание крон-заданий и когда они должны были сработать"
+q -c "SELECT jobid, jobname, schedule, active FROM cron.job ORDER BY jobname;"
+
+printf '\n\033[1mЧто смотреть\033[0m\n'
+echo "  Раздел 1: если «открытых_корневых» ноль или почти ноль — причина найдена."
+echo "  Раздел 2: закрытие десятков проектов в один час = не ручная работа."
+echo "  Раздел 7: если проектов мало или ноль — строки удалены, нужен откат из дампа."
+echo "  Разделы 5-6: молчала рассылка сама или ей нечего было слать."
+echo "  Раздел 9: главное. Сетевые ошибки или коды не 200 = функции не вызвались."
+echo "  Раздел 10: Strategy deck не зависит от проектов. Нет строки за эту"
+echo "             неделю — значит дело не в проектах, а в вызове функций."
