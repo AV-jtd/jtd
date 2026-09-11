@@ -92,8 +92,8 @@ printf '  профилей в profiles:        %s\n' "$(psql_q 'SELECT count(*) 
 orphans="$(psql_q 'SELECT count(*) FROM auth.users u LEFT JOIN public.profiles p ON p.id=u.id WHERE p.id IS NULL')"
 [ "$orphans" = "0" ] && ok "нет пользователей без профиля" || warn "пользователей без профиля: $orphans"
 
-# ---------- 6. pg_cron ----------
-head_ "6. Задания pg_cron"
+# ---------- 6. pg_cron и pg_net ----------
+head_ "6. Задания pg_cron и pg_net"
 psql_q "SELECT jobname||' | '||schedule||' | '||CASE WHEN active THEN 'вкл' ELSE 'ВЫКЛ' END FROM cron.job ORDER BY jobname" \
   | while read -r l; do [ -n "$l" ] && printf '  %s\n' "$l"; done
 inactive="$(psql_q "SELECT count(*) FROM cron.job WHERE NOT active")"
@@ -105,6 +105,29 @@ if [ "${bad_runs:-0}" = "0" ]; then
 else
   bad "неуспешных запусков: $bad_runs"
   psql_q "SELECT '    '||jobid||' '||coalesce(status,'?')||' '||to_char(start_time,'DD.MM HH24:MI')||' '||left(coalesce(return_message,''),80) FROM cron.job_run_details WHERE status <> 'succeeded' AND start_time > now() - interval '7 days' ORDER BY start_time DESC LIMIT 5"
+fi
+
+# Живость pg_net. Задания cron не выполняют запрос сами — они кладут его в
+# очередь pg_net, а отправляет фоновый воркер расширения. Воркер может молча
+# умереть: cron.job_run_details при этом показывает succeeded, потому что
+# net.http_post отработал успешно — он всего лишь поставил запись в очередь.
+# Ровно так 11 сентября healthcheck показал зелёный итог в момент, когда
+# рассылки уже никуда не уходили.
+#
+# Опорой служит protocol-buffer-flush: он ходит раз в минуту, поэтому свежий
+# ответ в net._http_response должен быть всегда. Порог 10 минут — с запасом.
+echo "  живость pg_net:"
+flush_active="$(psql_q "SELECT active FROM cron.job WHERE jobname='protocol-buffer-flush'")"
+net_age="$(psql_q "SELECT round(extract(epoch FROM now()-max(created))/60) FROM net._http_response")"
+if [ "$flush_active" != "t" ]; then
+  # Без ежеминутного задания порог в 10 минут ничего не значит.
+  warn "задание protocol-buffer-flush выключено или отсутствует — живость pg_net не проверить"
+elif [ -z "$net_age" ]; then
+  bad "в net._http_response нет ни одного ответа — pg_net не отправляет запросы"
+elif [ "$net_age" -le 10 ]; then
+  ok "последний ответ pg_net получен ${net_age} мин назад"
+else
+  bad "последний ответ pg_net получен ${net_age} мин назад при ежеминутном protocol-buffer-flush — очередь не разбирается, рассылки не уходят"
 fi
 
 # ---------- 7. Realtime ----------
@@ -176,6 +199,38 @@ head_ "11. tmux-сессия"
 systemctl is-enabled jtd-tmux.service >/dev/null 2>&1 \
   && ok "юнит jtd-tmux включён (сессия переживёт перезагрузку)" \
   || warn "юнит jtd-tmux не включён"
+
+# ---------- 12. Часы ----------
+# 11 сентября системные часы отстали на 4 часа 39 минут, и pg_cron отработал
+# пятничные рассылки по отставшему времени. Аппаратные часы тогда были верны,
+# так что расхождение между ними поймало бы инцидент заранее.
+head_ "12. Часы"
+printf '  системные: %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')"
+hw_str="$(hwclock --utc --show 2>/dev/null)"
+if [ -z "$hw_str" ]; then
+  warn "hwclock недоступен — расхождение с аппаратными часами не проверено"
+else
+  printf '  аппаратные: %s\n' "$hw_str"
+  skew="$(( $(date +%s) - $(date -d "$hw_str" +%s) ))"
+  [ "$skew" -lt 0 ] && skew=$(( -skew ))
+  if [ "$skew" -le 300 ]; then
+    ok "расхождение с аппаратными часами: ${skew} с"
+  else
+    bad "расхождение с аппаратными часами: ${skew} с (больше пяти минут) — задания pg_cron сработают не вовремя"
+  fi
+fi
+
+# Одного сравнения с аппаратными часами мало: 11 сентября выяснилось, что
+# уехать они могут вместе — после ручной правки обоих часов через
+# hwclock --hctosys оба одинаково отстали ещё на 72 секунды. Поэтому здесь же
+# проверяется внешняя опора, синхронизация по NTP. Сознательно предупреждение,
+# а не отказ: отказом просили считать только расхождение больше пяти минут.
+synced="$(timedatectl show -p NTPSynchronized --value 2>/dev/null)"
+case "$synced" in
+  yes) ok "время синхронизировано по NTP ($(timedatectl timesync-status 2>/dev/null | awk -F": " "/^ *Server:/{print \$2; exit}"))" ;;
+  no)  warn "время НЕ синхронизировано по NTP — часы уедут снова, см. self-hosting/check-ntp.sh" ;;
+  *)   warn "не удалось узнать состояние синхронизации времени" ;;
+esac
 
 # ---------- Итог ----------
 head_ "Итог"
