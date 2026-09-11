@@ -32,23 +32,48 @@ export type TagCategory = { id: string; name: string; color: string | null; posi
 
 // --- Optimistic update helpers ---
 
+/**
+ * Кэши, в которых лежат строки одной и той же таблицы tasks под разными
+ * ключами. Правка СУЩЕСТВУЮЩЕЙ строки безопасна во всех сразу: строка уже
+ * там, где ей место (в отличие от вставки — см. insertTaskIntoMatchingCaches).
+ *
+ * - stm-stage-tasks / km-stage-tasks — этапы STM и КМ (task_type='stm_stage'
+ *   и 'km_stage'): те же задачи, отдельный кэш. Без них правка через обычный
+ *   редактор TaskItem не доезжала до матрицы до перезагрузки страницы.
+ * - tasks-by-groups — Гантт, открытый с карточки проекта. Без него
+ *   перетаскивание дат выглядело применённым (локальное состояние во время
+ *   перетаскивания), но кэш не менялся, и дата откатывалась на следующем
+ *   рендере.
+ * - crm-tasks, directorate-tasks, department-tasks, linked-protocol-tasks,
+ *   npd-matrix-tasks — списки задач в CRM, дирекции, отделе, протоколах и
+ *   матрице НИОКР. Их здесь не хватало: оптимистичная правка срока или
+ *   ответственного не доходила до этих экранов, и пользователь видел
+ *   изменение только после фонового обновления. crm-tasks при этом уже
+ *   инвалидировался в onSettled — кэш считали связанным, а патчить забыли.
+ *
+ * Намеренно НЕ входят my_tasks_dashboard и subordinate_tasks: там не массив
+ * задач, а объект ({ involved, delegatedByMe } и { members, tasks }). Их надо
+ * патчить отдельно, вслепую нельзя.
+ */
+const TASK_CACHE_SCOPES = [
+  "tasks",
+  "stm-stage-tasks",
+  "km-stage-tasks",
+  "tasks-by-groups",
+  "crm-tasks",
+  "directorate-tasks",
+  "department-tasks",
+  "linked-protocol-tasks",
+  "npd-matrix-tasks",
+] as const;
+
 function updateAllTaskCaches(qc: QueryClient, updater: (tasks: Task[]) => Task[]) {
-  qc.setQueriesData<Task[]>({ queryKey: ["tasks"] }, (old) => old ? updater(old) : old);
-  // STM Mission Control reads task_type='stm_stage' rows under a separate
-  // query key (["stm-stage-tasks", userId]) — same underlying tasks table,
-  // different cache. Without this, edits made via the generic TaskItem
-  // editor (e.g. the inline stage editor in the STM expanded row) never
-  // reach the STM matrix until a full page reload.
-  qc.setQueriesData<Task[]>({ queryKey: ["stm-stage-tasks"] }, (old) => old ? updater(old) : old);
-  // Same rationale for KM Brand Control (task_type='km_stage', ["km-stage-tasks", userId]).
-  qc.setQueriesData<Task[]>({ queryKey: ["km-stage-tasks"] }, (old) => old ? updater(old) : old);
-  // Gantt (opened from a project card) reads via useTasksByGroupIds, cached
-  // under ["tasks-by-groups", userId, groupIds, window] — a third separate
-  // cache over the same tasks table. Missing this meant drag/resize date
-  // edits in the Gantt looked applied (mid-drag local state) but the
-  // underlying cache never picked up the change, so it reverted on the next
-  // render unless the page was hard-reloaded.
-  qc.setQueriesData<Task[]>({ queryKey: ["tasks-by-groups"] }, (old) => old ? updater(old) : old);
+  for (const scope of TASK_CACHE_SCOPES) {
+    // Array.isArray, а не просто old — страховка на случай, если какой-то из
+    // кэшей однажды сменит форму на объект: тогда патч молча его пропустит,
+    // а не уронит updater на .map() несуществующего массива.
+    qc.setQueriesData<Task[]>({ queryKey: [scope] }, (old) => Array.isArray(old) ? updater(old) : old);
+  }
 }
 
 /**
@@ -62,6 +87,10 @@ function updateAllTaskCaches(qc: QueryClient, updater: (tasks: Task[]) => Task[]
  * пользователь видел, как задача появилась и пропала, будто не сохранилась.
  */
 function insertTaskIntoMatchingCaches(qc: QueryClient, task: Task) {
+  // Список намеренно свой, а не TASK_CACHE_SCOPES: taskMatchesCacheKey умеет
+  // разбирать только эти четыре формы ключа. Добавить сюда кэш, фильтр
+  // которого функция не понимает, — значит вернуть тот самый баг с задачей,
+  // которая появляется и тут же пропадает.
   for (const scope of ["tasks", "stm-stage-tasks", "km-stage-tasks", "tasks-by-groups"] as const) {
     qc.getQueriesData<Task[]>({ queryKey: [scope] }).forEach(([key, data]) => {
       if (!data) return;
@@ -71,24 +100,76 @@ function insertTaskIntoMatchingCaches(qc: QueryClient, task: Task) {
   }
 }
 
+/**
+ * Участники задачи лежат в ДВУХ кэшах разной формы:
+ *   ["task_participants", taskId]            → TaskParticipant[]
+ *   ["task_participants", "bulk", "id,id,…"] → Map<taskId, TaskParticipant[]>
+ * Первый читает карточка задачи, второй — списки (useTaskParticipantsBulk).
+ * Патч обязан попасть в оба, иначе ответственный сменится в карточке и
+ * останется прежним в списке — или наоборот.
+ */
+function patchParticipantCaches(
+  qc: QueryClient,
+  taskId: string,
+  updater: (list: TaskParticipant[]) => TaskParticipant[],
+) {
+  qc.setQueriesData<TaskParticipant[]>(
+    { queryKey: ["task_participants", taskId] },
+    (old) => (Array.isArray(old) ? updater(old) : old),
+  );
+
+  qc.getQueriesData({ queryKey: ["task_participants", "bulk"] }).forEach(([key, data]) => {
+    if (!(data instanceof Map)) return;
+    // Принадлежность задачи к этому кэшу проверяем по КЛЮЧУ, а не по
+    // data.has(taskId): в Map попадают только задачи, у которых участники уже
+    // есть. У задачи без участников записи нет, и первый назначенный
+    // ответственный иначе просто не появился бы в списке.
+    const ids = String((key as unknown[])[2] ?? "").split(",");
+    if (!ids.includes(taskId)) return;
+    const next = new Map(data as Map<string, TaskParticipant[]>);
+    next.set(taskId, updater(next.get(taskId) ?? []));
+    qc.setQueryData(key, next);
+  });
+}
+
+/** Текущий список участников из любого доступного кэша: сперва карточка, потом списки. */
+function readParticipants(qc: QueryClient, taskId: string): TaskParticipant[] {
+  const single = qc.getQueryData<TaskParticipant[]>(["task_participants", taskId]);
+  if (Array.isArray(single)) return single;
+  for (const [key, data] of qc.getQueriesData({ queryKey: ["task_participants", "bulk"] })) {
+    if (!(data instanceof Map)) continue;
+    const ids = String((key as unknown[])[2] ?? "").split(",");
+    if (!ids.includes(taskId)) continue;
+    const list = (data as Map<string, TaskParticipant[]>).get(taskId);
+    if (list) return list;
+  }
+  return [];
+}
+
+type ParticipantSnapshot = [readonly unknown[], unknown][];
+
+function snapshotParticipants(qc: QueryClient): ParticipantSnapshot {
+  return qc.getQueriesData({ queryKey: ["task_participants"] })
+    .map(([key, data]) => [key, data] as [readonly unknown[], unknown]);
+}
+
+function restoreParticipants(qc: QueryClient, snapshot: ParticipantSnapshot) {
+  snapshot.forEach(([key, data]) => qc.setQueryData(key, data));
+}
+
 function updateAllGroupCaches(qc: QueryClient, updater: (groups: TaskGroup[]) => TaskGroup[]) {
   qc.setQueriesData<TaskGroup[]>({ queryKey: ["task_groups"] }, (old) => old ? updater(old) : old);
 }
 
+// Снимок для отката. Обязан покрывать ровно те же кэши, что и
+// updateAllTaskCaches: иначе откат восстановит не всё, что патч испортил.
 function snapshotTasks(qc: QueryClient) {
   const cache: [readonly unknown[], Task[] | undefined][] = [];
-  qc.getQueriesData<Task[]>({ queryKey: ["tasks"] }).forEach(([key, data]) => {
-    cache.push([key, data]);
-  });
-  qc.getQueriesData<Task[]>({ queryKey: ["stm-stage-tasks"] }).forEach(([key, data]) => {
-    cache.push([key, data]);
-  });
-  qc.getQueriesData<Task[]>({ queryKey: ["km-stage-tasks"] }).forEach(([key, data]) => {
-    cache.push([key, data]);
-  });
-  qc.getQueriesData<Task[]>({ queryKey: ["tasks-by-groups"] }).forEach(([key, data]) => {
-    cache.push([key, data]);
-  });
+  for (const scope of TASK_CACHE_SCOPES) {
+    qc.getQueriesData<Task[]>({ queryKey: [scope] }).forEach(([key, data]) => {
+      cache.push([key, data]);
+    });
+  }
   return cache;
 }
 
@@ -2356,8 +2437,42 @@ export function useTaskMutations() {
       const event = role === "assignee" ? "task_assigned" : "task_participant_added";
       notifyEvent(event, taskData?.title || "", [participantUserId], task_id);
     },
+    // Без оптимистики пользователь ждал всю цепочку mutationFn — до восьми
+    // последовательных запросов (снятие текущего ответственного, upsert,
+    // tasks.assigned_to, чтение задачи, проверка и вставка членства в проекте,
+    // родительский проект, уведомление) — и только потом инвалидацию с
+    // повторной выборкой. Отсюда и ощущение «ответственный не сохранился».
+    onMutate: async ({ task_id, user_id: participantUserId, role }) => {
+      await qc.cancelQueries({ queryKey: ["task_participants"] });
+      await qc.cancelQueries({ queryKey: ["tasks"] });
+      const partsSnap = snapshotParticipants(qc);
+      const tasksSnap = snapshotTasks(qc);
+
+      patchParticipantCaches(qc, task_id, (list) => {
+        // Тот же порядок, что и в mutationFn: сперва снимаем роль с текущего
+        // ответственного. В базе этого требует частичный уникальный индекс
+        // task_participants_one_assignee_per_task, здесь — чтобы в интерфейсе
+        // на мгновение не оказалось двух ответственных.
+        const base = role === "assignee"
+          ? list.map(p => (p.role === "assignee" && p.user_id !== participantUserId ? { ...p, role: "participant" } : p))
+          : list;
+        return base.some(p => p.user_id === participantUserId)
+          ? base.map(p => (p.user_id === participantUserId ? { ...p, role } : p))
+          : [...base, { id: tempId(), task_id, user_id: participantUserId, role, created_at: new Date().toISOString() }];
+      });
+
+      if (role === "assignee") {
+        updateAllTaskCaches(qc, (tasks) =>
+          tasks.map(t => (t.id === task_id ? { ...t, assigned_to: participantUserId } : t)));
+      }
+      return { partsSnap, tasksSnap };
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["task_participants"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); qc.invalidateQueries({ queryKey: ["task_groups"] }); },
-    onError: (e) => toast.error(e.message),
+    onError: (e, _v, ctx) => {
+      if (ctx?.partsSnap) restoreParticipants(qc, ctx.partsSnap);
+      if (ctx?.tasksSnap) restoreTasks(qc, ctx.tasksSnap);
+      toast.error(e.message);
+    },
   });
 
   const removeParticipant = useMutation({
@@ -2369,8 +2484,32 @@ export function useTaskMutations() {
         await supabase.from("tasks").update({ assigned_to: null }).eq("id", task_id);
       }
     },
+    onMutate: async ({ task_id, user_id: removedUserId }) => {
+      await qc.cancelQueries({ queryKey: ["task_participants"] });
+      await qc.cancelQueries({ queryKey: ["tasks"] });
+      const partsSnap = snapshotParticipants(qc);
+      const tasksSnap = snapshotTasks(qc);
+
+      // Роль читаем ДО патча: по ней решаем, чистить ли tasks.assigned_to.
+      // Ответственный на задаче может быть только один, поэтому если убираем
+      // именно его — другого не останется, и mutationFn обнулит поле.
+      const wasAssignee = readParticipants(qc, task_id)
+        .some(p => p.user_id === removedUserId && p.role === "assignee");
+
+      patchParticipantCaches(qc, task_id, (list) => list.filter(p => p.user_id !== removedUserId));
+
+      if (wasAssignee) {
+        updateAllTaskCaches(qc, (tasks) =>
+          tasks.map(t => (t.id === task_id ? { ...t, assigned_to: null } : t)));
+      }
+      return { partsSnap, tasksSnap };
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["task_participants"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); },
-    onError: (e) => toast.error(e.message),
+    onError: (e, _v, ctx) => {
+      if (ctx?.partsSnap) restoreParticipants(qc, ctx.partsSnap);
+      if (ctx?.tasksSnap) restoreTasks(qc, ctx.tasksSnap);
+      toast.error(e.message);
+    },
   });
 
   const grantTagAccess = useMutation({

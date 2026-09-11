@@ -59,6 +59,26 @@ export function useRealtimeSubscriptions() {
         { event: "*", schema: "public", table: "tasks" },
         () => debouncedInvalidate(tasksTimer, [["tasks"], ["client_room_tasks"], ["client_task_threads"], ["stm-stage-tasks"], ["km-stage-tasks"], ["tasks-by-groups"]])
       )
+      // Участники задачи. Таблица давно опубликована в supabase_realtime, но
+      // подписки на неё не было — то есть смена ответственного, сделанная
+      // ДРУГИМ пользователем, не появлялась на экране вообще, до перезагрузки
+      // страницы. Свои изменения теперь закрывает оптимистика в useTasks,
+      // а эта подписка нужна ровно для чужих.
+      //
+      // my_tasks_dashboard и subordinate_tasks строятся от участия, но лежат
+      // в кэше объектами, а не массивом задач — оптимистичный патч их не
+      // трогает, поэтому здесь они обновляются обычной инвалидацией.
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "task_participants" },
+        () => debouncedInvalidate(tasksTimer, [["task_participants"], ["tasks"], ["my_tasks_dashboard"], ["subordinate_tasks"]])
+      )
+      // Теги задач — тот же пробел: таблица опубликована, подписки не было.
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "task_tags" },
+        () => debouncedInvalidate(tasksTimer, [["tasks"], ["task_tags"]])
+      )
       .subscribe();
 
     // Group members for THIS user (was: every useTaskGroups() instance opened this)
@@ -79,6 +99,18 @@ export function useRealtimeSubscriptions() {
             ["client_room_tasks"],
             ["client_room_info"],
           ])
+      )
+      .subscribe();
+
+    // Сами проекты. Подписки не было: переименование проекта, смена статуса
+    // или закрытие, сделанные другим участником, не доезжали до экрана.
+    // Фильтра нет намеренно — RLS и так отдаёт только видимые строки.
+    const groupsChannel = supabase
+      .channel("global-task-groups")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "task_groups" },
+        () => debouncedInvalidate(groupsTimer, [["task_groups"], ["group_task_stats"]])
       )
       .subscribe();
 
@@ -113,6 +145,7 @@ export function useRealtimeSubscriptions() {
       supabase.removeChannel(subtasksChannel);
       supabase.removeChannel(tasksChannel);
       supabase.removeChannel(groupMembersChannel);
+      supabase.removeChannel(groupsChannel);
       supabase.removeChannel(unreadChannel);
     };
   }, [user, qc]);
