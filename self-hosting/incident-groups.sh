@@ -96,8 +96,23 @@ h "10. Журнал Strategy deck: запускалась ли пятнична�
 # Эта рассылка НЕ зависит от проектов — уходит всем с привязанным Telegram.
 # Если строка за текущую неделю есть, функция отработала и неделю заняла.
 # Если нет — до функции дело не дошло.
-q -c "SELECT week_start, cycle, framework_id, created_at::timestamp(0) AS создано
+q -c "SELECT week_start, cycle, framework_id, recipients AS получателей,
+             sent_at::timestamp(0) AS отправлено
       FROM framework_broadcast_log ORDER BY week_start DESC LIMIT 5;"
+
+h "12. Живой ли фоновый процесс pg_net"
+# Сам по себе pg_cron только СТАВИТ запрос в очередь через net.http_post.
+# Выполняет его отдельный фоновый процесс pg_net. Если он умер, задания
+# считаются успешными, очередь растёт, а наружу не уходит ничего.
+# Признак: последний ответ давно, при том что protocol-buffer-flush идёт
+# каждую минуту. Плюс перестаёт работать уборка старых ответов (ttl ~6 ч).
+q -c "SELECT (SELECT max(created)::timestamp(0) FROM net._http_response) AS последний_ответ,
+             now()::timestamp(0) AS сейчас,
+             (SELECT count(*) FROM net.http_request_queue) AS ждут_в_очереди;"
+q -c "SELECT pid, backend_type, application_name, state,
+             backend_start::timestamp(0) AS запущен
+      FROM pg_stat_activity
+      WHERE backend_type ILIKE '%pg_net%' OR application_name ILIKE '%pg_net%';"
 
 h "11. Расписание крон-заданий и когда они должны были сработать"
 q -c "SELECT jobid, jobname, schedule, active FROM cron.job ORDER BY jobname;"
