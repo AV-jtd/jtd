@@ -1,106 +1,75 @@
 #!/usr/bin/env bash
-# Проверка доступности синхронизации времени. Ничего не устанавливает и
-# ничего не меняет — только читает.
+# Какие серверы времени доступны с этой машины.
 #
-# Зачем: 11 сентября системные часы отстали на 4 часа 39 минут, pg_cron
-# запускал пятничные рассылки по отставшим часам, и они ушли не вовремя.
-# Часы поправили через hwclock --hctosys (аппаратные оказались точными),
-# но systemd-timesyncd по-прежнему не может достучаться ни до одного
-# ntp.ubuntu.com: все запросы по UDP/123 уходят в таймаут. Скрипт отвечает
-# на вопрос, какой путь синхронизации вообще доступен с этой машины.
+# Запуск: bash /opt/jtd/self-hosting/check-ntp.sh
 #
-# Запуск: bash self-hosting/check-ntp.sh
+# Ничего не устанавливает и не меняет: шлёт NTP-пакеты напрямую на python3,
+# который есть в системе. Нужно, чтобы понять, чем чинить синхронизацию —
+# штатным NTP по UDP/123 или обходным путём поверх HTTPS.
 #
-# Что делать по результату:
-#   отвечает хотя бы один NTP  → прописать его в systemd-timesyncd
-#   все молчат, HTTPS работает → поставить htpdate
-#   не работает ничего         → systemd-таймер с hwclock --hctosys раз в час
+# Контекст: systemd-timesyncd не смог достучаться ни до одного сервера
+# ntp.ubuntu.com, при этом ufw исходящие разрешает. Похоже, UDP/123 режет
+# провайдер. Проверяем, все ли серверы недоступны или только убунтовские.
 
-set -u
+set -uo pipefail
 
-TIMEOUT=5
-
-NTP_SERVERS=(
-  ntp.ubuntu.com
-  pool.ntp.org
+SERVERS=(
   time.google.com
   time.cloudflare.com
-  time.windows.com
-  time.apple.com
   ru.pool.ntp.org
+  0.pool.ntp.org
+  ntp1.vniiftri.ru
+  ntp.msk-ix.ru
+  ntp.ubuntu.com
 )
 
-HTTPS_HOSTS=(
-  https://www.google.com
-  https://cloudflare.com
-  https://ya.ru
-)
-
-ok_ntp=""
-ok_https=""
-
-echo "=== Текущее состояние часов ==="
-date
-echo "системные : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-echo "аппаратные: $(hwclock -u -r 2>/dev/null || echo 'недоступны')"
-echo "источник  : $(cat /sys/devices/system/clocksource/clocksource0/current_clocksource 2>/dev/null || echo '?')"
-timedatectl show -p NTP -p NTPSynchronized 2>/dev/null
+echo "Часы системы сейчас: $(date '+%Y-%m-%d %H:%M:%S %Z')"
 echo
+echo "NTP (UDP порт 123) — расхождение с каждым сервером:"
 
-echo "=== NTP, UDP/123 (${#NTP_SERVERS[@]} серверов, таймаут ${TIMEOUT}с) ==="
-for srv in "${NTP_SERVERS[@]}"; do
-  # SNTP-запрос на чистом python3: пакет из 48 байт, первый — LI=0, VN=3,
-  # Mode=3 (client). В ответе байты 40..43 — время передачи, секунды от
-  # 1900 года; 2208988800 — сдвиг до эпохи Unix.
-  res=$(python3 - "$srv" "$TIMEOUT" <<'PY' 2>&1
+for s in "${SERVERS[@]}"; do
+  python3 - "$s" <<'PY'
 import socket, struct, sys, time
-host, timeout = sys.argv[1], float(sys.argv[2])
-try:
-    addr = socket.getaddrinfo(host, 123, type=socket.SOCK_DGRAM)[0]
-except Exception as e:
-    print("DNS-ОШИБКА %s" % e); sys.exit(1)
-s = socket.socket(addr[0], socket.SOCK_DGRAM)
-s.settimeout(timeout)
+
+server = sys.argv[1]
+# NTP: секунды с 1900 года, обычная эпоха — с 1970-го.
+NTP_EPOCH_DELTA = 2208988800
+
+pkt = b'\x1b' + 47 * b'\0'   # LI=0, VN=3, Mode=3 (client)
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.settimeout(3)
 try:
     t0 = time.time()
-    s.sendto(b'\x1b' + 47 * b'\0', addr[4])
+    s.sendto(pkt, (server, 123))
     data, _ = s.recvfrom(48)
-    rtt = (time.time() - t0) * 1000
-    secs = struct.unpack('!12I', data)[10] - 2208988800
-    print("OK offset=%+.3fс rtt=%.0fмс ip=%s" % (secs - time.time(), rtt, addr[4][0]))
+    t1 = time.time()
+    # Байты 40..48 — transmit timestamp ответа сервера.
+    secs, frac = struct.unpack('!II', data[40:48])
+    server_time = secs - NTP_EPOCH_DELTA + frac / 2**32
+    # Грубая поправка на дорогу туда-обратно.
+    offset = server_time - (t0 + t1) / 2
+    знак = '+' if offset >= 0 else '-'
+    print(f"  {server:22s} ОТВЕТИЛ   расхождение {знак}{abs(offset):.1f} с")
 except socket.timeout:
-    print("ТАЙМАУТ ip=%s" % addr[4][0]); sys.exit(1)
+    print(f"  {server:22s} нет ответа (таймаут 3 с)")
 except Exception as e:
-    print("ОШИБКА %s" % e); sys.exit(1)
+    print(f"  {server:22s} ошибка: {type(e).__name__}: {e}")
 finally:
     s.close()
 PY
-)
-  if [ $? -eq 0 ]; then ok_ntp="${ok_ntp}${srv} "; fi
-  printf '  %-22s %s\n' "$srv" "$res"
 done
-echo
 
-echo "=== Запасной путь: время из заголовка Date по HTTPS ==="
-for url in "${HTTPS_HOSTS[@]}"; do
-  hdr=$(curl -sS -m "$TIMEOUT" -I "$url" 2>&1 | grep -i '^date:' | tr -d '\r')
-  if [ -n "$hdr" ]; then
-    ok_https="${ok_https}${url} "
-    printf '  %-22s OK %s\n' "${url#https://}" "${hdr#[Dd]ate: }"
+echo
+echo "Время по HTTPS (порт 443) — запасной путь, если UDP/123 закрыт:"
+for host in https://www.google.com https://cloudflare.com; do
+  d="$(curl -sSI --max-time 8 "$host" 2>/dev/null | grep -i '^date:' | head -1 | cut -d' ' -f2-)"
+  if [ -n "$d" ]; then
+    echo "  $host → $d"
   else
-    printf '  %-22s НЕДОСТУПЕН\n' "${url#https://}"
+    echo "  $host → не ответил"
   fi
 done
-echo
 
-echo "=== Итог ==="
-if [ -n "$ok_ntp" ]; then
-  echo "NTP доступен: $ok_ntp"
-  echo "→ прописать эти серверы в systemd-timesyncd и включить синхронизацию"
-elif [ -n "$ok_https" ]; then
-  echo "UDP/123 молчит везде, HTTPS работает: $ok_https"
-  echo "→ ставить htpdate (синхронизация по заголовку Date)"
-else
-  echo "Не работает ни NTP, ни HTTPS."
-  echo "→ systemd-таймер с hwclock --hctosys раз в час"
-fi
+echo
+echo "Аппаратные часы (их ставит гипервизор, у нас они оказались точными):"
+hwclock --show 2>/dev/null || echo "  прочитать не удалось"
