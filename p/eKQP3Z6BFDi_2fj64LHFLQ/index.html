@@ -6,8 +6,20 @@
 <meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="referrer" content="no-referrer">
 <title>Поступление-2027</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,600&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
+  /* Шрифты лежат рядом, в public/p/<token>/fonts/, и не тянутся из сети.
+     Причина та же, по которой её приняли для колоды Strategy deck: из России
+     Google Fonts грузится через раз, а страница должна открываться всегда.
+     Наборы урезаны до нужных — кириллица и латиница, 132 КБ на все семь файлов.
+     У Bodoni Moda кириллицы нет в принципе, поэтому он здесь только для цифр
+     и латиницы; русские заголовки и раньше отрисовывались запасным шрифтом. */
+@font-face{font-family:'Bodoni Moda';font-style:normal;font-weight:500;font-display:swap;src:url('/p/eKQP3Z6BFDi_2fj64LHFLQ/fonts/bodoni-latin-0.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;}
+@font-face{font-family:'Manrope';font-style:normal;font-weight:400 700;font-display:swap;src:url('/p/eKQP3Z6BFDi_2fj64LHFLQ/fonts/manrope-cyrillic-0.woff2') format('woff2');unicode-range:U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;}
+@font-face{font-family:'Manrope';font-style:normal;font-weight:400 700;font-display:swap;src:url('/p/eKQP3Z6BFDi_2fj64LHFLQ/fonts/manrope-latin-1.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/p/eKQP3Z6BFDi_2fj64LHFLQ/fonts/plexmono-cyrillic-0.woff2') format('woff2');unicode-range:U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:400;font-display:swap;src:url('/p/eKQP3Z6BFDi_2fj64LHFLQ/fonts/plexmono-latin-1.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url('/p/eKQP3Z6BFDi_2fj64LHFLQ/fonts/plexmono-cyrillic-2.woff2') format('woff2');unicode-range:U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;}
+@font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;font-display:swap;src:url('/p/eKQP3Z6BFDi_2fj64LHFLQ/fonts/plexmono-latin-3.woff2') format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;}
   :root {
     --bg: #F3F2F4;
     --surface: #FFFFFF;
