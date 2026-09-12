@@ -118,7 +118,23 @@
 
   // ---------- state ----------
   const LS_KEY = 'postuplenie-2027';
-  const PAGE_ID = 'eKQP3Z6BFDi_2fj64LHFLQ';
+  // Секрет страницы берётся из фрагмента URL (#k=...). Фрагмент не уходит на
+  // сервер: его нет ни в запросе, ни в заголовке Referer, поэтому он не оседает
+  // в логах nginx. В репозитории хранится только SHA-256 от него — по коду
+  // страницу не открыть. Один раз запомнив ключ, держим его в этом браузере,
+  // чтобы закладка без фрагмента продолжала работать.
+  const LS_KEY_SECRET = 'postuplenie-2027-key';
+  const PAGE_KEY = (function () {
+    const m = /[#&]k=([A-Za-z0-9_-]{16,64})/.exec(location.hash || '');
+    if (m) {
+      try { localStorage.setItem(LS_KEY_SECRET, m[1]); } catch (e) {}
+      // Убираем ключ из адресной строки, чтобы он не попал на скриншот и в
+      // историю браузера при отправке ссылки кому-то ещё.
+      history.replaceState(null, '', location.pathname + location.search);
+      return m[1];
+    }
+    try { return localStorage.getItem(LS_KEY_SECRET) || ''; } catch (e) { return ''; }
+  })();
   let state = { tasks: {}, scores: { lit: '', rus: '', eng: '' }, status: {}, notes: '' };
   let timer = null, remoteStamp = null, online = false;
 
@@ -135,6 +151,11 @@
       status: Object.assign({}, base.status, inc.status || {}),
       notes: typeof inc.notes === 'string' ? inc.notes : base.notes,
     };
+  }
+
+  // Приводит произвольный объект с сервера к нашей форме состояния.
+  function asState(o) {
+    return merge({ tasks: {}, scores: { lit: '', rus: '', eng: '' }, status: {}, notes: '' }, o);
   }
 
   function persist() {
@@ -286,6 +307,7 @@
   const API_BASE = import.meta.env.VITE_SUPABASE_PROXY_URL || (window.location.origin + '/sb');
 
   async function rpc(name, body) {
+    if (!PAGE_KEY) throw new Error('no key');
     const r = await fetch(`${API_BASE}/rest/v1/rpc/${name}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', apikey: API_KEY, authorization: `Bearer ${API_KEY}` },
@@ -312,22 +334,38 @@
     return true;
   }
 
-  async function pushRemote() {
+  async function pushRemote(isRetry) {
+    if (!PAGE_KEY) return;
     try {
-      const res = await rpc('shared_page_put', { p_id: PAGE_ID, p_data: state });
+      const res = await rpc('shared_page_put', {
+        p_key: PAGE_KEY, p_data: state, p_expected: remoteStamp,
+      });
+      if (res && res.conflict) {
+        // Кто-то сохранил раньше нас. Берём его версию за основу и кладём свои
+        // правки сверху — так ничего не теряется ни у нас, ни у него.
+        state = merge(asState(res.data), state);
+        remoteStamp = res.updated_at;
+        try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {}
+        renderAll();
+        if (!isRetry) { await pushRemote(true); return; }
+        setStatus('warn', 'Страницу правят одновременно, попробуйте ещё раз');
+        return;
+      }
       if (res && res.updated_at) remoteStamp = res.updated_at;
       online = true;
       setStatus('ok', 'Общий трекер: изменения видят все, у кого есть ссылка');
     } catch (e) {
       online = false;
-      setStatus('warn', 'Нет связи с сервером, сохранено только в этом браузере');
+      setStatus('warn', e && e.message === 'no key'
+        ? 'Нужна полная ссылка с ключом после #, сохранено только в этом браузере'
+        : 'Нет связи с сервером, сохранено только в этом браузере');
     }
   }
 
   async function pullRemote(initial) {
     if (timer && !initial) return; // a local write is pending, do not overwrite it
     try {
-      const res = await rpc('shared_page_get', { p_id: PAGE_ID });
+      const res = await rpc('shared_page_get', { p_key: PAGE_KEY });
       online = true;
       if (initial && res && res.data && Object.keys(res.data).length === 0) {
         // Fresh page on the server: seed it with whatever this browser already has.
@@ -342,7 +380,11 @@
     }
   }
 
-  pullRemote(true);
-  setInterval(() => pullRemote(false), 30000);
+  if (!PAGE_KEY) {
+    setStatus('warn', 'Нужна полная ссылка с ключом после #. Без него страница работает только в этом браузере');
+  } else {
+    pullRemote(true);
+    setInterval(() => pullRemote(false), 30000);
+  }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) pullRemote(false); });
 })();
