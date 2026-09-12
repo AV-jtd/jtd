@@ -51,6 +51,13 @@ export default defineConfig(({ mode }) => ({
     // page chunks (e.g. ProtocolDetail, exceljs, xlsx already split).
     chunkSizeWarningLimit: 800,
     rollupOptions: {
+      // Дополнительные точки входа — статические страницы вне React-приложения,
+      // которым нужен ключ Supabase из import.meta.env (public/ Vite не обрабатывает).
+      // Путь сохраняется в dist/ как есть: p/<token>/index.html.
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+        "p-postuplenie-2027": path.resolve(__dirname, "p/eKQP3Z6BFDi_2fj64LHFLQ/index.html"),
+      },
       output: {
         // Manual vendor chunking — splits the 1.16 MB main bundle into
         // logical groups so the initial mobile load only fetches what's

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<title>Поступление-2027</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,600&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg: #F3F2F4;
+    --surface: #FFFFFF;
+    --surface-2: #EAE8ED;
+    --ink: #17161B;
+    --muted: #5F5C68;
+    --line: #DDDBE2;
+    --accent: #7A1F33;
+    --accent-ink: #FFFFFF;
+    --tint: #F6E9EC;
+    --ok: #2F7A52;
+    --ok-bg: #E4F1E9;
+    --warn: #B26A12;
+    --warn-bg: #F7EBD8;
+    --bad: #B4312B;
+    --bad-bg: #F8E3E1;
+    --info: #3E4E73;
+    --info-bg: #E6EAF3;
+    --focus: #7A1F33;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141317; --surface: #1D1C22; --surface-2: #26252C; --ink: #ECEAF0; --muted: #A39FAD;
+      --line: #302E38; --accent: #D97A8E; --accent-ink: #1A0F13; --tint: #33202A;
+      --ok: #6FC493; --ok-bg: #1D2F26; --warn: #E0A050; --warn-bg: #33291A;
+      --bad: #E5716B; --bad-bg: #36211F; --info: #9FB0DC; --info-bg: #22283A; --focus: #D97A8E;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141317; --surface: #1D1C22; --surface-2: #26252C; --ink: #ECEAF0; --muted: #A39FAD;
+    --line: #302E38; --accent: #D97A8E; --accent-ink: #1A0F13; --tint: #33202A;
+    --ok: #6FC493; --ok-bg: #1D2F26; --warn: #E0A050; --warn-bg: #33291A;
+    --bad: #E5716B; --bad-bg: #36211F; --info: #9FB0DC; --info-bg: #22283A; --focus: #D97A8E;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Manrope", "Segoe UI", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    padding-inline: 16px;
+    padding-block: 28px 64px;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+
+  h1, h2, h3 { font-family: "Bodoni Moda", "Didot", "Times New Roman", serif; font-weight: 500; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+  h1 { font-size: clamp(38px, 6vw, 58px); line-height: 1.02; }
+  h2 { font-size: 26px; line-height: 1.15; }
+  h3 { font-size: 19px; }
+  p { margin: 0; }
+  .eyebrow { font-size: 11.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted); }
+  a { color: var(--info); }
+
+  header { display: grid; gap: 14px; }
+  header .lede { max-width: 62ch; color: var(--muted); font-size: 16px; }
+  .rule { height: 1px; background: var(--line); }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+  .tile { background: var(--surface); border: 1px solid var(--line); padding: 16px 18px; display: grid; gap: 4px; }
+  .tile .big { font-family: "Bodoni Moda", serif; font-size: 42px; line-height: 1; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .tile .big small { font-family: "Manrope", sans-serif; font-size: 14px; color: var(--muted); margin-left: 6px; font-weight: 500; }
+  .tile.accent { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .tile.accent .eyebrow, .tile.accent .muted, .tile.accent .big small { color: var(--accent-ink); opacity: .8; }
+
+  section { display: grid; gap: 18px; }
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .sec-head p { max-width: 70ch; color: var(--muted); }
+
+  /* forecast */
+  .forecast { background: var(--surface); border: 1px solid var(--line); padding: 18px 20px; display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; }
+  .forecast .inputs { display: flex; gap: 12px; flex-wrap: wrap; }
+  .field { display: grid; gap: 4px; }
+  .field label { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .field input { width: 92px; font: 500 20px/1 "IBM Plex Mono", monospace; padding: 8px 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 2px; }
+  .field input:focus, select:focus, textarea:focus, input[type=checkbox]:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .sum { text-align: right; display: grid; gap: 2px; }
+  .sum .big { font-family: "Bodoni Moda", serif; font-size: 56px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .sum .hint { font-size: 12.5px; color: var(--muted); max-width: 26ch; }
+
+  /* programs */
+  .tier { display: grid; gap: 10px; }
+  .tier-head { display: flex; align-items: center; gap: 12px; }
+  .tier-head .tag { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 4px 8px; background: var(--tint); color: var(--accent); }
+  .tier-head .desc { color: var(--muted); font-size: 13.5px; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 820px; }
+  th, td { text-align: left; padding: 11px 12px; vertical-align: top; border-top: 1px solid var(--line); font-size: 13.5px; }
+  th { border-top: 0; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--surface-2); white-space: nowrap; }
+  td.name { min-width: 220px; }
+  td.name strong { display: block; font-weight: 700; font-size: 14.5px; }
+  td.name span { color: var(--muted); font-size: 12.5px; }
+  td.name .note { display: block; margin-top: 3px; }
+  td.nw { white-space: nowrap; }
+  td .num { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td .note { display: block; color: var(--muted); font-size: 12px; }
+  select { font: 500 13px "Manrope", sans-serif; padding: 6px 8px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 2px; }
+  tr.dim td { opacity: .5; }
+  .chip { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 3px 8px; white-space: nowrap; border-radius: 2px; }
+  .chip.ok { background: var(--ok-bg); color: var(--ok); }
+  .chip.warn { background: var(--warn-bg); color: var(--warn); }
+  .chip.bad { background: var(--bad-bg); color: var(--bad); }
+  .chip.info { background: var(--info-bg); color: var(--info); }
+  .chip.plain { background: var(--surface-2); color: var(--muted); }
+
+  /* timeline */
+  .timeline { display: grid; gap: 0; border-top: 1px solid var(--line); }
+  .month { display: grid; grid-template-columns: 150px 1fr; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .month .m { font-family: "Bodoni Moda", serif; font-size: 20px; line-height: 1.2; }
+  .month .m small { display: block; font-family: "Manrope", sans-serif; font-size: 12px; color: var(--muted); }
+  .month ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+  .month li { display: grid; grid-template-columns: 82px 1fr; gap: 10px; align-items: baseline; }
+  .month li .d { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+  .month li.hard .d { color: var(--accent); font-weight: 500; }
+  .month.past { opacity: .45; }
+  .month.now .m { color: var(--accent); }
+
+  /* checklist */
+  .groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .group { background: var(--surface); border: 1px solid var(--line); padding: 16px 18px; display: grid; gap: 10px; align-content: start; }
+  .group h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .group h3 .cnt { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); }
+  .bar { height: 3px; background: var(--surface-2); }
+  .bar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+  .task { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; padding: 4px 0; }
+  .task input { width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--accent); cursor: pointer; }
+  .task label { cursor: pointer; }
+  .task .when { display: block; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--muted); }
+  .task.done label { text-decoration: line-through; color: var(--muted); }
+
+  textarea { width: 100%; min-height: 140px; font: 14.5px/1.5 "Manrope", sans-serif; padding: 12px 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); resize: vertical; border-radius: 2px; }
+
+  .savestate { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .savestate::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
+  .savestate.shared::before { background: var(--ok); }
+
+  footer { color: var(--muted); font-size: 12.5px; display: grid; gap: 8px; max-width: 80ch; }
+  footer ul { margin: 0; padding-left: 18px; }
+
+  @media (max-width: 640px) {
+    .forecast { grid-template-columns: 1fr; }
+    .sum { text-align: left; }
+    .month { grid-template-columns: 1fr; gap: 8px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Москва · медиа и мода · ЕГЭ: литература, русский, английский</div>
+    <h1>Поступление-2027</h1>
+    <p class="lede">Шорт-лист программ, календарь кампании и подготовка в одном месте. Пороги и цены приведены по приёму 2025 года, цифры 2027 появятся на сайтах вузов весной.</p>
+    <div class="savestate" id="savestate">Подключение к общему хранилищу…</div>
+  </header>
+
+  <div class="tiles">
+    <div class="tile accent">
+      <div class="eyebrow">До итогового сочинения</div>
+      <div class="big" id="cd-essay">—<small>дней</small></div>
+      <div class="muted">2 декабря 2026 · допуск к ЕГЭ</div>
+    </div>
+    <div class="tile">
+      <div class="eyebrow">До заявления на ЕГЭ</div>
+      <div class="big" id="cd-reg">—<small>дней</small></div>
+      <div class="muted">1 февраля 2027 · последний день выбрать предметы</div>
+    </div>
+    <div class="tile">
+      <div class="eyebrow">До основного ЕГЭ</div>
+      <div class="big" id="cd-ege">—<small>дней</small></div>
+      <div class="muted">ориентир: конец мая 2027</div>
+    </div>
+    <div class="tile">
+      <div class="eyebrow">Подготовка</div>
+      <div class="big" id="cd-tasks">0<small>из 0</small></div>
+      <div class="muted">задач закрыто</div>
+    </div>
+  </div>
+
+  <section id="forecast-sec">
+    <div class="sec-head">
+      <h2>Прогноз баллов</h2>
+      <p>Впишите ожидаемые баллы по трём ЕГЭ. Сумма сравнивается с порогами в таблице ниже.</p>
+    </div>
+    <div class="forecast">
+      <div class="inputs">
+        <div class="field"><label for="s-lit">Литература</label><input id="s-lit" type="number" min="0" max="100" inputmode="numeric" placeholder="90"></div>
+        <div class="field"><label for="s-rus">Русский</label><input id="s-rus" type="number" min="0" max="100" inputmode="numeric" placeholder="90"></div>
+        <div class="field"><label for="s-eng">Английский</label><input id="s-eng" type="number" min="0" max="100" inputmode="numeric" placeholder="90"></div>
+      </div>
+      <div class="sum">
+        <div class="eyebrow">Сумма трёх</div>
+        <div class="big mono" id="sum">—</div>
+        <div class="hint" id="sum-hint">Заполните все три поля</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="programs-sec">
+    <div class="sec-head">
+      <h2>Шорт-лист программ</h2>
+      <p>Подать можно в 5 вузов. Столбец «Статус» задаёт, что остаётся в игре. Строки со статусом «Отложено» приглушаются.</p>
+    </div>
+    <div id="tiers"></div>
+  </section>
+
+  <section id="timeline-sec">
+    <div class="sec-head">
+      <h2>Календарь кампании</h2>
+      <p>Даты, отмеченные бордовым, жёсткие. Остальные приблизительные, по опыту прошлых лет, и требуют уточнения на сайтах вузов и олимпиад.</p>
+    </div>
+    <div class="timeline" id="timeline"></div>
+  </section>
+
+  <section id="tasks-sec">
+    <div class="sec-head">
+      <h2>Подготовка</h2>
+      <p>Что нужно сделать, чтобы шорт-лист стал реальностью. Отмечайте вместе с дочерью.</p>
+    </div>
+    <div class="groups" id="groups"></div>
+  </section>
+
+  <section id="notes-sec">
+    <div class="sec-head">
+      <h2>Заметки</h2>
+      <p>Что сказали на дне открытых дверей, контакты приёмных комиссий, вопросы к следующему разговору.</p>
+    </div>
+    <textarea id="notes" placeholder="Например: Школа дизайна ВШЭ, ДОД 18 октября, спросить про формат творческого проекта на «Моду»…"></textarea>
+  </section>
+
+  <footer>
+    <div class="rule"></div>
+    <p>Источники порогов и цен: приёмные комиссии ВШЭ, МГИМО, МГУ, РАНХиГС, РГГУ, РГУ им. Косыгина и агрегаторы postupi.online, mir-vuzov.ru, vuzopedia.ru за приёмную кампанию 2025 года. Пороги МГИМО и МГУ указаны из 400 баллов, так как в сумму входит дополнительное вступительное испытание.</p>
+    <p>Правила приёма на 2027 год вузы публикуют до 1 ноября 2026, число мест и стоимость обновляют к весне. После этого таблицу стоит пересобрать.</p>
+  </footer>
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
