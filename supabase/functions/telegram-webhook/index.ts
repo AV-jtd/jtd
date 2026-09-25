@@ -1418,7 +1418,11 @@ Deno.serve(async (req) => {
         "*ИИ\\-ассистент:*\n" +
         "• `/ai Вопрос` — спросить ИИ о проектах, статусе, советах\n\n" +
         "*Регистрация:*\n" +
-        "• `/register` — создать аккаунт, если его ещё нет",
+        "• `/register` — создать аккаунт, если его ещё нет\n\n" +
+        "*Пароль:*\n" +
+        "• `/password старый новый` — сменить пароль\n" +
+        "• `/password` — сбросить, если забыли \\(пришлю временный\\)\n" +
+        "• Сообщение с паролями бот удаляет из чата сам",
         "Markdown"
       );
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
@@ -1619,6 +1623,141 @@ Deno.serve(async (req) => {
         .from("profiles")
         .update({ telegram_chat_id: chatId })
         .eq("id", userId);
+    }
+
+    // ========== /password — смена и сброс пароля ==========
+    //
+    // Зачем в боте. Письма GoTrue не уходят: SMTP Яндекса отвечает
+    // "535 authentication failed" на учётные данные noreply@justtodoit.ru,
+    // поэтому «Забыли пароль» на сайте возвращает 500 — за месяц так упали
+    // 32 запроса из 35. Пока почта не починена, Telegram остаётся
+    // единственным каналом, которым человек может вернуть себе доступ.
+    //
+    // Две формы намеренно различаются по уровню доверия:
+    //   /password <старый> <новый> — смена. Знание старого пароля остаётся
+    //     отдельным фактором: доступа к Telegram самого по себе мало.
+    //   /password — сброс. Здесь Telegram становится единственным фактором,
+    //     поэтому о каждом сбросе уведомляются администраторы. Помешать
+    //     чужому сбросу это не может, но незаметным он не будет.
+    if (message.text === "/password" || message.text.startsWith("/password ")) {
+      // Только личный чат: в группе пароль прочитали бы все участники.
+      if (chatId <= 0) {
+        await sendTelegramMessage(BOT_TOKEN, chatId, "🔒 Пароль меняется только в личном чате с ботом.");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      const pwArgs = message.text.trim().split(/\s+/).slice(1);
+
+      const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+      const pwEmail = authUser?.user?.email;
+      // Метаданные перечитываем и пишем целиком: точечного обновления одного
+      // ключа у Admin API нет, а затирать чужие поля (display_name и прочее)
+      // нельзя.
+      const pwMeta = (authUser?.user?.user_metadata ?? {}) as Record<string, unknown>;
+
+      if (!pwEmail) {
+        await sendTelegramMessage(BOT_TOKEN, chatId, "❌ У аккаунта нет email — сменить пароль через бота нельзя. Обратитесь к администратору.");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // --- Форма 1: смена по старому паролю ---
+      if (pwArgs.length === 2) {
+        // Сообщение с паролями убираем из переписки сразу, до любых проверок:
+        // дальше возможны ответы об ошибке, а пароль в истории оставаться не
+        // должен в любом случае. Бот вправе удалять входящие сообщения в
+        // личном чате.
+        await deleteTelegramMessage(BOT_TOKEN, chatId, message.message_id);
+
+        const [oldPass, newPass] = pwArgs;
+        if (newPass.length < 8) {
+          await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Новый пароль короче 8 символов. Сообщение с паролями удалено, попробуйте ещё раз.");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+        if (newPass === oldPass) {
+          await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Новый пароль совпадает со старым. Сообщение с паролями удалено.");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        // Старый пароль проверяем там же, где его проверяет сайт, — у GoTrue.
+        // Своей проверки хэша здесь нет и быть не должно.
+        const check = await fetch(`${Deno.env.get("SUPABASE_URL")}/auth/v1/token?grant_type=password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", apikey: Deno.env.get("SUPABASE_ANON_KEY")! },
+          body: JSON.stringify({ email: pwEmail, password: oldPass }),
+        });
+        if (!check.ok) {
+          await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Старый пароль неверен. Если вы его не помните — отправьте /password без аргументов, пришлю временный.");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        const { error: pwErr } = await supabase.auth.admin.updateUserById(userId, {
+          password: newPass,
+          user_metadata: { ...pwMeta, must_change_password: false },
+        });
+        if (pwErr) {
+          console.error("[/password] смена не удалась:", pwErr);
+          await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Не удалось сменить пароль. Попробуйте позже или обратитесь к администратору.");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        await sendTelegramMessage(
+          BOT_TOKEN, chatId,
+          "✅ Пароль изменён.\n\nВойдите на https://justtodoit.ru с новым паролем.\nСообщение с паролями удалено из чата.",
+        );
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // --- Форма 2: сброс ---
+      if (pwArgs.length === 0) {
+        // Ограничение частоты. Отметку держим в метаданных самого пользователя:
+        // отдельной таблицы ради этого не заводим, а auth.users.updated_at не
+        // годится — он меняется и от посторонних правок аккаунта.
+        const lastReset = typeof pwMeta.last_password_reset_at === "string"
+          ? Date.parse(pwMeta.last_password_reset_at as string)
+          : 0;
+        if (lastReset && Date.now() - lastReset < 5 * 60 * 1000) {
+          await sendTelegramMessage(BOT_TOKEN, chatId, "⏳ Пароль сбрасывали меньше пяти минут назад — посмотрите предыдущее сообщение в этом чате.");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        const tempPassword = generateTempPassword();
+        const { error: resetErr } = await supabase.auth.admin.updateUserById(userId, {
+          password: tempPassword,
+          user_metadata: {
+            ...pwMeta,
+            must_change_password: true,
+            last_password_reset_at: new Date().toISOString(),
+          },
+        });
+        if (resetErr) {
+          console.error("[/password] сброс не удался:", resetErr);
+          await sendTelegramMessage(BOT_TOKEN, chatId, "❌ Не удалось сбросить пароль. Попробуйте позже или обратитесь к администратору.");
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+
+        await sendTelegramMessage(
+          BOT_TOKEN, chatId,
+          `🔑 Временный пароль: ${tempPassword}\n\n` +
+          `Войдите на https://justtodoit.ru и сразу смените его:\n` +
+          `/password ${tempPassword} ваш_новый_пароль\n\n` +
+          `Это сообщение лучше удалить после входа.`,
+        );
+
+        // Уведомление администраторам — без пароля, только факт.
+        await notifyAdminsPasswordReset(supabase, BOT_TOKEN, userId, pwEmail, username);
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // --- Всё остальное: подсказка ---
+      await sendTelegramMessage(
+        BOT_TOKEN, chatId,
+        "🔑 *Пароль*\n\n" +
+        "`/password старый новый` — сменить пароль\n" +
+        "`/password` — сбросить, если забыли \\(пришлю временный\\)\n\n" +
+        "Сообщение с паролями бот удаляет из чата сам\\.",
+        "Markdown",
+      );
+      return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
     // Handle /projects
@@ -2895,6 +3034,64 @@ async function sendTelegramMessageWithKeyboard(token: string, chatId: number, te
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+/**
+ * Удаление сообщения. Нужно, чтобы пароль, присланный командой
+ * /password старый новый, не оставался в истории личного чата.
+ * Бот вправе удалять входящие сообщения в личных чатах; ошибку глушим —
+ * если удалить не вышло (слишком старое сообщение), это не повод ронять
+ * саму смену пароля.
+ */
+async function deleteTelegramMessage(token: string, chatId: number, messageId?: number) {
+  if (!messageId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
+    });
+  } catch (e) {
+    console.error("[/password] не удалось удалить сообщение:", e);
+  }
+}
+
+/**
+ * Уведомление администраторов о сбросе пароля. Пароль НЕ передаётся — только
+ * факт, чтобы чужой сброс через захваченный Telegram не прошёл незаметно.
+ * Получатели ищутся так же, как в notify-new-user: user_roles.role='admin'
+ * → profiles.telegram_username → telegram_bot_chats.chat_id (личные чаты).
+ */
+async function notifyAdminsPasswordReset(
+  supabase: ReturnType<typeof createClient>,
+  token: string,
+  userId: string,
+  email: string,
+  username: string | null,
+) {
+  try {
+    const { data: adminRoles } = await supabase
+      .from("user_roles").select("user_id").eq("role", "admin");
+    const adminIds = (adminRoles ?? []).map((r: any) => r.user_id).filter((id: string) => id !== userId);
+    if (adminIds.length === 0) return;
+
+    const { data: adminProfiles } = await supabase
+      .from("profiles").select("telegram_username").in("id", adminIds).not("telegram_username", "is", null);
+    const usernames = (adminProfiles ?? []).map((p: any) => String(p.telegram_username).toLowerCase());
+    if (usernames.length === 0) return;
+
+    const { data: botChats } = await supabase
+      .from("telegram_bot_chats").select("chat_id").in("telegram_username", usernames);
+
+    const who = username ? `@${username}` : email;
+    const text = `🔑 Сброс пароля через бота\n\nПользователь: ${who}\nEmail: ${email}\nВремя: ${new Date().toLocaleString("ru-RU", { timeZone: "Europe/Moscow" })}\n\nЕсли это не он — заблокируйте аккаунт.`;
+    for (const c of (botChats ?? []) as any[]) {
+      await sendTelegramMessage(token, Number(c.chat_id), text);
+    }
+  } catch (e) {
+    // Уведомление не должно ломать сам сброс: человек уже получил пароль.
+    console.error("[/password] не удалось уведомить администраторов:", e);
+  }
 }
 
 async function answerCallbackQuery(token: string, callbackQueryId: string, text: string) {
