@@ -66,7 +66,13 @@ printf '%s' "$CHAT_ID" | grep -qE '^-?[0-9]+$' || die "chat_id должен бы
 
 # ---------- 3. Временный пароль ----------
 # Тот же алфавит, что в боте: без похожих друг на друга символов (0/O, 1/l/I).
-PASS="$(LC_ALL=C tr -dc 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789' </dev/urandom | head -c 16)"
+# Читаем конечный объём случайных байт и режем строку средствами bash:
+# "tr ... </dev/urandom | head -c 16" на бесконечном источнике всегда даёт
+# tr SIGPIPE, а при set -o pipefail это валит весь скрипт с кодом 141 —
+# молча, до создания пользователя. 512 байт дают около 115 подходящих
+# символов, с запасом на 16.
+PASS="$(head -c 512 /dev/urandom | LC_ALL=C tr -dc 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789')"
+PASS="${PASS:0:16}"
 [ "${#PASS}" -eq 16 ] || die "не удалось сгенерировать пароль"
 
 # ---------- 4. Создание в auth ----------

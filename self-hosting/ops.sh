@@ -62,8 +62,19 @@ case "$OP" in
     uid="$(psql_q "SELECT id FROM auth.users WHERE lower(email)=lower('$email')")"
     [ -z "$uid" ] && { echo "не найден пользователь с email=$email"; exit 1; }
     chat="$(psql_q "SELECT telegram_chat_id FROM public.profiles WHERE id='$uid'")"
-    # временный пароль (в лог НЕ печатаем)
-    pw="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 14)"
+    # Временный пароль (в лог НЕ печатаем).
+    #
+    # Читаем КОНЕЧНЫЙ объём случайных байт и режем строку средствами bash.
+    # Прежний вариант "tr -dc ... </dev/urandom | head -c 14" всегда падал:
+    # /dev/urandom бесконечен, head закрывает канал после 14 символов, tr
+    # получает SIGPIPE, при set -o pipefail вся подстановка считается упавшей,
+    # и set -e обрывает скрипт с кодом 141 — ДО обращения к Admin API. То есть
+    # операция reset-password не срабатывала никогда, ни отсюда, ни из
+    # ops-vps.yml: пароль не менялся, сообщение не уходило, вывод был пустым.
+    # 512 байт дают около 120 подходящих символов — с большим запасом на 14.
+    pw="$(head -c 512 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9')"
+    pw="${pw:0:14}"
+    [ "${#pw}" -eq 14 ] || { echo "не удалось сгенерировать пароль"; exit 1; }
     SRK="$(envval SERVICE_ROLE_KEY)"
     # задать пароль через GoTrue Admin API (локальный Kong)
     code="$(curl -s -o /dev/null -w '%{http_code}' -X PUT \
@@ -74,7 +85,10 @@ case "$OP" in
     [ "$code" != "200" ] && { echo "Admin API вернул $code — пароль НЕ изменён"; exit 1; }
     if [ -n "$chat" ] && [ "$chat" != "" ]; then
       TB="$(envval TELEGRAM_BOT_TOKEN)"
-      msg="JustTODOit переехал на новый сервер (работаем без VPN). Ваш новый пароль: ${pw}. Войдите на https://justtodoit.ru и смените его в настройках профиля."
+      # Текст намеренно без новостей про переезд: раньше здесь висело
+      # объявление о смене сервера, и оно уходило людям спустя месяцы после
+      # самого переезда — при обычном сбросе пароля это сбивает с толку.
+      msg="JustTODOit: пароль сброшен по запросу администратора. Новый пароль: ${pw}. Войдите на https://justtodoit.ru и сразу смените его в настройках профиля. Это сообщение лучше удалить после входа."
       tg="$(curl -s -o /dev/null -w '%{http_code}' \
         "https://api.telegram.org/bot${TB}/sendMessage" \
         --data-urlencode "chat_id=${chat}" \
