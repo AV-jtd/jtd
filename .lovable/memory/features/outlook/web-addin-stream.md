@@ -80,7 +80,7 @@ type: feature
 New-App -OrganizationApp -Url "https://justtodoit.ru/outlook-addin/manifest.xml" -DefaultStateForUser Enabled
 
 # Или для конкретных юзеров (пилот):
-New-App -Url "https://justtodoit.ru/outlook-addin/manifest.xml" -Mailbox "user@doronichi.com"
+New-App -Url "https://justtodoit.ru/outlook-addin/manifest.xml" -Mailbox "<почта скрыта>"
 
 # Проверка:
 Get-App -OrganizationApp
