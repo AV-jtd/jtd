@@ -62,6 +62,15 @@ case "$OP" in
     uid="$(psql_q "SELECT id FROM auth.users WHERE lower(email)=lower('$email')")"
     [ -z "$uid" ] && { echo "не найден пользователь с email=$email"; exit 1; }
     chat="$(psql_q "SELECT telegram_chat_id FROM public.profiles WHERE id='$uid'")"
+    # Проверяем ДО смены пароля. Раньше пароль менялся в любом случае, а при
+    # непривязанном Telegram его было некуда деть: в лог не печатаем (логи
+    # Actions публичны), доставить нечего — человек оставался с паролем,
+    # которого не знает никто. Лучше не менять вовсе.
+    if [ -z "$chat" ] || [ "$chat" = "0" ]; then
+      echo "У $email не привязан Telegram — отправить пароль некуда, пароль НЕ изменён."
+      echo "Пусть напишет боту (привязка подхватится автоматически) и повторите."
+      exit 1
+    fi
     # временный пароль (в лог НЕ печатаем)
     pw="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 14)"
     SRK="$(envval SERVICE_ROLE_KEY)"
@@ -72,20 +81,20 @@ case "$OP" in
       -H "Content-Type: application/json" \
       -d "{\"password\":\"$pw\"}")"
     [ "$code" != "200" ] && { echo "Admin API вернул $code — пароль НЕ изменён"; exit 1; }
-    if [ -n "$chat" ] && [ "$chat" != "" ]; then
-      TB="$(envval TELEGRAM_BOT_TOKEN)"
-      msg="JustTODOit переехал на новый сервер (работаем без VPN). Ваш новый пароль: ${pw}. Войдите на https://justtodoit.ru и смените его в настройках профиля."
-      tg="$(curl -s -o /dev/null -w '%{http_code}' \
-        "https://api.telegram.org/bot${TB}/sendMessage" \
-        --data-urlencode "chat_id=${chat}" \
-        --data-urlencode "text=${msg}")"
-      if [ "$tg" = "200" ]; then
-        echo "OK: пароль сброшен, отправлен в Telegram пользователю $email"
-      else
-        echo "Пароль сброшен, но Telegram-отправка вернула $tg — нужна ручная доставка через VPS-Claude (пароль в лог не выводится)"
-      fi
+    TB="$(envval TELEGRAM_BOT_TOKEN)"
+    # Текст про переезд на новый сервер остался с июля и сотрудников,
+    # которым сбрасывают пароль сейчас, только сбивает с толку.
+    msg="🔑 Для вас сброшен пароль в JustTODOit. Новый пароль: ${pw}. Войдите на https://justtodoit.ru и сразу смените его в настройках профиля."
+    tg="$(curl -s -o /dev/null -w '%{http_code}' \
+      "https://api.telegram.org/bot${TB}/sendMessage" \
+      --data-urlencode "chat_id=${chat}" \
+      --data-urlencode "text=${msg}")"
+    if [ "$tg" = "200" ]; then
+      echo "OK: пароль сброшен, отправлен в Telegram пользователю $email"
     else
-      echo "Пароль сброшен, но у $email НЕТ telegram_chat_id — доставь вручную через VPS-Claude (пароль в лог не выводится из соображений безопасности: репозиторий публичный)"
+      echo "Пароль сброшен, но Telegram вернул $tg — доставки не было."
+      echo "Повторите сброс после того, как связь с ботом восстановится:"
+      echo "  bash self-hosting/ops.sh reset-password $email"
     fi
     ;;
 
