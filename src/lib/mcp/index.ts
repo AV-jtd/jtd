@@ -11,9 +11,16 @@ import getProtocol from "./tools/get_protocol";
 import listClients from "./tools/list_clients";
 import getClient from "./tools/get_client";
 
-// OAuth issuer MUST be the direct supabase.co host (RFC 8414 discovery).
-// VITE_SUPABASE_PROJECT_ID is inlined by Vite at build time — import-safe.
-const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
+// Издатель и адрес ресурса. Обе переменные подставляются Vite на сборке, то
+// есть попадают в собранную функцию — читать окружение в рантайме не нужно.
+//
+// Раньше здесь собирался адрес облачного проекта Lovable
+// (`https://<ref>.supabase.co/auth/v1`). Проект удалён, домен не резолвится, и
+// коннектор из-за этого не поднимался вовсе. Теперь издатель — наш GoTrue;
+// тот же адрес должен стоять в GOTRUE_JWT_ISSUER, иначе проверка токена не
+// сойдётся (см. журнал, запись от 27.09 про документ обнаружения).
+const AUTH_BASE = import.meta.env.VITE_SUPABASE_PROXY_URL ?? "https://justtodoit.ru/sb";
+const PUBLIC_BASE = import.meta.env.VITE_SUPABASE_URL ?? "https://justtodoit.ru";
 
 export default defineMcp({
   name: "justtodoit-mcp",
@@ -22,7 +29,13 @@ export default defineMcp({
   instructions:
     "Инструменты JustTODOit: задачи, проекты, протоколы встреч, CRM-клиенты. Все действия — от имени залогиненного пользователя, RLS применяется. Даты в ISO 8601.",
   auth: auth.oauth.issuer({
-    issuer: `https://${projectRef}.supabase.co/auth/v1`,
+    issuer: `${AUTH_BASE}/auth/v1`,
+    // resource закрепляем явно. Без него библиотека берёт адрес из заголовка
+    // Host запроса, а до функции он доходит от Kong как edge-runtime:9000 —
+    // внутреннее docker-имя, по которому внешний клиент никуда не попадёт.
+    // Сама библиотека это и советует: за прокси resource надо пинить, иначе
+    // подменённый Host сдвинет объявленный адрес метаданных.
+    resource: `${PUBLIC_BASE}/functions/v1/mcp`,
     acceptedAudiences: "authenticated",
   }),
   tools: [

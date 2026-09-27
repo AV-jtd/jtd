@@ -159,6 +159,12 @@ services:
     environment:
       SUPABASE_URL: http://kong:8000
       SUPABASE_ANON_KEY: ${ANON_KEY}
+      # То же значение, что ANON_KEY: "publishable" — новое название того же
+      # анонимного ключа. Нужна MCP-серверу: все одиннадцать его инструментов
+      # создают клиента как createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY),
+      # а без неё createClient бросает "supabaseKey is required" — проверено.
+      # То есть каждый вызов инструмента падал бы даже после починки входа.
+      SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
       SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
       # Секреты edge functions:

@@ -437,14 +437,21 @@ var get_client_default = defineTool11({
 });
 
 // src/lib/mcp/index.ts
-var projectRef = "nvfioycpwyzwukvokwql";
+var AUTH_BASE = "https://justtodoit.ru/sb";
+var PUBLIC_BASE = "https://justtodoit.ru";
 var mcp_default = defineMcp({
   name: "justtodoit-mcp",
   title: "JustTODOit",
   version: "0.1.0",
   instructions: "\u0418\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u044B JustTODOit: \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B, \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B \u0432\u0441\u0442\u0440\u0435\u0447, CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u044B. \u0412\u0441\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F \u2014 \u043E\u0442 \u0438\u043C\u0435\u043D\u0438 \u0437\u0430\u043B\u043E\u0433\u0438\u043D\u0435\u043D\u043D\u043E\u0433\u043E \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F, RLS \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F. \u0414\u0430\u0442\u044B \u0432 ISO 8601.",
   auth: auth.oauth.issuer({
-    issuer: `https://${projectRef}.supabase.co/auth/v1`,
+    issuer: `${AUTH_BASE}/auth/v1`,
+    // resource закрепляем явно. Без него библиотека берёт адрес из заголовка
+    // Host запроса, а до функции он доходит от Kong как edge-runtime:9000 —
+    // внутреннее docker-имя, по которому внешний клиент никуда не попадёт.
+    // Сама библиотека это и советует: за прокси resource надо пинить, иначе
+    // подменённый Host сдвинет объявленный адрес метаданных.
+    resource: `${PUBLIC_BASE}/functions/v1/mcp`,
     acceptedAudiences: "authenticated"
   }),
   tools: [
