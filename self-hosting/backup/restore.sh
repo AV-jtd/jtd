@@ -135,6 +135,22 @@ ERRORS=$(grep -c '^pg_restore: error' "$LOG_FILE" || true)
 echo "  ошибок: $ERRORS (полный журнал: $LOG_FILE)"
 grep '^pg_restore: error' "$LOG_FILE" | cut -c1-160 | sort | uniq -c | sort -rn | head -15
 
+# Внешний ключ, который не создался из-за строк-сирот в данных (на 27.09 —
+# тег «Подрядчик» в tags; владелец решил его не удалять), возвращаем как
+# NOT VALID: старые строки он не проверяет, новые — проверяет, как на проде.
+FK_SQL=$(python3 - "$LOG_FILE" <<'PY'
+import re, sys
+log = open(sys.argv[1], encoding="utf-8").read()
+for m in re.finditer(r"violates foreign key constraint.*?\nCommand was: (ALTER TABLE ONLY .*?\n\s+ADD CONSTRAINT .*?);", log, re.S):
+    print(m.group(1) + " NOT VALID;")
+PY
+)
+if [ -n "$FK_SQL" ]; then
+  log "Внешние ключи, упавшие на строках-сиротах, — возвращаю как NOT VALID"
+  echo "$FK_SQL" | grep -o 'ADD CONSTRAINT [^ ]*' | sed 's/^/  /'
+  echo "$FK_SQL" | client psql -h "$TARGET" -U supabase_admin -d postgres -q -v ON_ERROR_STOP=1
+fi
+
 if [ "$ACL_COUNT" -eq 0 ]; then
   log "Общие права для дампа без ACL"
   client psql -h "$TARGET" -U supabase_admin -d postgres -q -f /init/grants-fallback.sql 2>&1 \
