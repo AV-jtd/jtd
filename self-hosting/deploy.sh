@@ -18,10 +18,22 @@ APPLIED_FILE="$REPO_DIR/self-hosting/.applied-migrations"
 log() { echo "==> $1"; }
 cd "$REPO_DIR"
 
-# ---------- 1. Синхронизация кода из main ----------
-log "Синхронизация с origin/main"
+# ---------- 1. Синхронизация кода ----------
+log "Синхронизация с origin/$BRANCH и origin/main"
 git fetch origin main "$BRANCH"
 git checkout "$BRANCH"
+
+# Сначала подтягиваем СВОЮ ветку с GitHub. Раньше этой строки не было: ветку
+# скрипт забирал (git fetch), но сливал только origin/main. Из-за этого всё,
+# что пушила вторая сессия Claude, на сервер автоматически не попадало никогда
+# — только ручным git pull. За две недели на это наступили четыре раза:
+# «скрипта нет в репозитории», хотя он был запушен.
+git merge --no-edit origin/"$BRANCH" || {
+  log "КОНФЛИКТ с origin/$BRANCH — деплой прерван, разберите вручную"
+  git merge --abort 2>/dev/null || true
+  exit 1
+}
+
 # Наши инфра-конфиги не трогаем при мёрже — приоритет за нашей веткой
 git merge --no-edit -X theirs origin/main || {
   log "Конфликт мёржа — оставляю self-hosting/ и migration-stream/ нашими"
