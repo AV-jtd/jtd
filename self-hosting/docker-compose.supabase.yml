@@ -35,7 +35,14 @@ services:
       - db
 
   auth:
-    image: supabase/gotrue:v2.164.0
+    # Обновлено 27.09.2026 с v2.164.0. Зачем: до v2.179.0 в GoTrue не было
+    # встроенного сервера авторизации OAuth, без которого не подключить
+    # MCP-коннектор к claude.ai. Репетиция на копии базы пройдена (замеры и
+    # проверенный план откота — в JOURNAL.md за 27.09).
+    #
+    # Менять только через "docker compose up -d auth": restart не перечитывает
+    # ни образ, ни окружение.
+    image: supabase/gotrue:v2.197.0
     restart: unless-stopped
     depends_on:
       db:
@@ -51,6 +58,25 @@ services:
       GOTRUE_JWT_SECRET: ${JWT_SECRET}
       GOTRUE_JWT_EXP: 3600
       GOTRUE_JWT_AUD: authenticated
+      # ---- Сервер авторизации OAuth, включён 27.09.2026 ----
+      # Нужен, чтобы claude.ai подключился как коннектор MCP. До v2.179.0
+      # этого в GoTrue не было вовсе. Всё проверено на копии базы, замеры в
+      # JOURNAL.md за 27.09.
+      GOTRUE_OAUTH_SERVER_ENABLED: "true"
+      # Саморегистрация клиента: без неё claude.ai пришлось бы заводить руками.
+      GOTRUE_OAUTH_SERVER_ALLOW_DYNAMIC_REGISTRATION: "true"
+      # Наша страница согласия, она уже написана и совпадает с новым
+      # интерфейсом — проверено по коду, работы не потребовалось.
+      GOTRUE_OAUTH_SERVER_AUTHORIZATION_PATH: /.lovable/oauth/consent
+      # Без этого в документе обнаружения пустой issuer и ОТНОСИТЕЛЬНЫЕ адреса,
+      # а RFC 8414 требует абсолютных: обработчик строит их как issuer + путь
+      # (internal/api/jwks.go). Тот же адрес стоит издателем в src/lib/mcp.
+      #
+      # Побочный эффект: этот же параметр идёт в claim iss выдаваемых токенов.
+      # Проверено на стенде и на проде: сейчас iss в токенах отсутствует вовсе,
+      # старые refresh-токены после изменения продолжают работать, а PostgREST,
+      # realtime, storage и Kong issuer не проверяют.
+      GOTRUE_JWT_ISSUER: https://justtodoit.ru/sb/auth/v1
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_MAILER_AUTOCONFIRM: "false"
