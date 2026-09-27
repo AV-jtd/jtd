@@ -232,3 +232,5 @@
 20260820100000_group_report_metrics.sql
 20260912160000_shared_pages.sql
 20260927120000_tasks_visibility_setbased.sql
+20260912170000_shared_pages_hardening.sql
+20260927180000_group_stats_drift_bounds.sql

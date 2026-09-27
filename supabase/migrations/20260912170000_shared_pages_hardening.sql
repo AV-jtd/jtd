@@ -29,6 +29,10 @@
 --   (таблица shared_pages и её строки остаются, id — хеш)
 
 -- ---------- история версий ----------
+BEGIN;
+-- Всё одной транзакцией: между DROP и CREATE функция не должна пропадать,
+-- а при сбое в середине не должно остаться полуприменённое состояние.
+
 CREATE TABLE IF NOT EXISTS public.shared_pages_history (
   id          BIGSERIAL PRIMARY KEY,
   page_id     TEXT NOT NULL,
@@ -57,6 +61,14 @@ DELETE FROM public.shared_pages WHERE id = 'eKQP3Z6BFDi_2fj64LHFLQ';
 -- ---------- чтение ----------
 -- Принимает СЕКРЕТ, а не идентификатор строки. sha256 и encode — встроенные
 -- функции pg_catalog, расширение pgcrypto не требуется.
+--
+-- DROP обязателен: в живой версии параметр назывался p_id, а CREATE OR REPLACE
+-- не умеет переименовывать входные параметры — psql отвечает "cannot change
+-- name of input parameter". Из-за этого миграция не применялась с 12.09, а
+-- deploy.sh на такой ошибке лишь пишет предупреждение и идёт дальше, поэтому
+-- сбой был незаметен. Имя важно: p/<ключ>/app.js вызывает RPC с параметром
+-- p_key, то есть со старым p_id чтение страницы не работало вовсе.
+DROP FUNCTION IF EXISTS public.shared_page_get(text);
 CREATE OR REPLACE FUNCTION public.shared_page_get(p_key text)
  RETURNS jsonb
  LANGUAGE sql
@@ -135,3 +147,5 @@ REVOKE ALL ON FUNCTION public.shared_page_get(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.shared_page_put(text, jsonb, timestamptz) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.shared_page_get(text) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.shared_page_put(text, jsonb, timestamptz) TO anon, authenticated, service_role;
+
+COMMIT;
