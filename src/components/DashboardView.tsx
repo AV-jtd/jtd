@@ -3,6 +3,7 @@ import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, useTaskMuta
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useGroupTaskStats } from "@/hooks/useGroupTaskStats";
 import { Users, ListChecks, ChevronDown as ChevronDownIcon, CheckCircle } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
@@ -2036,6 +2037,50 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
 
   const hasCustomFilters = selectedProjectIds.length > 0 || selectedAssigneeIds.length > 0 || selectedTagIds.length > 0 || selectedParticipantIds.length > 0;
 
+  // Проекты, попадающие в область дашборда: выбранные корневые плюс все их
+  // подпроекты. Тот же набор, по которому ниже строится projectStats.
+  const scopedGroupIds = useMemo(() => {
+    const base = selectedProjectIds.length > 0
+      ? rootGroups.filter(g => selectedProjectIds.includes(g.id))
+      : rootGroups;
+    const ids = new Set<string>();
+    const addWithChildren = (id: string) => {
+      if (ids.has(id)) return;
+      ids.add(id);
+      groups.filter(g => g.parent_id === id).forEach(c => addWithChildren(c.id));
+    };
+    base.forEach(g => addWithChildren(g.id));
+    return Array.from(ids);
+  }, [rootGroups, groups, selectedProjectIds]);
+
+  // Фильтры по людям и тегам серверный агрегат не принимает — при них числа
+  // по-прежнему считаются по загруженному списку. Это допустимо: такой фильтр
+  // сужает выборку, и в предел загрузки она обычно уже не упирается.
+  const hasDetailFilter = selectedAssigneeIds.length > 0 || selectedTagIds.length > 0 || selectedParticipantIds.length > 0;
+
+  // Числа берутся из того же серверного агрегата, что питает карточки PMO.
+  // Раньше дашборд считал их длиной загруженного массива, а загрузка обрывается
+  // на двадцатой странице по сто строк — то есть на 2000 задач. У кого видимых
+  // больше (на 27.09 это семь человек из 68), числа были неверны, причём молча:
+  // сортировка ставит незакрытые первыми, до выполненных очередь не доходила
+  // вовсе, отсюда «Прогресс 0%» и «Выполнено 0» при реальных 55%.
+  const { byId: serverStatsById } = useGroupTaskStats(hasDetailFilter ? null : scopedGroupIds);
+
+  const serverTotals = useMemo(() => {
+    if (hasDetailFilter || scopedGroupIds.length === 0) return null;
+    let total = 0, completed = 0, overdue = 0, drift = 0, upcoming = 0, seen = 0;
+    for (const id of scopedGroupIds) {
+      const st = serverStatsById?.[id];
+      if (!st) continue;
+      seen += 1;
+      total += st.total; completed += st.completed; overdue += st.overdue;
+      drift += st.drift; upcoming += st.upcoming_7d;
+    }
+    // Пока агрегат не доехал, чисел нет — лучше показать прежние, чем нули.
+    if (seen === 0) return null;
+    return { total, completed, overdue, drift, upcoming };
+  }, [hasDetailFilter, scopedGroupIds, serverStatsById]);
+
   const projectStats = useMemo(() => {
     const baseGroups = selectedProjectIds.length > 0
       ? rootGroups.filter(g => selectedProjectIds.includes(g.id))
@@ -2067,12 +2112,18 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     const relevantTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
     const uniqueTasks = Array.from(new Map(relevantTasks.map(t => [t.id, t])).values());
     const activeTasks = uniqueTasks.filter(t => !t.is_completed);
-    const totalCompleted = uniqueTasks.filter(t => t.is_completed).length;
-    const completionRate = uniqueTasks.length > 0 ? Math.round((totalCompleted / uniqueTasks.length) * 100) : 0;
-    const totalOverdue = activeTasks.filter(t => t.deadline && new Date(t.deadline) < now).length;
-    const totalDrift = uniqueTasks.filter(t => isDrifted(t.original_deadline, t.deadline)).length;
+    // Пять чисел ниже берутся у сервера, когда он их дал: длина загруженного
+    // массива для них негодна, список обрывается на 2000 задач. Остальные
+    // показатели (сравнения с прошлой неделей, без исполнителя, без срока)
+    // серверный агрегат пока не возвращает и считаются по массиву — это
+    // отдельная задача, см. бэклог.
+    const totalTasksCount = serverTotals ? serverTotals.total : uniqueTasks.length;
+    const totalCompleted = serverTotals ? serverTotals.completed : uniqueTasks.filter(t => t.is_completed).length;
+    const completionRate = totalTasksCount > 0 ? Math.round((totalCompleted / totalTasksCount) * 100) : 0;
+    const totalOverdue = serverTotals ? serverTotals.overdue : activeTasks.filter(t => t.deadline && new Date(t.deadline) < now).length;
+    const totalDrift = serverTotals ? serverTotals.drift : uniqueTasks.filter(t => isDrifted(t.original_deadline, t.deadline)).length;
     const activeProjects = projectStats.filter(s => s.total > 0 && s.timingStatus !== "completed").length;
-    const tasksThisWeek = activeTasks.filter(t => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow).length;
+    const tasksThisWeek = serverTotals ? serverTotals.upcoming : activeTasks.filter(t => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow).length;
 
     // Week-over-week: completed
     const completedThisWeek = uniqueTasks.filter(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d7).length;
@@ -2104,7 +2155,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     return {
       completionRate, totalCompleted, totalOverdue, totalDrift: currentDrift, activeProjects, tasksThisWeek,
       totalProjects: projectStats.length,
-      totalTasks: uniqueTasks.length,
+      totalTasks: totalTasksCount,
       overdueTasks, driftTasks,
       completedThisWeek, completedLastWeek,
       overdueLastWeek,
@@ -2112,7 +2163,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       noDeadlineTasks,
       driftLastWeek,
     };
-  }, [projectStats]);
+  }, [projectStats, serverTotals]);
 
   const handleNavigateToTask = (taskId: string) => {
     setSheetTaskId(taskId);
