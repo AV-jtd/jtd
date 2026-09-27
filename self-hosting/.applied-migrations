@@ -229,3 +229,6 @@
 20260813120000_framework_broadcast.sql
 20260814140000_framework_welcome_per_user.sql
 20260816180000_protocol_logos_select_policy.sql
+20260820100000_group_report_metrics.sql
+20260912160000_shared_pages.sql
+20260927120000_tasks_visibility_setbased.sql
