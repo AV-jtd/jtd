@@ -46,6 +46,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { driftDays as computeDrift, hasDrift as isDrifted } from "@/lib/drift";
 
 /* Droppable group section for drag-to-move between projects */
 function DroppableGroupSection({ groupKey, isOver, children }: { groupKey: string; isOver: boolean; children: React.ReactNode }) {
@@ -241,7 +242,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
       delegatedByMe: activeTasks.filter(t => t.user_id === user?.id && t.assigned_to && t.assigned_to !== user?.id).length,
       delegatedToMe: activeTasks.filter(t => t.assigned_to === user?.id && t.user_id !== user?.id).length,
       overdue: activeTasks.filter(t => t.deadline && new Date(t.deadline) < now).length,
-      drift: activeTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length,
+      drift: activeTasks.filter(t => isDrifted(t.original_deadline, t.deadline)).length,
       completed: tasks.filter(t => t.is_completed && t.completed_at && (now.getTime() - new Date(t.completed_at).getTime()) < 7 * 24 * 60 * 60 * 1000).length,
     };
   }, [tasks, user?.id]);
@@ -374,7 +375,7 @@ export default function TaskList({ activeView, activeGroupId, activeTagFilters, 
           nextTasks = nextTasks.filter(t => t.deadline && !t.is_completed && new Date(t.deadline) < now2);
           break;
         case "drift":
-          nextTasks = nextTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline && !t.is_completed);
+          nextTasks = nextTasks.filter(t => isDrifted(t.original_deadline, t.deadline) && !t.is_completed);
           break;
         case "completed":
           nextTasks = nextTasks.filter(t => t.is_completed && t.completed_at && (now2.getTime() - new Date(t.completed_at).getTime()) < 7 * 24 * 60 * 60 * 1000);

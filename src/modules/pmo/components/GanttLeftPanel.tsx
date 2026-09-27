@@ -9,6 +9,7 @@ import { ru } from "date-fns/locale";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { driftDays as computeDrift, hasDrift as isDrifted } from "@/lib/drift";
 
 /** Column configuration */
 export type GanttColumnKey = "rowNum" | "name" | "stream" | "assignee" | "start" | "deadline" | "duration" | "predecessor" | "gate";
@@ -786,7 +787,7 @@ const GanttLeftPanel = forwardRef<HTMLDivElement, GanttLeftPanelProps>(function 
                                 <TooltipContent side="top" className="max-w-sm text-xs p-2">
                                   <div className="font-medium">{row.task.title}</div>
                                   {row.task.description && <div className="text-muted-foreground mt-0.5 line-clamp-2">{row.task.description}</div>}
-                                  {row.task.original_deadline && row.task.deadline && row.task.original_deadline !== row.task.deadline && (
+                                  {isDrifted(row.task.original_deadline, row.task.deadline) && (
                                     <div className="text-amber-500 text-[10px] mt-0.5">Перенос: {format(parseISO(row.task.original_deadline), "d MMM", { locale: ru })} → {format(parseISO(row.task.deadline), "d MMM", { locale: ru })}</div>
                                   )}
                                 </TooltipContent>

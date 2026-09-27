@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, differenceInDays, addDays, subDays, startOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ru } from "date-fns/locale";
+import { driftDays as computeDrift, hasDrift as isDrifted } from "@/lib/drift";
 
 interface ProjectStatExport {
   name: string;
@@ -173,9 +174,9 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
     .map((t: any) => mapTask(t));
 
   const driftTasks = periodTasks
-    .filter((t: any) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
+    .filter((t: any) => isDrifted(t.original_deadline, t.deadline))
     .map((t: any) => mapTask(t, {
-      driftDays: differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!)),
+      driftDays: (computeDrift(t.original_deadline, t.deadline) ?? 0),
       originalDeadline: t.original_deadline,
     }))
     .sort((a: any, b: any) => Math.abs(b.driftDays!) - Math.abs(a.driftDays!))
@@ -245,7 +246,7 @@ export function buildReportData(projectStats: any[], summary: any, users: any[],
     assigneeMap[uid].total++;
     if (t.is_completed) assigneeMap[uid].completed++;
     if (!t.is_completed && t.deadline && new Date(t.deadline) < now) assigneeMap[uid].overdue++;
-    if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) assigneeMap[uid].drift++;
+    if (isDrifted(t.original_deadline, t.deadline)) assigneeMap[uid].drift++;
     if (!t.is_completed && !t.deadline) assigneeMap[uid].noDeadline++;
   });
   const assigneeSummary = Object.values(assigneeMap).sort((a, b) => b.total - a.total);

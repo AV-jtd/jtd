@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PopoverSearchList } from "@/components/ui/popover-search";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { driftDays as computeDrift, hasDrift as isDrifted } from "@/lib/drift";
 
 interface PortfolioViewProps {
   onOpenGantt?: (projectId: string) => void;
@@ -943,8 +944,8 @@ function ExpandedProjectDashboard({
   const overdue = active.filter((t) => t.deadline && new Date(t.deadline) < now);
   const upcoming = active.filter((t) => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
   const drifted = active
-    .filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
-    .map((t) => ({ task: t, days: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / 86400000) }));
+    .filter((t) => isDrifted(t.original_deadline, t.deadline))
+    .map((t) => ({ task: t, days: (computeDrift(t.original_deadline, t.deadline) ?? 0) }));
 
   const subprojectCards = children
     .map((child) => {
@@ -1043,10 +1044,10 @@ function PmoSubprojectCard({ name, color, icon, tasks, onOpenGantt, userMap, onT
   const overdueTasks = activeTasks.filter((t) => t.deadline && new Date(t.deadline) < now);
   const upcomingTasks = activeTasks.filter((t) => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
   const driftTasks = activeTasks
-    .filter((t) => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
+    .filter((t) => isDrifted(t.original_deadline, t.deadline))
     .map((t) => ({
       task: t,
-      driftDays: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / 86400000),
+      driftDays: (computeDrift(t.original_deadline, t.deadline) ?? 0),
     }));
 
   const timingStatus = (() => {
