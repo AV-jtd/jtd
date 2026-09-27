@@ -66,32 +66,43 @@ serve(async (req) => {
       projectGroupIds = [projectId, ...(childGroups || []).map((g: any) => g.id)];
     }
 
-    // Fetch tasks — scoped to project or global
-    let tasksQuery = supabase
-      .from("tasks")
-      .select("id, title, deadline, is_completed, is_important, priority, assigned_to, user_id, group_id, completed_at, created_at, updated_at, original_deadline")
-      .order("deadline", { ascending: true })
-      .limit(200);
-
-    if (projectGroupIds) {
-      tasksQuery = tasksQuery.in("group_id", projectGroupIds);
-    } else {
-      tasksQuery = tasksQuery.or(`user_id.eq.${userId},assigned_to.eq.${userId}`);
+    // Fetch ALL tasks in scope, page by page. The old `.limit(200)` ordered by
+    // deadline returned the oldest, mostly completed tasks: a user with 3392
+    // active tasks got 0 of them, and every count below was computed on that slice.
+    // Pages continue until an empty one, so a server-side row cap can't truncate.
+    const PAGE = 1000;
+    const tasks: any[] = [];
+    for (;;) {
+      let page = supabase
+        .from("tasks")
+        .select("id, title, deadline, is_completed, is_important, priority, assigned_to, user_id, group_id, completed_at, created_at, updated_at, original_deadline")
+        .order("deadline", { ascending: true })
+        .order("id", { ascending: true })
+        .range(tasks.length, tasks.length + PAGE - 1);
+      page = projectGroupIds
+        ? page.in("group_id", projectGroupIds)
+        : page.or(`user_id.eq.${userId},assigned_to.eq.${userId}`);
+      const { data, error } = await page;
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      tasks.push(...data);
     }
 
-    const { data: tasks } = await tasksQuery;
-
-    // Fetch subtasks for all tasks
-    const taskIds = (tasks || []).map((t: any) => t.id);
+    // Fetch subtasks of active tasks only: steps of closed tasks aren't actionable
+    const taskIds = tasks.filter((t: any) => !t.is_completed).map((t: any) => t.id);
     let allSubtasks: any[] = [];
     if (taskIds.length > 0) {
-      // Fetch in chunks of 100
-      for (let i = 0; i < taskIds.length; i += 100) {
-        const chunk = taskIds.slice(i, i + 100);
-        const { data: subs } = await supabase
+      // Chunks of 100 ids keep the URL short; fetched in parallel
+      const chunks: string[][] = [];
+      for (let i = 0; i < taskIds.length; i += 100) chunks.push(taskIds.slice(i, i + 100));
+      const results = await Promise.all(chunks.map((chunk) =>
+        supabase
           .from("subtasks")
           .select("id, task_id, title, is_completed, deadline, assigned_to")
-          .in("task_id", chunk);
+          .in("task_id", chunk)
+      ));
+      for (const { data: subs, error } of results) {
+        if (error) throw error;
         if (subs) allSubtasks = allSubtasks.concat(subs);
       }
     }
@@ -166,7 +177,7 @@ serve(async (req) => {
     const profileMap: Record<string, string> = {};
     (profiles || []).forEach((p: any) => { profileMap[p.id] = p.display_name || "Без имени"; });
 
-    const allTasks = tasks || [];
+    const allTasks = tasks;
     const activeTasks = allTasks.filter((t: any) => !t.is_completed);
     const completedTasks = allTasks.filter((t: any) => t.is_completed);
     const completedRecently = completedTasks.filter((t: any) => {
@@ -572,6 +583,13 @@ ${dayContext}
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
       const insights = JSON.parse(toolCall.function.arguments);
+      // Numbers come from the data, not from the model retyping the context
+      insights.stats = {
+        active: activeTasks.length,
+        overdue: overdue.length,
+        dueThisWeek: dueThisWeek.length,
+        completedRecently: completedRecently.length,
+      };
 
       const allContextTasks = [...overdue, ...dueThisWeek, ...highPriority, ...delegatedToMe, ...delegatedByMe];
       const uniqueTasks = Array.from(new Map(allContextTasks.map((task: any) => [task.id, task])).values());
