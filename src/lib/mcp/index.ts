@@ -1,5 +1,6 @@
 import { auth, defineMcp } from "@lovable.dev/mcp-js";
 import listTasks from "./tools/list_tasks";
+import searchTasks from "./tools/search_tasks";
 import getTask from "./tools/get_task";
 import createTask from "./tools/create_task";
 import completeTask from "./tools/complete_task";
@@ -39,7 +40,7 @@ export default defineMcp({
     acceptedAudiences: "authenticated",
   }),
   tools: [
-    listTasks, getTask, createTask, completeTask, updateTaskDeadline,
+    listTasks, searchTasks, getTask, createTask, completeTask, updateTaskDeadline,
     listProjects, getProject,
     listProtocols, getProtocol,
     listClients, getClient,

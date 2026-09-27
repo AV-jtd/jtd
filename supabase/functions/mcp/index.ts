@@ -9,6 +9,49 @@ import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { createClient } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z } from "npm:zod@^4.4.3";
+
+// src/lib/mcp/tools/_names.ts
+async function resolveNames(supabase, rows) {
+  const ids = (key) => [...new Set(rows.map((r) => r[key]).filter((v) => !!v))];
+  const groupIds = ids("group_id");
+  const clientIds = ids("client_id");
+  const userIds = ids("assigned_to");
+  const [groups, clients, profiles] = await Promise.all([
+    groupIds.length ? supabase.from("task_groups").select("id,name").in("id", groupIds) : Promise.resolve({ data: [] }),
+    clientIds.length ? supabase.from("clients").select("id,name").in("id", clientIds) : Promise.resolve({ data: [] }),
+    userIds.length ? supabase.from("profiles").select("id,display_name").in("id", userIds) : Promise.resolve({ data: [] })
+  ]);
+  const list = (r) => r.data ?? [];
+  return {
+    project: new Map(
+      list(groups).map((g) => [g.id, g.name])
+    ),
+    client: new Map(
+      list(clients).map((c) => [c.id, c.name])
+    ),
+    person: new Map(
+      list(profiles).map((p) => [p.id, p.display_name])
+    )
+  };
+}
+function shapeTask(t, names) {
+  return {
+    id: t.id,
+    title: t.title,
+    deadline: t.deadline,
+    is_completed: t.is_completed,
+    is_important: t.is_important,
+    priority: t.priority,
+    project_id: t.group_id,
+    project_name: t.group_id ? names.project.get(t.group_id) ?? null : null,
+    client_id: t.client_id,
+    client_name: t.client_id ? names.client.get(t.client_id) ?? null : null,
+    assigned_to: t.assigned_to,
+    assigned_to_name: t.assigned_to ? names.person.get(t.assigned_to) ?? null : null
+  };
+}
+
+// src/lib/mcp/tools/list_tasks.ts
 function db(ctx) {
   return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
@@ -18,13 +61,14 @@ function db(ctx) {
 var list_tasks_default = defineTool({
   name: "list_tasks",
   title: "\u0421\u043F\u0438\u0441\u043E\u043A \u0437\u0430\u0434\u0430\u0447",
-  description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u0437\u0430\u0434\u0430\u0447\u0438 \u0442\u0435\u043A\u0443\u0449\u0435\u0433\u043E \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F JustTODOit. \u041C\u043E\u0436\u043D\u043E \u0444\u0438\u043B\u044C\u0442\u0440\u043E\u0432\u0430\u0442\u044C: overdue (\u043F\u0440\u043E\u0441\u0440\u043E\u0447\u0435\u043D\u044B), today (\u0434\u0435\u0434\u043B\u0430\u0439\u043D \u0441\u0435\u0433\u043E\u0434\u043D\u044F), this_week (\u043D\u0430 \u044D\u0442\u043E\u0439 \u043D\u0435\u0434\u0435\u043B\u0435), by project_id, assignee_me (\u044F \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C), status. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u2014 \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0442\u043A\u0440\u044B\u0442\u044B\u0435 \u0437\u0430\u0434\u0430\u0447\u0438.",
+  description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u0437\u0430\u0434\u0430\u0447\u0438 \u0442\u0435\u043A\u0443\u0449\u0435\u0433\u043E \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F JustTODOit. \u041C\u043E\u0436\u043D\u043E \u0444\u0438\u043B\u044C\u0442\u0440\u043E\u0432\u0430\u0442\u044C: overdue (\u043F\u0440\u043E\u0441\u0440\u043E\u0447\u0435\u043D\u044B), today (\u0434\u0435\u0434\u043B\u0430\u0439\u043D \u0441\u0435\u0433\u043E\u0434\u043D\u044F), this_week (\u043D\u0430 \u044D\u0442\u043E\u0439 \u043D\u0435\u0434\u0435\u043B\u0435), by project_id, assignee_me (\u044F \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C), status. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u2014 \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0442\u043A\u0440\u044B\u0442\u044B\u0435 \u0437\u0430\u0434\u0430\u0447\u0438. \u0412 \u043E\u0442\u0432\u0435\u0442\u0435 \u0435\u0441\u0442\u044C total (\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0432\u0441\u0435\u0433\u043E \u043F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u043F\u043E\u0434 \u0444\u0438\u043B\u044C\u0442\u0440) \u0438 has_more: \u0435\u0441\u043B\u0438 has_more=true, \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u044B \u043D\u0435 \u0432\u0441\u0435 \u0437\u0430\u0434\u0430\u0447\u0438, \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0439\u0442\u0435 offset \u0438\u043B\u0438 \u0441\u0443\u0437\u044C\u0442\u0435 \u0444\u0438\u043B\u044C\u0442\u0440. \u041D\u0415 \u0434\u0435\u043B\u0430\u0439\u0442\u0435 \u0432\u044B\u0432\u043E\u0434\u043E\u0432 \u043E \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u0435 \u043F\u043E \u0434\u043B\u0438\u043D\u0435 \u0441\u043F\u0438\u0441\u043A\u0430 \u2014 \u0441\u0432\u0435\u0440\u044F\u0439\u0442\u0435\u0441\u044C \u0441 total.",
   inputSchema: {
     filter: z.enum(["overdue", "today", "this_week", "all_open"]).optional().describe("\u0411\u044B\u0441\u0442\u0440\u044B\u0439 \u0444\u0438\u043B\u044C\u0442\u0440 \u043F\u043E \u0441\u0440\u043E\u043A\u0430\u043C. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E all_open."),
     project_id: z.string().uuid().optional().describe("UUID \u043F\u0440\u043E\u0435\u043A\u0442\u0430 (task_groups.id)."),
     assignee_me: z.boolean().optional().describe("\u0422\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u0434\u0430\u0447\u0438, \u0433\u0434\u0435 \u044F \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C (assigned_to = me)."),
     include_completed: z.boolean().optional().describe("\u0412\u043A\u043B\u044E\u0447\u0430\u0442\u044C \u0437\u0430\u043A\u0440\u044B\u0442\u044B\u0435 \u0437\u0430\u0434\u0430\u0447\u0438."),
-    limit: z.number().int().min(1).max(200).optional().describe("\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u0437\u0430\u0434\u0430\u0447 \u0432 \u043E\u0442\u0432\u0435\u0442\u0435. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E 50.")
+    limit: z.number().int().min(1).max(200).optional().describe("\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u0437\u0430\u0434\u0430\u0447 \u0432 \u043E\u0442\u0432\u0435\u0442\u0435. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E 50."),
+    offset: z.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u0434\u0430\u0447 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
@@ -34,9 +78,11 @@ var list_tasks_default = defineTool({
     const supabase = db(ctx);
     const uid = ctx.getUserId();
     const limit = input.limit ?? 50;
+    const offset = input.offset ?? 0;
     let q = supabase.from("tasks").select(
-      "id,title,description,deadline,start_at,is_completed,is_important,priority,status_meta,group_id,client_id,assigned_to,completed_at"
-    ).order("deadline", { ascending: true, nullsFirst: false }).limit(limit);
+      "id,title,description,deadline,start_at,is_completed,is_important,priority,status_meta,group_id,client_id,assigned_to,completed_at",
+      { count: "exact" }
+    ).order("deadline", { ascending: true, nullsFirst: false }).range(offset, offset + limit - 1);
     if (!input.include_completed) q = q.eq("is_completed", false);
     if (input.assignee_me) q = q.eq("assigned_to", uid);
     if (input.project_id) q = q.eq("group_id", input.project_id);
@@ -57,27 +103,27 @@ var list_tasks_default = defineTool({
       end.setDate(end.getDate() + 7);
       q = q.gte("deadline", iso(start)).lte("deadline", iso(end));
     }
-    const { data, error } = await q;
+    const { data, error, count } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    const rows = (data ?? []).map((t) => ({
-      id: t.id,
-      title: t.title,
-      deadline: t.deadline,
-      is_completed: t.is_completed,
-      is_important: t.is_important,
-      priority: t.priority,
-      project_id: t.group_id,
-      client_id: t.client_id,
-      assigned_to: t.assigned_to
-    }));
+    const names = await resolveNames(supabase, data ?? []);
+    const rows = (data ?? []).map((t) => shapeTask(t, names));
+    const total = count ?? rows.length;
+    const hasMore = offset + rows.length < total;
+    const text = hasMore ? `\u041F\u043E\u043A\u0430\u0437\u0430\u043D\u043E ${rows.length} \u0437\u0430\u0434\u0430\u0447 \u0438\u0437 ${total} (\u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E ${offset}). \u042D\u0442\u043E \u041D\u0415 \u0432\u0441\u0435: \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0435, \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u0441 offset=${offset + rows.length} \u0438\u043B\u0438 \u0441\u0443\u0437\u044C\u0442\u0435 \u0444\u0438\u043B\u044C\u0442\u0440.` : `\u041F\u043E\u043A\u0430\u0437\u0430\u043D\u043E ${rows.length} \u0437\u0430\u0434\u0430\u0447 \u0438\u0437 ${total} \u2014 \u044D\u0442\u043E \u0432\u0441\u0435, \u0447\u0442\u043E \u043F\u043E\u0434\u0445\u043E\u0434\u044F\u0442 \u043F\u043E\u0434 \u0444\u0438\u043B\u044C\u0442\u0440.`;
     return {
-      content: [{ type: "text", text: `\u041D\u0430\u0439\u0434\u0435\u043D\u043E \u0437\u0430\u0434\u0430\u0447: ${rows.length}` }],
-      structuredContent: { tasks: rows }
+      content: [{ type: "text", text }],
+      structuredContent: {
+        tasks: rows,
+        total,
+        returned: rows.length,
+        offset,
+        has_more: hasMore
+      }
     };
   }
 });
 
-// src/lib/mcp/tools/get_task.ts
+// src/lib/mcp/tools/search_tasks.ts
 import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z2 } from "npm:zod@^4.4.3";
@@ -87,15 +133,79 @@ function db2(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var get_task_default = defineTool2({
+var SELECT = "id,title,description,deadline,is_completed,is_important,priority,group_id,client_id,assigned_to";
+var search_tasks_default = defineTool2({
+  name: "search_tasks",
+  title: "\u041F\u043E\u0438\u0441\u043A \u0437\u0430\u0434\u0430\u0447 \u043F\u043E \u0442\u0435\u043A\u0441\u0442\u0443",
+  description: "\u0418\u0449\u0435\u0442 \u0437\u0430\u0434\u0430\u0447\u0438 \u043F\u043E \u043F\u043E\u0434\u0441\u0442\u0440\u043E\u043A\u0435 \u0432 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0438 \u0438 \u043E\u043F\u0438\u0441\u0430\u043D\u0438\u0438. \u041D\u0443\u0436\u0435\u043D, \u0447\u0442\u043E\u0431\u044B \u0441\u0432\u0435\u0440\u0438\u0442\u044C \u043F\u0438\u0441\u044C\u043C\u043E \u0438\u043B\u0438 \u043E\u0431\u0441\u0443\u0436\u0434\u0435\u043D\u0438\u0435 \u0441 \u0443\u0436\u0435 \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u044E\u0449\u0438\u043C\u0438 \u0437\u0430\u0434\u0430\u0447\u0430\u043C\u0438 \u0438 \u043D\u0435 \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0434\u0443\u0431\u043B\u044C. \u0420\u0435\u0433\u0438\u0441\u0442\u0440 \u043D\u0435 \u0432\u0430\u0436\u0435\u043D. \u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 has_more: \u043F\u0440\u0438 true \u043D\u0430\u0439\u0434\u0435\u043D\u043E \u0431\u043E\u043B\u044C\u0448\u0435, \u0447\u0435\u043C \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u043E \u2014 \u0443\u0442\u043E\u0447\u043D\u0438\u0442\u0435 \u0437\u0430\u043F\u0440\u043E\u0441. \u0422\u043E\u0447\u043D\u043E\u0435 \u043E\u0431\u0449\u0435\u0435 \u0447\u0438\u0441\u043B\u043E \u043D\u0435 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0441\u044F: \u043F\u043E\u0438\u0441\u043A \u0438\u0434\u0451\u0442 \u043F\u043E \u0434\u0432\u0443\u043C \u043F\u043E\u043B\u044F\u043C \u0438 \u043E\u0431\u044A\u0435\u0434\u0438\u043D\u044F\u0435\u0442 \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u044F.",
+  inputSchema: {
+    query: z2.string().min(2).max(200).describe("\u041F\u043E\u0434\u0441\u0442\u0440\u043E\u043A\u0430 \u0434\u043B\u044F \u043F\u043E\u0438\u0441\u043A\u0430 \u0432 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0438 \u0438 \u043E\u043F\u0438\u0441\u0430\u043D\u0438\u0438. \u041D\u0435 \u043A\u043E\u0440\u043E\u0447\u0435 \u0434\u0432\u0443\u0445 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432."),
+    include_completed: z2.boolean().optional().describe("\u0418\u0441\u043A\u0430\u0442\u044C \u0438 \u0441\u0440\u0435\u0434\u0438 \u0437\u0430\u043A\u0440\u044B\u0442\u044B\u0445 \u0437\u0430\u0434\u0430\u0447. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u043D\u0435\u0442."),
+    project_id: z2.string().uuid().optional().describe("\u041E\u0433\u0440\u0430\u043D\u0438\u0447\u0438\u0442\u044C \u043E\u0434\u043D\u0438\u043C \u043F\u0440\u043E\u0435\u043A\u0442\u043E\u043C (task_groups.id)."),
+    limit: z2.number().int().min(1).max(100).optional().describe("\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u0437\u0430\u0434\u0430\u0447 \u0432 \u043E\u0442\u0432\u0435\u0442\u0435. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E 30.")
+  },
+  annotations: { readOnlyHint: true, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) {
+      return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
+    }
+    const supabase = db2(ctx);
+    const limit = input.limit ?? 30;
+    const escaped = input.query.replace(/[\\%_]/g, (m) => "\\" + m);
+    const pattern = `%${escaped}%`;
+    const base = (field) => {
+      let q = supabase.from("tasks").select(SELECT).ilike(field, pattern).limit(limit);
+      if (!input.include_completed) q = q.eq("is_completed", false);
+      if (input.project_id) q = q.eq("group_id", input.project_id);
+      return q;
+    };
+    const [byTitle, byDescription] = await Promise.all([base("title"), base("description")]);
+    const failed = byTitle.error ?? byDescription.error;
+    if (failed) return { content: [{ type: "text", text: failed.message }], isError: true };
+    const seen = /* @__PURE__ */ new Set();
+    const merged = [];
+    for (const row of [...byTitle.data ?? [], ...byDescription.data ?? []]) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      merged.push(row);
+    }
+    const hasMore = (byTitle.data?.length ?? 0) >= limit || (byDescription.data?.length ?? 0) >= limit;
+    const rows = merged.slice(0, limit);
+    const names = await resolveNames(supabase, rows);
+    const shaped = rows.map((t) => shapeTask(t, names));
+    const text = shaped.length === 0 ? `\u041F\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0443 \xAB${input.query}\xBB \u0437\u0430\u0434\u0430\u0447 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E${input.include_completed ? "" : " \u0441\u0440\u0435\u0434\u0438 \u043E\u0442\u043A\u0440\u044B\u0442\u044B\u0445 (\u0437\u0430\u043A\u0440\u044B\u0442\u044B\u0435 \u043D\u0435 \u0438\u0441\u043A\u0430\u043B\u0438\u0441\u044C)"}.` : hasMore ? `\u041D\u0430\u0439\u0434\u0435\u043D\u043E \u0431\u043E\u043B\u044C\u0448\u0435, \u0447\u0435\u043C \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u043E: ${shaped.length} \u0437\u0430\u0434\u0430\u0447 \u043F\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0443 \xAB${input.query}\xBB. \u0423\u0442\u043E\u0447\u043D\u0438\u0442\u0435 \u0437\u0430\u043F\u0440\u043E\u0441 \u2014 \u044D\u0442\u043E \u041D\u0415 \u0432\u0441\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u044F.` : `\u041D\u0430\u0439\u0434\u0435\u043D\u043E ${shaped.length} \u0437\u0430\u0434\u0430\u0447 \u043F\u043E \u0437\u0430\u043F\u0440\u043E\u0441\u0443 \xAB${input.query}\xBB \u2014 \u044D\u0442\u043E \u0432\u0441\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u044F.`;
+    return {
+      content: [{ type: "text", text }],
+      structuredContent: {
+        tasks: shaped,
+        returned: shaped.length,
+        has_more: hasMore,
+        query: input.query,
+        searched_completed: input.include_completed ?? false
+      }
+    };
+  }
+});
+
+// src/lib/mcp/tools/get_task.ts
+import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.95.3";
+import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z3 } from "npm:zod@^4.4.3";
+function db3(ctx) {
+  return createClient3(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var get_task_default = defineTool3({
   name: "get_task",
   title: "\u0417\u0430\u0434\u0430\u0447\u0430 \u2014 \u0434\u0435\u0442\u0430\u043B\u0438",
   description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u043E\u0434\u0440\u043E\u0431\u043D\u0443\u044E \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443 \u0437\u0430\u0434\u0430\u0447\u0438: \u043E\u043F\u0438\u0441\u0430\u043D\u0438\u0435, \u0448\u0430\u0433\u0438 (\u043F\u043E\u0434\u0437\u0430\u0434\u0430\u0447\u0438), \u043A\u043E\u043C\u043C\u0435\u043D\u0442\u0430\u0440\u0438\u0438, \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0438.",
-  inputSchema: { task_id: z2.string().uuid() },
+  inputSchema: { task_id: z3.string().uuid() },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async ({ task_id }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
-    const supabase = db2(ctx);
+    const supabase = db3(ctx);
     const { data: task, error } = await supabase.from("tasks").select("*").eq("id", task_id).maybeSingle();
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     if (!task) return { content: [{ type: "text", text: "\u0417\u0430\u0434\u0430\u0447\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0438\u043B\u0438 \u043D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430" }], isError: true };
@@ -112,34 +222,34 @@ var get_task_default = defineTool2({
 });
 
 // src/lib/mcp/tools/create_task.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.95.3";
-import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z3 } from "npm:zod@^4.4.3";
-function db3(ctx) {
-  return createClient3(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.95.3";
+import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z4 } from "npm:zod@^4.4.3";
+function db4(ctx) {
+  return createClient4(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var create_task_default = defineTool3({
+var create_task_default = defineTool4({
   name: "create_task",
   title: "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0437\u0430\u0434\u0430\u0447\u0443",
   description: "\u0421\u043E\u0437\u0434\u0430\u0451\u0442 \u043D\u043E\u0432\u0443\u044E \u0437\u0430\u0434\u0430\u0447\u0443 \u0432 JustTODOit. \u041E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E title. \u041E\u043F\u0446\u0438\u043E\u043D\u0430\u043B\u044C\u043D\u043E: deadline (ISO datetime), project_id (task_groups.id), client_id, assigned_to (user_id \u2014 \u043F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u044F).",
   inputSchema: {
-    title: z3.string().min(1).max(500),
-    description: z3.string().optional(),
-    deadline: z3.string().optional().describe("ISO datetime, \u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440 2026-08-15T18:00:00Z"),
-    project_id: z3.string().uuid().optional(),
-    client_id: z3.string().uuid().optional(),
-    assigned_to: z3.string().uuid().optional(),
-    is_important: z3.boolean().optional(),
-    priority: z3.number().int().min(1).max(4).optional()
+    title: z4.string().min(1).max(500),
+    description: z4.string().optional(),
+    deadline: z4.string().optional().describe("ISO datetime, \u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440 2026-08-15T18:00:00Z"),
+    project_id: z4.string().uuid().optional(),
+    client_id: z4.string().uuid().optional(),
+    assigned_to: z4.string().uuid().optional(),
+    is_important: z4.boolean().optional(),
+    priority: z4.number().int().min(1).max(4).optional()
   },
   annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   handler: async (input, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
     const uid = ctx.getUserId();
-    const supabase = db3(ctx);
+    const supabase = db4(ctx);
     const { data, error } = await supabase.from("tasks").insert({
       user_id: uid,
       title: input.title,
@@ -160,32 +270,6 @@ var create_task_default = defineTool3({
 });
 
 // src/lib/mcp/tools/complete_task.ts
-import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.95.3";
-import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z4 } from "npm:zod@^4.4.3";
-function db4(ctx) {
-  return createClient4(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
-var complete_task_default = defineTool4({
-  name: "complete_task",
-  title: "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u0437\u0430\u0434\u0430\u0447\u0443",
-  description: "\u041F\u043E\u043C\u0435\u0447\u0430\u0435\u0442 \u0437\u0430\u0434\u0430\u0447\u0443 \u043A\u0430\u043A \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043D\u0443\u044E (is_completed = true, completed_at = now).",
-  inputSchema: { task_id: z4.string().uuid() },
-  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
-  handler: async ({ task_id }, ctx) => {
-    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
-    const supabase = db4(ctx);
-    const { data, error } = await supabase.from("tasks").update({ is_completed: true, completed_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", task_id).select("id,title").maybeSingle();
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    if (!data) return { content: [{ type: "text", text: "\u0417\u0430\u0434\u0430\u0447\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0438\u043B\u0438 \u043D\u0435\u0442 \u043F\u0440\u0430\u0432" }], isError: true };
-    return { content: [{ type: "text", text: `\u0417\u0430\u043A\u0440\u044B\u0442\u0430: ${data.title}` }], structuredContent: { task: data } };
-  }
-});
-
-// src/lib/mcp/tools/update_task_deadline.ts
 import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z5 } from "npm:zod@^4.4.3";
@@ -195,26 +279,23 @@ function db5(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var update_task_deadline_default = defineTool5({
-  name: "update_task_deadline",
-  title: "\u0421\u0434\u0432\u0438\u043D\u0443\u0442\u044C \u0434\u0435\u0434\u043B\u0430\u0439\u043D",
-  description: "\u041C\u0435\u043D\u044F\u0435\u0442 \u0434\u0435\u0434\u043B\u0430\u0439\u043D \u0437\u0430\u0434\u0430\u0447\u0438. \u0415\u0441\u043B\u0438 \u0443 \u0437\u0430\u0434\u0430\u0447\u0438 \u0431\u044B\u043B baseline lock \u2014 \u0441\u0434\u0432\u0438\u0433 \u0437\u0430\u0444\u0438\u043A\u0441\u0438\u0440\u0443\u0435\u0442\u0441\u044F \u043A\u0430\u043A drift.",
-  inputSchema: {
-    task_id: z5.string().uuid(),
-    deadline: z5.string().describe("\u041D\u043E\u0432\u044B\u0439 \u0434\u0435\u0434\u043B\u0430\u0439\u043D, ISO datetime")
-  },
-  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-  handler: async ({ task_id, deadline }, ctx) => {
+var complete_task_default = defineTool5({
+  name: "complete_task",
+  title: "\u0417\u0430\u043A\u0440\u044B\u0442\u044C \u0437\u0430\u0434\u0430\u0447\u0443",
+  description: "\u041F\u043E\u043C\u0435\u0447\u0430\u0435\u0442 \u0437\u0430\u0434\u0430\u0447\u0443 \u043A\u0430\u043A \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u043D\u0443\u044E (is_completed = true, completed_at = now).",
+  inputSchema: { task_id: z5.string().uuid() },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  handler: async ({ task_id }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
     const supabase = db5(ctx);
-    const { data, error } = await supabase.from("tasks").update({ deadline }).eq("id", task_id).select("id,title,deadline,original_deadline").maybeSingle();
+    const { data, error } = await supabase.from("tasks").update({ is_completed: true, completed_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", task_id).select("id,title").maybeSingle();
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     if (!data) return { content: [{ type: "text", text: "\u0417\u0430\u0434\u0430\u0447\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0438\u043B\u0438 \u043D\u0435\u0442 \u043F\u0440\u0430\u0432" }], isError: true };
-    return { content: [{ type: "text", text: `\u0414\u0435\u0434\u043B\u0430\u0439\u043D \u043E\u0431\u043D\u043E\u0432\u043B\u0451\u043D: ${data.title}` }], structuredContent: { task: data } };
+    return { content: [{ type: "text", text: `\u0417\u0430\u043A\u0440\u044B\u0442\u0430: ${data.title}` }], structuredContent: { task: data } };
   }
 });
 
-// src/lib/mcp/tools/list_projects.ts
+// src/lib/mcp/tools/update_task_deadline.ts
 import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z6 } from "npm:zod@^4.4.3";
@@ -224,32 +305,26 @@ function db6(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var list_projects_default = defineTool6({
-  name: "list_projects",
-  title: "\u0421\u043F\u0438\u0441\u043E\u043A \u043F\u0440\u043E\u0435\u043A\u0442\u043E\u0432",
-  description: "\u041F\u0440\u043E\u0435\u043A\u0442\u044B (task_groups), \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B\u0435 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044E. \u041C\u043E\u0436\u043D\u043E \u043E\u0442\u0444\u0438\u043B\u044C\u0442\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u0442\u0438\u043F\u0443 \u0438 \u0441\u0442\u0430\u0442\u0443\u0441\u0443 \u0430\u0440\u0445\u0438\u0432\u0430.",
+var update_task_deadline_default = defineTool6({
+  name: "update_task_deadline",
+  title: "\u0421\u0434\u0432\u0438\u043D\u0443\u0442\u044C \u0434\u0435\u0434\u043B\u0430\u0439\u043D",
+  description: "\u041C\u0435\u043D\u044F\u0435\u0442 \u0434\u0435\u0434\u043B\u0430\u0439\u043D \u0437\u0430\u0434\u0430\u0447\u0438. \u0415\u0441\u043B\u0438 \u0443 \u0437\u0430\u0434\u0430\u0447\u0438 \u0431\u044B\u043B baseline lock \u2014 \u0441\u0434\u0432\u0438\u0433 \u0437\u0430\u0444\u0438\u043A\u0441\u0438\u0440\u0443\u0435\u0442\u0441\u044F \u043A\u0430\u043A drift.",
   inputSchema: {
-    project_type: z6.enum(["standard", "npd", "crm", "protocol"]).optional(),
-    include_archived: z6.boolean().optional(),
-    limit: z6.number().int().min(1).max(200).optional()
+    task_id: z6.string().uuid(),
+    deadline: z6.string().describe("\u041D\u043E\u0432\u044B\u0439 \u0434\u0435\u0434\u043B\u0430\u0439\u043D, ISO datetime")
   },
-  annotations: { readOnlyHint: true, openWorldHint: false },
-  handler: async (input, ctx) => {
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  handler: async ({ task_id, deadline }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
     const supabase = db6(ctx);
-    let q = supabase.from("task_groups").select("id,name,project_type,client_id,parent_id,closed_at,description").order("name").limit(input.limit ?? 100);
-    if (input.project_type) q = q.eq("project_type", input.project_type);
-    if (!input.include_archived) q = q.is("closed_at", null);
-    const { data, error } = await q;
+    const { data, error } = await supabase.from("tasks").update({ deadline }).eq("id", task_id).select("id,title,deadline,original_deadline").maybeSingle();
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: `\u041F\u0440\u043E\u0435\u043A\u0442\u043E\u0432: ${data?.length ?? 0}` }],
-      structuredContent: { projects: data ?? [] }
-    };
+    if (!data) return { content: [{ type: "text", text: "\u0417\u0430\u0434\u0430\u0447\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0438\u043B\u0438 \u043D\u0435\u0442 \u043F\u0440\u0430\u0432" }], isError: true };
+    return { content: [{ type: "text", text: `\u0414\u0435\u0434\u043B\u0430\u0439\u043D \u043E\u0431\u043D\u043E\u0432\u043B\u0451\u043D: ${data.title}` }], structuredContent: { task: data } };
   }
 });
 
-// src/lib/mcp/tools/get_project.ts
+// src/lib/mcp/tools/list_projects.ts
 import { createClient as createClient7 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z7 } from "npm:zod@^4.4.3";
@@ -259,38 +334,38 @@ function db7(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var get_project_default = defineTool7({
-  name: "get_project",
-  title: "\u041F\u0440\u043E\u0435\u043A\u0442 \u2014 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u0438 \u043C\u0435\u0442\u0440\u0438\u043A\u0438",
-  description: "\u0414\u0435\u0442\u0430\u043B\u0438 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 + \u0430\u0433\u0440\u0435\u0433\u0430\u0442\u044B: \u0432\u0441\u0435\u0433\u043E \u0437\u0430\u0434\u0430\u0447, \u043E\u0442\u043A\u0440\u044B\u0442\u043E, \u043F\u0440\u043E\u0441\u0440\u043E\u0447\u0435\u043D\u043E, \u0431\u043B\u0438\u0436\u0430\u0439\u0448\u0438\u0435 \u0432\u0435\u0445\u0438.",
-  inputSchema: { project_id: z7.string().uuid() },
+var list_projects_default = defineTool7({
+  name: "list_projects",
+  title: "\u0421\u043F\u0438\u0441\u043E\u043A \u043F\u0440\u043E\u0435\u043A\u0442\u043E\u0432",
+  description: "\u041F\u0440\u043E\u0435\u043A\u0442\u044B (task_groups), \u0434\u043E\u0441\u0442\u0443\u043F\u043D\u044B\u0435 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044E. \u041C\u043E\u0436\u043D\u043E \u043E\u0442\u0444\u0438\u043B\u044C\u0442\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u0442\u0438\u043F\u0443 \u0438 \u0441\u0442\u0430\u0442\u0443\u0441\u0443 \u0430\u0440\u0445\u0438\u0432\u0430. \u0412 \u043E\u0442\u0432\u0435\u0442\u0435 \u0435\u0441\u0442\u044C total \u0438 has_more: \u0435\u0441\u043B\u0438 has_more=true, \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u044B \u043D\u0435 \u0432\u0441\u0435 \u0437\u0430\u043F\u0438\u0441\u0438 \u2014 \u043D\u0435 \u0441\u0443\u0434\u0438\u0442\u0435 \u043E \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u0435 \u043F\u043E \u0434\u043B\u0438\u043D\u0435 \u0441\u043F\u0438\u0441\u043A\u0430.",
+  inputSchema: {
+    project_type: z7.enum(["standard", "npd", "crm", "protocol"]).optional(),
+    include_archived: z7.boolean().optional(),
+    limit: z7.number().int().min(1).max(200).optional(),
+    offset: z7.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
+  },
   annotations: { readOnlyHint: true, openWorldHint: false },
-  handler: async ({ project_id }, ctx) => {
+  handler: async (input, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
     const supabase = db7(ctx);
-    const [{ data: project, error }, { data: tasks }, { data: milestones }] = await Promise.all([
-      supabase.from("task_groups").select("*").eq("id", project_id).maybeSingle(),
-      supabase.from("tasks").select("id,is_completed,deadline").eq("group_id", project_id),
-      supabase.from("milestones").select("id,title,due_date,status").eq("group_id", project_id).order("due_date").limit(20)
-    ]);
+    const limit = input.limit ?? 100;
+    const offset = input.offset ?? 0;
+    let q = supabase.from("task_groups").select("id,name,project_type,client_id,parent_id,closed_at,description", { count: "exact" }).order("name").range(offset, offset + limit - 1);
+    if (input.project_type) q = q.eq("project_type", input.project_type);
+    if (!input.include_archived) q = q.is("closed_at", null);
+    const { data, error, count } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    if (!project) return { content: [{ type: "text", text: "\u041F\u0440\u043E\u0435\u043A\u0442 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0438\u043B\u0438 \u043D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430" }], isError: true };
-    const now = Date.now();
-    const total = tasks?.length ?? 0;
-    const open = tasks?.filter((t) => !t.is_completed).length ?? 0;
-    const overdue = tasks?.filter((t) => !t.is_completed && t.deadline && new Date(t.deadline).getTime() < now).length ?? 0;
+    const rows = data ?? [];
+    const total = count ?? rows.length;
+    const hasMore = offset + rows.length < total;
     return {
-      content: [{ type: "text", text: `${project.name}: ${open}/${total} \u043E\u0442\u043A\u0440\u044B\u0442\u043E, \u043F\u0440\u043E\u0441\u0440\u043E\u0447\u0435\u043D\u043E ${overdue}` }],
-      structuredContent: {
-        project,
-        metrics: { total, open, completed: total - open, overdue },
-        milestones: milestones ?? []
-      }
+      content: [{ type: "text", text: hasMore ? `\u041F\u043E\u043A\u0430\u0437\u0430\u043D\u043E ${rows.length} \u043F\u0440\u043E\u0435\u043A\u0442\u043E\u0432 \u0438\u0437 ${total} (\u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E ${offset}). \u042D\u0442\u043E \u041D\u0415 \u0432\u0441\u0435: \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u0441 offset=${offset + rows.length} \u0438\u043B\u0438 \u0441\u0443\u0437\u044C\u0442\u0435 \u0444\u0438\u043B\u044C\u0442\u0440.` : `\u041F\u043E\u043A\u0430\u0437\u0430\u043D\u043E ${rows.length} \u043F\u0440\u043E\u0435\u043A\u0442\u043E\u0432 \u0438\u0437 ${total} \u2014 \u044D\u0442\u043E \u0432\u0441\u0435, \u0447\u0442\u043E \u043F\u043E\u0434\u0445\u043E\u0434\u044F\u0442 \u043F\u043E\u0434 \u0444\u0438\u043B\u044C\u0442\u0440.` }],
+      structuredContent: { projects: rows, total, returned: rows.length, offset, has_more: hasMore }
     };
   }
 });
 
-// src/lib/mcp/tools/list_protocols.ts
+// src/lib/mcp/tools/get_project.ts
 import { createClient as createClient8 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z8 } from "npm:zod@^4.4.3";
@@ -300,36 +375,77 @@ function db8(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var list_protocols_default = defineTool8({
-  name: "list_protocols",
-  title: "\u0421\u043F\u0438\u0441\u043E\u043A \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u043E\u0432 \u0432\u0441\u0442\u0440\u0435\u0447",
-  description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B (task_groups \u0441 project_type='protocol'). \u0424\u0438\u043B\u044C\u0442\u0440\u044B: \u043A\u043B\u0438\u0435\u043D\u0442, \u0441\u0442\u0430\u0442\u0443\u0441 (draft/published), \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D \u0434\u0430\u0442.",
+var get_project_default = defineTool8({
+  name: "get_project",
+  title: "\u041F\u0440\u043E\u0435\u043A\u0442 \u2014 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430, \u043C\u0435\u0442\u0440\u0438\u043A\u0438 \u0438 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0435 \u043E\u0431\u0441\u0443\u0436\u0434\u0435\u043D\u0438\u044F",
+  description: "\u0414\u0435\u0442\u0430\u043B\u0438 \u043F\u0440\u043E\u0435\u043A\u0442\u0430, \u0430\u0433\u0440\u0435\u0433\u0430\u0442\u044B (\u0432\u0441\u0435\u0433\u043E \u0437\u0430\u0434\u0430\u0447, \u043E\u0442\u043A\u0440\u044B\u0442\u043E, \u043F\u0440\u043E\u0441\u0440\u043E\u0447\u0435\u043D\u043E), \u0431\u043B\u0438\u0436\u0430\u0439\u0448\u0438\u0435 \u0432\u0435\u0445\u0438 \u0438 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0435 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u0432 \u0447\u0430\u0442\u0435 \u043F\u0440\u043E\u0435\u043A\u0442\u0430. \u041C\u0435\u0442\u0440\u0438\u043A\u0438 \u0441\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435, \u0430 \u043D\u0435 \u043F\u043E \u0432\u044B\u0431\u043E\u0440\u043A\u0435, \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u0438\u043C \u043C\u043E\u0436\u043D\u043E \u0432\u0435\u0440\u0438\u0442\u044C.",
   inputSchema: {
-    client_id: z8.string().uuid().optional(),
-    status: z8.enum(["draft", "published"]).optional(),
-    date_from: z8.string().optional().describe("ISO date, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E"),
-    date_to: z8.string().optional().describe("ISO date, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E"),
-    limit: z8.number().int().min(1).max(100).optional()
+    project_id: z8.string().uuid(),
+    messages_limit: z8.number().int().min(0).max(50).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u0438\u0445 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u0447\u0430\u0442\u0430 \u0432\u0435\u0440\u043D\u0443\u0442\u044C. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E 10, 0 \u2014 \u043D\u0435 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0442\u044C.")
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
-  handler: async (input, ctx) => {
+  handler: async ({ project_id, messages_limit }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
     const supabase = db8(ctx);
-    let q = supabase.from("task_groups").select("id,name,description,client_id,created_at,protocol_status,protocol_date").eq("project_type", "protocol").order("protocol_date", { ascending: false, nullsFirst: false }).limit(input.limit ?? 50);
-    if (input.client_id) q = q.eq("client_id", input.client_id);
-    if (input.status) q = q.eq("protocol_status", input.status);
-    if (input.date_from) q = q.gte("protocol_date", input.date_from);
-    if (input.date_to) q = q.lte("protocol_date", input.date_to);
-    const { data, error } = await q;
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const msgLimit = messages_limit ?? 10;
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const countOf = (build) => build(baseTasks());
+    function baseTasks() {
+      return supabase.from("tasks").select("id", { count: "exact", head: true }).eq("group_id", project_id);
+    }
+    const [
+      { data: project, error: projectError },
+      totalRes,
+      openRes,
+      overdueRes,
+      milestonesRes,
+      messagesRes
+    ] = await Promise.all([
+      supabase.from("task_groups").select("*").eq("id", project_id).maybeSingle(),
+      countOf((q) => q),
+      countOf((q) => q.eq("is_completed", false)),
+      countOf((q) => q.eq("is_completed", false).lt("deadline", nowIso)),
+      // Таблица называется project_milestones. Здесь стояло "milestones" —
+      // такой таблицы нет, запрос всегда падал, а его ошибка не проверялась:
+      // вехи молча приходили пустыми. Теперь ошибка видна в ответе.
+      supabase.from("project_milestones").select("id,name,planned_date,actual_date,status").eq("group_id", project_id).order("planned_date", { nullsFirst: false }).limit(20),
+      msgLimit > 0 ? supabase.from("group_messages").select("id,content,created_at,user_id,external_author,source").eq("group_id", project_id).order("created_at", { ascending: false }).limit(msgLimit) : Promise.resolve({ data: [], error: null })
+    ]);
+    if (projectError) return { content: [{ type: "text", text: projectError.message }], isError: true };
+    if (!project) return { content: [{ type: "text", text: "\u041F\u0440\u043E\u0435\u043A\u0442 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0438\u043B\u0438 \u043D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430" }], isError: true };
+    const total = totalRes.count ?? 0;
+    const open = openRes.count ?? 0;
+    const overdue = overdueRes.count ?? 0;
+    const msgs = messagesRes.data ?? [];
+    const names = await resolveNames(
+      supabase,
+      msgs.map((m) => ({ assigned_to: m.user_id }))
+    );
+    const warnings = [];
+    if (milestonesRes.error) warnings.push(`\u0432\u0435\u0445\u0438 \u043D\u0435 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u044B: ${milestonesRes.error.message}`);
+    if (messagesRes.error) warnings.push(`\u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u043D\u0435 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u044B: ${messagesRes.error.message}`);
+    const head = `${project.name}: ${open} \u0438\u0437 ${total} \u043E\u0442\u043A\u0440\u044B\u0442\u043E, \u043F\u0440\u043E\u0441\u0440\u043E\u0447\u0435\u043D\u043E ${overdue}`;
+    const tail = warnings.length ? ` \u26A0\uFE0F ${warnings.join("; ")}` : "";
     return {
-      content: [{ type: "text", text: `\u041F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u043E\u0432: ${data?.length ?? 0}` }],
-      structuredContent: { protocols: data ?? [] }
+      content: [{ type: "text", text: head + tail }],
+      structuredContent: {
+        project,
+        metrics: { total, open, completed: total - open, overdue },
+        milestones: milestonesRes.data ?? [],
+        recent_messages: msgs.map((m) => ({
+          id: m.id,
+          content: m.content,
+          created_at: m.created_at,
+          author: m.external_author ?? (m.user_id ? names.person.get(m.user_id) ?? null : null),
+          source: m.source
+        })),
+        warnings
+      }
     };
   }
 });
 
-// src/lib/mcp/tools/get_protocol.ts
+// src/lib/mcp/tools/list_protocols.ts
 import { createClient as createClient9 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z9 } from "npm:zod@^4.4.3";
@@ -339,15 +455,60 @@ function db9(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var get_protocol_default = defineTool9({
+var list_protocols_default = defineTool9({
+  name: "list_protocols",
+  title: "\u0421\u043F\u0438\u0441\u043E\u043A \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u043E\u0432 \u0432\u0441\u0442\u0440\u0435\u0447",
+  description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B (task_groups \u0441 project_type='protocol'). \u0424\u0438\u043B\u044C\u0442\u0440\u044B: \u043A\u043B\u0438\u0435\u043D\u0442, \u0441\u0442\u0430\u0442\u0443\u0441 (draft/published), \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D \u0434\u0430\u0442. \u0412 \u043E\u0442\u0432\u0435\u0442\u0435 \u0435\u0441\u0442\u044C total \u0438 has_more: \u0435\u0441\u043B\u0438 has_more=true, \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u044B \u043D\u0435 \u0432\u0441\u0435 \u0437\u0430\u043F\u0438\u0441\u0438 \u2014 \u043D\u0435 \u0441\u0443\u0434\u0438\u0442\u0435 \u043E \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u0435 \u043F\u043E \u0434\u043B\u0438\u043D\u0435 \u0441\u043F\u0438\u0441\u043A\u0430.",
+  inputSchema: {
+    client_id: z9.string().uuid().optional(),
+    status: z9.enum(["draft", "published"]).optional(),
+    date_from: z9.string().optional().describe("ISO date, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E"),
+    date_to: z9.string().optional().describe("ISO date, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E"),
+    limit: z9.number().int().min(1).max(100).optional(),
+    offset: z9.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
+  },
+  annotations: { readOnlyHint: true, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
+    const supabase = db9(ctx);
+    const limit = input.limit ?? 50;
+    const offset = input.offset ?? 0;
+    let q = supabase.from("task_groups").select("id,name,description,client_id,created_at,protocol_status,protocol_date", { count: "exact" }).eq("project_type", "protocol").order("protocol_date", { ascending: false, nullsFirst: false }).range(offset, offset + limit - 1);
+    if (input.client_id) q = q.eq("client_id", input.client_id);
+    if (input.status) q = q.eq("protocol_status", input.status);
+    if (input.date_from) q = q.gte("protocol_date", input.date_from);
+    if (input.date_to) q = q.lte("protocol_date", input.date_to);
+    const { data, error, count } = await q;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const rows = data ?? [];
+    const total = count ?? rows.length;
+    const hasMore = offset + rows.length < total;
+    return {
+      content: [{ type: "text", text: hasMore ? `\u041F\u043E\u043A\u0430\u0437\u0430\u043D\u043E ${rows.length} \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u043E\u0432 \u0438\u0437 ${total} (\u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E ${offset}). \u042D\u0442\u043E \u041D\u0415 \u0432\u0441\u0435: \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u0441 offset=${offset + rows.length} \u0438\u043B\u0438 \u0441\u0443\u0437\u044C\u0442\u0435 \u0444\u0438\u043B\u044C\u0442\u0440.` : `\u041F\u043E\u043A\u0430\u0437\u0430\u043D\u043E ${rows.length} \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u043E\u0432 \u0438\u0437 ${total} \u2014 \u044D\u0442\u043E \u0432\u0441\u0435, \u0447\u0442\u043E \u043F\u043E\u0434\u0445\u043E\u0434\u044F\u0442 \u043F\u043E\u0434 \u0444\u0438\u043B\u044C\u0442\u0440.` }],
+      structuredContent: { protocols: rows, total, returned: rows.length, offset, has_more: hasMore }
+    };
+  }
+});
+
+// src/lib/mcp/tools/get_protocol.ts
+import { createClient as createClient10 } from "npm:@supabase/supabase-js@^2.95.3";
+import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z10 } from "npm:zod@^4.4.3";
+function db10(ctx) {
+  return createClient10(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var get_protocol_default = defineTool10({
   name: "get_protocol",
   title: "\u041F\u0440\u043E\u0442\u043E\u043A\u043E\u043B \u2014 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u043C\u043E\u0435 \u0438 \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0435 \u0437\u0430\u0434\u0430\u0447\u0438",
   description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B, \u0437\u0430\u0434\u0430\u0447\u0438 \u043F\u043E\u0432\u0435\u0441\u0442\u043A\u0438 \u0438 \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u043E\u0440\u043E\u0436\u0434\u0451\u043D\u043D\u044B\u0435 \u0438\u0437 \u0432\u0441\u0442\u0440\u0435\u0447\u0438 (source_protocol_id).",
-  inputSchema: { protocol_id: z9.string().uuid() },
+  inputSchema: { protocol_id: z10.string().uuid() },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async ({ protocol_id }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
-    const supabase = db9(ctx);
+    const supabase = db10(ctx);
     const [{ data: protocol, error }, { data: agenda }, { data: followups }] = await Promise.all([
       supabase.from("task_groups").select("*").eq("id", protocol_id).eq("project_type", "protocol").maybeSingle(),
       supabase.from("tasks").select("id,title,description,is_completed,deadline,assigned_to").eq("group_id", protocol_id).order("position"),
@@ -363,45 +524,6 @@ var get_protocol_default = defineTool9({
 });
 
 // src/lib/mcp/tools/list_clients.ts
-import { createClient as createClient10 } from "npm:@supabase/supabase-js@^2.95.3";
-import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z10 } from "npm:zod@^4.4.3";
-function db10(ctx) {
-  return createClient10(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
-var list_clients_default = defineTool10({
-  name: "list_clients",
-  title: "\u0421\u043F\u0438\u0441\u043E\u043A CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u043E\u0432",
-  description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u043E\u0432. \u041C\u043E\u0436\u043D\u043E \u0438\u0441\u043A\u0430\u0442\u044C \u043F\u043E \u0438\u043C\u0435\u043D\u0438 \u0438 \u0444\u0438\u043B\u044C\u0442\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u0442\u0435\u0440\u0440\u0438\u0442\u043E\u0440\u0438\u0438/\u0440\u0430\u043D\u0433\u0443/\u043C\u0435\u043D\u0435\u0434\u0436\u0435\u0440\u0443.",
-  inputSchema: {
-    search: z10.string().optional().describe("\u041F\u043E\u0434\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0438\u043C\u0435\u043D\u0438 \u043A\u043B\u0438\u0435\u043D\u0442\u0430"),
-    territory: z10.string().optional(),
-    rank: z10.string().optional(),
-    manager_id: z10.string().uuid().optional(),
-    limit: z10.number().int().min(1).max(200).optional()
-  },
-  annotations: { readOnlyHint: true, openWorldHint: false },
-  handler: async (input, ctx) => {
-    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
-    const supabase = db10(ctx);
-    let q = supabase.from("clients").select("id,name,territory,rank,manager_id,retail_type,logo_url").order("name").limit(input.limit ?? 100);
-    if (input.search) q = q.ilike("name", `%${input.search}%`);
-    if (input.territory) q = q.eq("territory", input.territory);
-    if (input.rank) q = q.eq("rank", input.rank);
-    if (input.manager_id) q = q.eq("manager_id", input.manager_id);
-    const { data, error } = await q;
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: `\u041A\u043B\u0438\u0435\u043D\u0442\u043E\u0432: ${data?.length ?? 0}` }],
-      structuredContent: { clients: data ?? [] }
-    };
-  }
-});
-
-// src/lib/mcp/tools/get_client.ts
 import { createClient as createClient11 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool11 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z11 } from "npm:zod@^4.4.3";
@@ -411,15 +533,60 @@ function db11(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var get_client_default = defineTool11({
+var list_clients_default = defineTool11({
+  name: "list_clients",
+  title: "\u0421\u043F\u0438\u0441\u043E\u043A CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u043E\u0432",
+  description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u043E\u0432. \u041C\u043E\u0436\u043D\u043E \u0438\u0441\u043A\u0430\u0442\u044C \u043F\u043E \u0438\u043C\u0435\u043D\u0438 \u0438 \u0444\u0438\u043B\u044C\u0442\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u0442\u0435\u0440\u0440\u0438\u0442\u043E\u0440\u0438\u0438/\u0440\u0430\u043D\u0433\u0443/\u043C\u0435\u043D\u0435\u0434\u0436\u0435\u0440\u0443. \u0412 \u043E\u0442\u0432\u0435\u0442\u0435 \u0435\u0441\u0442\u044C total \u0438 has_more: \u0435\u0441\u043B\u0438 has_more=true, \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u044B \u043D\u0435 \u0432\u0441\u0435 \u0437\u0430\u043F\u0438\u0441\u0438 \u2014 \u043D\u0435 \u0441\u0443\u0434\u0438\u0442\u0435 \u043E \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u0435 \u043F\u043E \u0434\u043B\u0438\u043D\u0435 \u0441\u043F\u0438\u0441\u043A\u0430.",
+  inputSchema: {
+    search: z11.string().optional().describe("\u041F\u043E\u0434\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0438\u043C\u0435\u043D\u0438 \u043A\u043B\u0438\u0435\u043D\u0442\u0430"),
+    territory: z11.string().optional(),
+    rank: z11.string().optional(),
+    manager_id: z11.string().uuid().optional(),
+    limit: z11.number().int().min(1).max(200).optional(),
+    offset: z11.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
+  },
+  annotations: { readOnlyHint: true, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
+    const supabase = db11(ctx);
+    const limit = input.limit ?? 100;
+    const offset = input.offset ?? 0;
+    let q = supabase.from("clients").select("id,name,territory,rank,manager_id,retail_type,logo_url", { count: "exact" }).order("name").range(offset, offset + limit - 1);
+    if (input.search) q = q.ilike("name", `%${input.search}%`);
+    if (input.territory) q = q.eq("territory", input.territory);
+    if (input.rank) q = q.eq("rank", input.rank);
+    if (input.manager_id) q = q.eq("manager_id", input.manager_id);
+    const { data, error, count } = await q;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const rows = data ?? [];
+    const total = count ?? rows.length;
+    const hasMore = offset + rows.length < total;
+    return {
+      content: [{ type: "text", text: hasMore ? `\u041F\u043E\u043A\u0430\u0437\u0430\u043D\u043E ${rows.length} \u043A\u043B\u0438\u0435\u043D\u0442\u043E\u0432 \u0438\u0437 ${total} (\u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u043E ${offset}). \u042D\u0442\u043E \u041D\u0415 \u0432\u0441\u0435: \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u0441 offset=${offset + rows.length} \u0438\u043B\u0438 \u0441\u0443\u0437\u044C\u0442\u0435 \u0444\u0438\u043B\u044C\u0442\u0440.` : `\u041F\u043E\u043A\u0430\u0437\u0430\u043D\u043E ${rows.length} \u043A\u043B\u0438\u0435\u043D\u0442\u043E\u0432 \u0438\u0437 ${total} \u2014 \u044D\u0442\u043E \u0432\u0441\u0435, \u0447\u0442\u043E \u043F\u043E\u0434\u0445\u043E\u0434\u044F\u0442 \u043F\u043E\u0434 \u0444\u0438\u043B\u044C\u0442\u0440.` }],
+      structuredContent: { clients: rows, total, returned: rows.length, offset, has_more: hasMore }
+    };
+  }
+});
+
+// src/lib/mcp/tools/get_client.ts
+import { createClient as createClient12 } from "npm:@supabase/supabase-js@^2.95.3";
+import { defineTool as defineTool12 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z12 } from "npm:zod@^4.4.3";
+function db12(ctx) {
+  return createClient12(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+}
+var get_client_default = defineTool12({
   name: "get_client",
   title: "\u041A\u043B\u0438\u0435\u043D\u0442 \u2014 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u0438 \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u044C",
   description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u0430, \u043F\u0440\u0438\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0435 \u043E\u0442\u043A\u0440\u044B\u0442\u044B\u0435 \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B \u0438 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B \u0437\u0430 90 \u0434\u043D\u0435\u0439.",
-  inputSchema: { client_id: z11.string().uuid() },
+  inputSchema: { client_id: z12.string().uuid() },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async ({ client_id }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
-    const supabase = db11(ctx);
+    const supabase = db12(ctx);
     const since = new Date(Date.now() - 90 * 24 * 3600 * 1e3).toISOString();
     const [{ data: client, error }, { data: tasks }, { data: projects }, { data: protocols }] = await Promise.all([
       supabase.from("clients").select("*").eq("id", client_id).maybeSingle(),
@@ -456,6 +623,7 @@ var mcp_default = defineMcp({
   }),
   tools: [
     list_tasks_default,
+    search_tasks_default,
     get_task_default,
     create_task_default,
     complete_task_default,

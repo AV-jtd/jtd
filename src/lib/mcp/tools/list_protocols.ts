@@ -12,33 +12,41 @@ function db(ctx: ToolContext) {
 export default defineTool({
   name: "list_protocols",
   title: "Список протоколов встреч",
-  description: "Возвращает протоколы (task_groups с project_type='protocol'). Фильтры: клиент, статус (draft/published), диапазон дат.",
+  description: "Возвращает протоколы (task_groups с project_type='protocol'). Фильтры: клиент, статус (draft/published), диапазон дат. В ответе есть total и has_more: если has_more=true, показаны не все записи — не судите о количестве по длине списка.",
   inputSchema: {
     client_id: z.string().uuid().optional(),
     status: z.enum(["draft", "published"]).optional(),
     date_from: z.string().optional().describe("ISO date, включительно"),
     date_to: z.string().optional().describe("ISO date, включительно"),
     limit: z.number().int().min(1).max(100).optional(),
+    offset: z.number().int().min(0).optional().describe("Сколько записей пропустить. Для постраничного обхода, когда has_more=true."),
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "Не аутентифицирован" }], isError: true };
     const supabase = db(ctx);
+    const limit = input.limit ?? 50;
+    const offset = input.offset ?? 0;
     let q = supabase
       .from("task_groups")
-      .select("id,name,description,client_id,created_at,protocol_status,protocol_date")
+      .select("id,name,description,client_id,created_at,protocol_status,protocol_date", { count: "exact" })
       .eq("project_type", "protocol")
       .order("protocol_date", { ascending: false, nullsFirst: false })
-      .limit(input.limit ?? 50);
+      .range(offset, offset + limit - 1);
     if (input.client_id) q = q.eq("client_id", input.client_id);
     if (input.status) q = q.eq("protocol_status", input.status);
     if (input.date_from) q = q.gte("protocol_date", input.date_from);
     if (input.date_to) q = q.lte("protocol_date", input.date_to);
-    const { data, error } = await q;
+    const { data, error, count } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const rows = data ?? [];
+    const total = count ?? rows.length;
+    const hasMore = offset + rows.length < total;
     return {
-      content: [{ type: "text", text: `Протоколов: ${data?.length ?? 0}` }],
-      structuredContent: { protocols: data ?? [] },
+      content: [{ type: "text", text: hasMore
+        ? `Показано ${rows.length} протоколов из ${total} (пропущено ${offset}). Это НЕ все: повторите с offset=${offset + rows.length} или сузьте фильтр.`
+        : `Показано ${rows.length} протоколов из ${total} — это все, что подходят под фильтр.` }],
+      structuredContent: { protocols: rows, total, returned: rows.length, offset, has_more: hasMore },
     };
   },
 });
