@@ -16,6 +16,7 @@ import AiInsightsCard from "@/components/AiInsightsCard";
 import LinkedProtocolTasksSection from "@/components/LinkedProtocolTasksSection";
 
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
+import { driftDays as computeDrift, hasDrift as isDrifted } from "@/lib/drift";
 const GanttView = lazyWithRetry(() => import("@/modules/pmo/pages/GanttView"));
 const NpdSwimlaneMatrix = lazyWithRetry(() => import("@/modules/npd/pages/NpdSwimlaneMatrix"));
 
@@ -52,7 +53,7 @@ function ProjectDashboardView({ projectId }: { projectId: string }) {
   const now = new Date();
   const weekFromNow = new Date(now); weekFromNow.setDate(weekFromNow.getDate() + 7);
   const upcoming = tasks.filter(t => !t.is_completed && t.deadline && !isPast(parseISO(t.deadline)) && parseISO(t.deadline) <= weekFromNow);
-  const drifted = tasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline);
+  const drifted = tasks.filter(t => isDrifted(t.original_deadline, t.deadline));
   const projectMilestones = milestones.filter(m => allIds.has(m.group_id));
   const subprojects = groups.filter(g => g.parent_id === projectId);
 

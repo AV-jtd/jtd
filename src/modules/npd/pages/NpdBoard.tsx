@@ -35,6 +35,7 @@ import { BoardColumn } from "@/components/board/BoardColumn";
 import NpdAiTasksPopover from "@/modules/npd/components/NpdAiTasksPopover";
 import NpdRiskRadar from "@/modules/npd/components/NpdRiskRadar";
 import { DraggableWrapper } from "@/components/board/DraggableWrapper";
+import { driftDays as computeDrift, hasDrift as isDrifted } from "@/lib/drift";
 
 // ── Gate definitions ──
 type GateStage = {
@@ -1779,7 +1780,7 @@ function getTimingStatus(tasks: Task[]): "on-track" | "at-risk" | "overdue" | "c
   if (active.length === 0) return "on-track";
   const now = new Date();
   if (active.some(t => t.deadline && new Date(t.deadline) < now)) return "overdue";
-  if (active.some(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)) return "at-risk";
+  if (active.some(t => isDrifted(t.original_deadline, t.deadline))) return "at-risk";
   return "on-track";
 }
 
@@ -1868,8 +1869,8 @@ function ProjectCard({
   const overdueTasks = activeTasks.filter(t => t.deadline && new Date(t.deadline) < now);
   const upcomingTasks = activeTasks.filter(t => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
   const driftTasks = activeTasks
-    .filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
-    .map(t => ({ task: t, driftDays: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / (1000 * 60 * 60 * 24)) }))
+    .filter(t => isDrifted(t.original_deadline, t.deadline))
+    .map(t => ({ task: t, driftDays: (computeDrift(t.original_deadline, t.deadline) ?? 0) }))
     // Защита от битых дат (например, original_deadline = 0002-05-14): отбрасываем дрейф > 5 лет
     .filter(({ driftDays }) => Math.abs(driftDays) <= 1825);
 
@@ -2426,8 +2427,8 @@ function NpdSubprojectCard({ subproject, allTasks, allGroups, availableUsers }: 
   const overdueTasks = activeTasks.filter(t => t.deadline && new Date(t.deadline) < now);
   const upcomingTasks = activeTasks.filter(t => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow);
   const driftTasks = activeTasks
-    .filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
-    .map(t => ({ task: t, driftDays: Math.round((new Date(t.deadline!).getTime() - new Date(t.original_deadline!).getTime()) / (1000 * 60 * 60 * 24)) }));
+    .filter(t => isDrifted(t.original_deadline, t.deadline))
+    .map(t => ({ task: t, driftDays: (computeDrift(t.original_deadline, t.deadline) ?? 0) }));
 
   const timingStatus = (() => {
     if (activeTasks.length === 0 && total > 0) return "completed";

@@ -24,6 +24,7 @@ import ProjectWikiTab from "@/components/wiki/ProjectWikiTab";
 import ProjectIcon from "@/components/ProjectIcon";
 import { format, differenceInDays, isAfter, isBefore, startOfDay, addDays, subDays, parseISO, isToday, isPast } from "date-fns";
 import { ru } from "date-fns/locale";
+import { driftDays as computeDrift, hasDrift as isDrifted } from "@/lib/drift";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -62,7 +63,7 @@ function getTimingStatus(tasks: Task[]): TimingStatus {
   const now = new Date();
   const hasOverdue = activeTasks.some(t => t.deadline && new Date(t.deadline) < now);
   if (hasOverdue) return "overdue";
-  const hasDrift = activeTasks.some(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline);
+  const hasDrift = activeTasks.some(t => isDrifted(t.original_deadline, t.deadline));
   if (hasDrift) return "at-risk";
   return "on-track";
 }
@@ -132,12 +133,14 @@ function buildProjectStats(
   const now = new Date();
   const overdue = allProjectTasks.filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now).length;
 
+  // Через общий помощник: он отбрасывает испорченные базовые даты (год 0001
+  // давал в портфеле +739 251 день) и сдвиги сверх разумного предела. Признак
+  // и величина следуют одному правилу, поэтому в счётчик больше не попадают
+  // задачи, величину для которых показать нельзя.
   const driftTasks = allProjectTasks
-    .filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
-    .map(t => ({
-      task: t,
-      driftDays: differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!)),
-    }))
+    .map(t => ({ task: t, days: computeDrift(t.original_deadline, t.deadline) }))
+    .filter((d) => d.days !== null && d.days !== 0)
+    .map((d) => ({ task: d.task, driftDays: d.days as number }))
     .sort((a, b) => Math.abs(b.driftDays) - Math.abs(a.driftDays));
 
   const weekFromNow = addDays(startOfDay(now), 7);
@@ -261,7 +264,7 @@ function DetailPanel({ title, tasks, onNavigateToTask, users, onClose }: {
         {tasks.slice(0, 10).map(t => {
           const now = new Date();
           const overdueDays = t.deadline ? Math.max(0, differenceInDays(now, new Date(t.deadline))) : 0;
-          const drift = t.original_deadline && t.deadline && t.original_deadline !== t.deadline
+          const drift = isDrifted(t.original_deadline, t.deadline)
             ? differenceInDays(new Date(t.deadline), new Date(t.original_deadline))
             : null;
           return (
@@ -333,7 +336,7 @@ function buildDataContext(projectStats: ProjectStats[], users: Profile[]) {
     if (!assigneeLoad[uid]) assigneeLoad[uid] = { name, total: 0, overdue: 0, drift: 0 };
     assigneeLoad[uid].total++;
     if (t.deadline && new Date(t.deadline) < now) assigneeLoad[uid].overdue++;
-    if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) assigneeLoad[uid].drift++;
+    if (isDrifted(t.original_deadline, t.deadline)) assigneeLoad[uid].drift++;
   });
 
   const d7 = subDays(now, 7);
@@ -862,7 +865,7 @@ function TeamWorkloadCard({ projectStats, users, onFilterByPerson }: {
       if (!map[uid]) map[uid] = { name: u.display_name || "—", total: 0, overdue: 0, drift: 0, completedToday: 0 };
       map[uid].total++;
       if (t.deadline && new Date(t.deadline) < now) map[uid].overdue++;
-      if (t.original_deadline && t.deadline && t.original_deadline !== t.deadline) map[uid].drift++;
+      if (isDrifted(t.original_deadline, t.deadline)) map[uid].drift++;
     });
 
     // Count today's completions
@@ -2067,7 +2070,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     const totalCompleted = uniqueTasks.filter(t => t.is_completed).length;
     const completionRate = uniqueTasks.length > 0 ? Math.round((totalCompleted / uniqueTasks.length) * 100) : 0;
     const totalOverdue = activeTasks.filter(t => t.deadline && new Date(t.deadline) < now).length;
-    const totalDrift = uniqueTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
+    const totalDrift = uniqueTasks.filter(t => isDrifted(t.original_deadline, t.deadline)).length;
     const activeProjects = projectStats.filter(s => s.total > 0 && s.timingStatus !== "completed").length;
     const tasksThisWeek = activeTasks.filter(t => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow).length;
 
@@ -2083,18 +2086,18 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     const noDeadlineTasks = activeTasks.filter(t => !t.deadline);
 
     // WoW for drift (tasks that had drift a week ago - approximate by created_at)
-    const driftLastWeek = uniqueTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline && new Date(t.created_at) < d7).length;
-    const currentDrift = uniqueTasks.filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline).length;
+    const driftLastWeek = uniqueTasks.filter(t => isDrifted(t.original_deadline, t.deadline) && new Date(t.created_at) < d7).length;
+    const currentDrift = uniqueTasks.filter(t => isDrifted(t.original_deadline, t.deadline)).length;
 
     // Overdue & drift task lists for detail panel
     const overdueTasks = uniqueTasks
       .filter(t => !t.is_completed && t.deadline && new Date(t.deadline) < now)
       .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime());
     const driftTasks = uniqueTasks
-      .filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
+      .filter(t => isDrifted(t.original_deadline, t.deadline))
       .sort((a, b) => {
-        const da = Math.abs(differenceInDays(new Date(a.deadline!), new Date(a.original_deadline!)));
-        const db = Math.abs(differenceInDays(new Date(b.deadline!), new Date(b.original_deadline!)));
+        const da = Math.abs((computeDrift(a.original_deadline, a.deadline) ?? 0));
+        const db = Math.abs((computeDrift(b.original_deadline, b.deadline) ?? 0));
         return db - da;
       });
 

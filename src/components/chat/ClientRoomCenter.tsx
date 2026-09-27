@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useClientChatEvents, type ClientChatEvent } from "@/hooks/useClientChatEvents";
+import { driftDays as computeDrift, hasDrift as isDrifted } from "@/lib/drift";
 
 type ClientInfo = {
   id: string; name: string; logo_url: string | null;
@@ -684,7 +685,7 @@ function ActivityFeed({
     if (t.is_completed && anyT.completed_at) {
       events.push({ id: `d-${t.id}`, taskId: t.id, time: anyT.completed_at, kind: "completed", actorId: anyT.assigned_to ?? anyT.user_id ?? null, title: t.title });
     }
-    if (anyT.original_deadline && anyT.deadline && anyT.original_deadline !== anyT.deadline) {
+    if (isDrifted(anyT.original_deadline, anyT.deadline)) {
       events.push({
         id: `drift-${t.id}`, taskId: t.id,
         time: anyT.updated_at || anyT.deadline,

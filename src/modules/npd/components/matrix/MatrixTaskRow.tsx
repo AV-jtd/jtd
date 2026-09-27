@@ -13,6 +13,7 @@ import { format, isPast, parseISO, differenceInCalendarDays, addDays } from "dat
 import { ru } from "date-fns/locale";
 import { useTaskGroups } from "@/hooks/useTasks";
 import type { Task, Profile } from "./types";
+import { driftDays as computeDrift, hasDrift as isDrifted } from "@/lib/drift";
 
 interface MatrixTaskRowProps {
   task: Task;
@@ -32,7 +33,7 @@ function MatrixTaskRowInner({
   onDeadlineChange, onAssigneeChange, onToggle, onAddDependency, onExpand,
 }: MatrixTaskRowProps) {
   const isOverdue = !task.is_completed && task.deadline && isPast(parseISO(task.deadline));
-  const hasDrift = task.original_deadline && task.deadline && task.original_deadline !== task.deadline;
+  const hasDrift = isDrifted(task.original_deadline, task.deadline);
   const driftDays = hasDrift
     ? differenceInCalendarDays(parseISO(task.deadline!), parseISO(task.original_deadline!))
     : 0;

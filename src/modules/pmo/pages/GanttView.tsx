@@ -35,6 +35,7 @@ import { computeCascadeUpdates } from "@/lib/cascadeDependencies";
 import { detectViolations, resolveAllViolations, fillMissingDeadlines, type GraphEntity } from "@/lib/dependencyGraph";
 import GanttAiPanel from "@/modules/pmo/components/GanttAiPanel";
 import { toast } from "sonner";
+import { driftDays as computeDrift, hasDrift as isDrifted } from "@/lib/drift";
 
 type Scale = "day" | "week" | "month";
 
@@ -1618,7 +1619,7 @@ export default function GanttView({ initialProjectId, onBack, embedded }: { init
                   tableRows += "<tr style=\"background:#f0f0f0;font-weight:600\"><td>" + (r.rowNumber ?? "") + "</td><td>" + indent + (r.project.icon || "📁") + " " + r.project.name + "</td><td></td><td></td><td></td><td>" + (r.progress !== undefined ? Math.round(r.progress) + "%" : "") + "</td></tr>";
                 } else if (r.type === "task" && r.task) {
                   const a = users.find(u => u.id === r.task!.assigned_to);
-                  const drift = r.task.original_deadline && r.task.deadline && r.task.original_deadline !== r.task.deadline;
+                  const drift = isDrifted(r.task.original_deadline, r.task.deadline);
                   const driftLabel = drift ? " <span style=\"color:#d97706\">⚠️</span>" : "";
                   tableRows += "<tr><td style=\"text-align:center;color:#888\">" + (r.rowNumber ?? "") + "</td><td>" + indent + (r.task.is_completed ? "✅" : "☐") + " " + r.task.title + driftLabel + "</td><td>" + (a?.display_name || a?.email || "") + "</td><td>" + (r.task.start_at ? format(parseISO(r.task.start_at), "dd.MM") : "") + "</td><td>" + (r.task.deadline ? format(parseISO(r.task.deadline), "dd.MM.yyyy") : "") + "</td><td></td></tr>";
                 } else if (r.type === "subtask" && r.subtask) {

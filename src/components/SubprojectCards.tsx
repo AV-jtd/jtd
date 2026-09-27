@@ -9,6 +9,7 @@ import { format, differenceInDays, addDays, startOfDay } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useDroppable } from "@dnd-kit/core";
+import { driftDays as computeDrift, hasDrift as isDrifted } from "@/lib/drift";
 
 type SubprojectStats = {
   total: number;
@@ -42,7 +43,7 @@ function computeSubprojectStats(groupId: string, allTasks: Task[], allGroups: Ta
     .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime());
 
   const driftTasks = tasks
-    .filter(t => t.original_deadline && t.deadline && t.original_deadline !== t.deadline)
+    .filter(t => isDrifted(t.original_deadline, t.deadline))
     .map(t => ({ task: t, driftDays: differenceInDays(new Date(t.deadline!), new Date(t.original_deadline!)) }))
     .sort((a, b) => Math.abs(b.driftDays) - Math.abs(a.driftDays));
 

@@ -2,6 +2,7 @@ import { type Task, type TaskGroup, useAvailableUsers } from "@/hooks/useTasks";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { ru } from "date-fns/locale";
+import { driftDays as computeDrift, hasDrift as isDrifted } from "@/lib/drift";
 
 interface GanttTooltipProps {
   task: Task;
@@ -19,7 +20,7 @@ export default function GanttTooltip({ task, project, children, progress, disabl
 
   if (disabled) return <>{children}</>;
 
-  const hasDrift = task.original_deadline && task.deadline && task.original_deadline !== task.deadline;
+  const hasDrift = isDrifted(task.original_deadline, task.deadline);
   const driftDays = hasDrift
     ? differenceInCalendarDays(parseISO(task.deadline!), parseISO(task.original_deadline!))
     : 0;
