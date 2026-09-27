@@ -35,6 +35,11 @@ RemainAfterExit=yes
 User=root
 Environment=HOME=/root
 Environment=TERM=xterm-256color
+# Без этого tmux берёт шелл по умолчанию — под systemd переменная SHELL
+# не задана, и внутри сессии оказывался /bin/sh: приглашение «#», ни
+# истории команд, ни дополнения по Tab. Проверено после перезагрузки
+# 27.09: сессия поднялась сама, но работать в ней было неудобно.
+Environment=SHELL=/bin/bash
 WorkingDirectory=/opt/jtd
 
 # has-session — чтобы юнит не падал, если сессию уже подняли руками:
