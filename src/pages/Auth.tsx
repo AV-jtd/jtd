@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Loader2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +20,7 @@ export default function Auth() {
   // Разрешаем только same-origin относительные пути, чтобы не редиректить наружу.
   const nextPath = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -99,22 +101,14 @@ export default function Auth() {
     setSubmitting(false);
   };
 
-  const handleForgotPassword = async () => {
-    if (!email) {
-      toast.error("Введите email для сброса пароля");
-      return;
-    }
-    setSubmitting(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Письмо для сброса пароля отправлено! Проверьте почту.");
-    }
-    setSubmitting(false);
-  };
+  // Раньше здесь отправлялось письмо со ссылкой на сброс. Отправка не работает:
+  // GoTrue не аутентифицируется на SMTP-сервере, письма не уходят. При этом
+  // интерфейс писал «Письмо отправлено! Проверьте почту» — то есть врал, и
+  // человек ждал письма, которого не будет.
+  //
+  // Решение владельца от 27.09.2026: почту не чиним, канал возврата доступа —
+  // Telegram-бот. Поэтому кнопка показывает инструкцию, а не шлёт письмо.
+  const handleForgotPassword = () => setShowRecovery(true);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -319,6 +313,67 @@ export default function Auth() {
           )}
         </div>
       </div>
+
+      {/* Возврат доступа. Живёт именно здесь, на странице входа: человек,
+          который не может войти, не прочитает инструкцию внутри приложения. */}
+      <Dialog open={showRecovery} onOpenChange={setShowRecovery}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Восстановление доступа</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm">
+            <p className="text-muted-foreground">
+              Пароль восстанавливается через Telegram-бота, а не по почте.
+              Письма с сайта не отправляются.
+            </p>
+
+            <div className="rounded-md border p-3 space-y-2">
+              <p className="font-medium">Забыли пароль</p>
+              <p className="text-muted-foreground">
+                Напишите боту в <strong>личный</strong> чат:
+              </p>
+              <code className="block rounded bg-muted px-2 py-1 font-mono">/password</code>
+              <p className="text-muted-foreground">
+                Придёт временный пароль — войдите с ним и сразу смените в настройках профиля.
+              </p>
+            </div>
+
+            <div className="rounded-md border p-3 space-y-2">
+              <p className="font-medium">Помните старый, хотите сменить</p>
+              <code className="block rounded bg-muted px-2 py-1 font-mono">
+                /password старый новый
+              </code>
+              <p className="text-muted-foreground">
+                Новый — не короче 8 символов. Сообщение с паролями бот удалит из переписки сам.
+              </p>
+            </div>
+
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 space-y-1">
+              <p className="font-medium">Бот отвечает, что не знает вас</p>
+              <p className="text-muted-foreground">
+                Значит Telegram не привязан к вашей учётной записи. Проверьте, что в настройках
+                Telegram у вас задан <strong>username</strong>: если он совпадает с профилем в
+                JustTODOit, привязка произойдёт сама при первом сообщении боту. Не помогло —
+                напишите администратору.
+              </p>
+            </div>
+
+            <a
+              href="https://t.me/Scope_todo_bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:opacity-90"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Открыть бота
+            </a>
+
+            <p className="text-xs text-muted-foreground">
+              Пароль приходит только в личный чат — в групповой бот его не пришлёт.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
