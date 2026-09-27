@@ -21,6 +21,85 @@
 
 ---
 
+## 27.09.2026 — относительные адреса в документе обнаружения: причина найдена, риск снят
+
+Проверял Claude на VPS (сессия `jtd-4b`). Закрывает «главный риск этапа 1б»,
+поднятый в записи ниже. **Прод не менялся.**
+
+### Причина: не тот параметр, который я перебирал
+
+Найдено в исходниках `supabase/auth`, `internal/api/jwks.go`, обработчик
+`WellKnownOpenID` (он же обслуживает и `oauth-authorization-server`, и
+`openid-configuration`):
+
+```go
+issuer := config.JWT.Issuer
+...
+AuthorizationEndpoint: issuer + "/oauth/authorize",
+TokenEndpoint:         issuer + "/oauth/token",
+JWKSURL:               issuer + "/.well-known/jwks.json",
+```
+
+То есть **все адреса — это issuer плюс путь**, а issuer берётся из
+`GOTRUE_JWT_ISSUER`. У нас он не задан, отсюда пустая строка и пути вида
+`/oauth/authorize`.
+
+**Проверено и ОТПАЛО** (я перебирал это раньше и был неправ):
+`API_EXTERNAL_URL`, `GOTRUE_API_EXTERNAL_URL`, заголовки `X-Forwarded-Host`,
+`X-Forwarded-Proto`, `Host` — ни один из них к этому документу отношения не
+имеет. Урок: перебор переменных окружения — плохая замена чтению исходника,
+он и занял меньше времени.
+
+### Исправление — одна переменная, проверено на стенде
+
+`GOTRUE_JWT_ISSUER=https://justtodoit.ru/sb/auth/v1`, и документ становится
+полностью абсолютным:
+
+| поле | значение |
+|---|---|
+| `issuer` | `https://justtodoit.ru/sb/auth/v1` |
+| `authorization_endpoint` | `…/oauth/authorize` |
+| `token_endpoint` | `…/oauth/token` |
+| `registration_endpoint` | `…/oauth/clients/register` |
+| `jwks_uri` | `…/.well-known/jwks.json` |
+| `userinfo_endpoint` | `…/oauth/userinfo` |
+
+### Побочный эффект проверен: никого не разлогинит
+
+Тот же параметр идёт в claim `iss` выдаваемых токенов, поэтому проверялось
+отдельно:
+
+- **сейчас в токенах `iss` отсутствует вовсе** (проверено декодированием) —
+  ломать нечего;
+- **refresh-токен, выданный ДО изменения, продолжает работать** — сессии не
+  рвутся, люди не вылетают;
+- вход по паролю после изменения работает, `role` и `aud` те же
+  (`authenticated`);
+- **PostgREST `iss` не проверяет** — по документации он honors только `exp`,
+  `iat`, `nbf`, `aud`, и настройки для issuer у него нет вообще (есть только
+  `jwt-aud`, у нас не задана). В нашем конфиге стоит один `PGRST_JWT_SECRET`;
+- у `realtime`, `storage` и `kong` переменных про issuer нет.
+
+### Приятное следствие
+
+`src/lib/mcp/index.ts` как раз и проверяет issuer (`auth.oauth.issuer`). После
+установки `GOTRUE_JWT_ISSUER` оба места будут указывать на один адрес
+`https://justtodoit.ru/sb/auth/v1` — то есть эта правка нужна не «вместо», а
+ровно та же, что требуется коннектору.
+
+### Итог для этапа 1б
+
+Риск снят: это одна переменная окружения, без миграций и без разрыва сессий.
+Этап 1б сводится к четырём переменным: `GOTRUE_OAUTH_SERVER_ENABLED`,
+`..._ALLOW_DYNAMIC_REGISTRATION`, `..._AUTHORIZATION_PATH` и
+`GOTRUE_JWT_ISSUER`. Непроверенным остаётся только поведение самой страницы
+согласия (`OAuthConsent.tsx`) против нового интерфейса — это этап 1в.
+
+Стенд после проверок снесён: он держал полную копию рабочих данных.
+Поднимается заново одной командой.
+
+---
+
 ## 27.09.2026 — этап 1а: репетиция обновления GoTrue на копии УСПЕШНА
 
 Выполнял Claude на VPS (сессия `jtd-4b`) по заданию из приложения 2 бэклога.
