@@ -235,3 +235,4 @@
 20260912170000_shared_pages_hardening.sql
 20260927180000_group_stats_drift_bounds.sql
 20260927200000_drop_lovable_email_queue.sql
+20260927210000_mcp_audit_log.sql

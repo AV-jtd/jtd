@@ -11,6 +11,9 @@ import listProtocols from "./tools/list_protocols";
 import getProtocol from "./tools/get_protocol";
 import listClients from "./tools/list_clients";
 import getClient from "./tools/get_client";
+import updateTask from "./tools/update_task";
+import addComment from "./tools/add_comment";
+import { withAudit } from "./tools/_audit";
 
 // Издатель и адрес ресурса. Обе переменные подставляются Vite на сборке, то
 // есть попадают в собранную функцию — читать окружение в рантайме не нужно.
@@ -26,9 +29,11 @@ const PUBLIC_BASE = import.meta.env.VITE_SUPABASE_URL ?? "https://justtodoit.ru"
 export default defineMcp({
   name: "justtodoit-mcp",
   title: "JustTODOit",
-  version: "0.1.0",
+  version: "0.2.0",
   instructions:
-    "Инструменты JustTODOit: задачи, проекты, протоколы встреч, CRM-клиенты. Все действия — от имени залогиненного пользователя, RLS применяется. Даты в ISO 8601.",
+    "Инструменты JustTODOit: задачи, проекты, протоколы встреч, CRM-клиенты. Все действия — от имени залогиненного пользователя, RLS применяется. Даты в ISO 8601. " +
+    "Задачи из писем создавай с source (тема, отправитель, дата) — по нему потом сверяются письма с задачами через search_tasks. " +
+    "Каждый вызов пишется в журнал обращений.",
   auth: auth.oauth.issuer({
     issuer: `${AUTH_BASE}/auth/v1`,
     // resource закрепляем явно. Без него библиотека берёт адрес из заголовка
@@ -40,9 +45,13 @@ export default defineMcp({
     acceptedAudiences: "authenticated",
   }),
   tools: [
-    listTasks, searchTasks, getTask, createTask, completeTask, updateTaskDeadline,
+    listTasks, searchTasks, getTask, createTask, updateTask, completeTask, updateTaskDeadline, addComment,
     listProjects, getProject,
     listProtocols, getProtocol,
     listClients, getClient,
-  ],
+  ].map(withAudit),
+  // По умолчанию библиотека шлёт метрики каждого вызова (инструмент, исход,
+  // длительность, UUID пользователя) на api.lovable.dev — ключ LOVABLE_API_KEY
+  // в окружении edge-runtime есть. От облака Lovable ушли; наружу это не нужно.
+  metrics: false,
 });
