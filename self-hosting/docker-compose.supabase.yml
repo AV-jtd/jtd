@@ -19,6 +19,11 @@ services:
       # Именно в init-scripts/: в корне initdb.d он выполнится раньше
       # migrate.sh, который создаёт роли, и инициализация упадёт.
       - ./db-init/service-roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro
+      # Корневой ключ pgsodium: им зашифрованы секреты vault. Без монтирования
+      # он живёт в слое контейнера, и пересоздание контейнера молча меняет
+      # ключ — регистрация падает (так было 11.09). Файл не в git, root 600,
+      # владелец 105:106 (postgres в образе). См. JOURNAL.md, 27.09.
+      - ./secrets/pgsodium_root.key:/etc/postgresql-custom/pgsodium_root.key:ro
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: postgres
