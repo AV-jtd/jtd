@@ -1,3 +1,5 @@
+// Глобального process в edge-runtime (Deno 1.45) нет — только импортом.
+import process from "node:process";
 import { createClient } from "@supabase/supabase-js";
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";

@@ -6,6 +6,7 @@
 import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.24.0";
 
 // src/lib/mcp/tools/list_tasks.ts
+import process from "node:process";
 import { createClient } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z } from "npm:zod@^4.4.3";
@@ -124,11 +125,12 @@ var list_tasks_default = defineTool({
 });
 
 // src/lib/mcp/tools/search_tasks.ts
+import process2 from "node:process";
 import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z2 } from "npm:zod@^4.4.3";
 function db2(ctx) {
-  return createClient2(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient2(process2.env.SUPABASE_URL, process2.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -188,11 +190,12 @@ var search_tasks_default = defineTool2({
 });
 
 // src/lib/mcp/tools/get_task.ts
+import process3 from "node:process";
 import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z3 } from "npm:zod@^4.4.3";
 function db3(ctx) {
-  return createClient3(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient3(process3.env.SUPABASE_URL, process3.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -211,7 +214,8 @@ var get_task_default = defineTool3({
     if (!task) return { content: [{ type: "text", text: "\u0417\u0430\u0434\u0430\u0447\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0438\u043B\u0438 \u043D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430" }], isError: true };
     const [{ data: steps }, { data: comments }, { data: participants }] = await Promise.all([
       supabase.from("subtasks").select("id,title,is_completed,deadline,assigned_to").eq("task_id", task_id).order("position"),
-      supabase.from("comments").select("id,content,user_id,created_at").eq("task_id", task_id).order("created_at").limit(50),
+      // Таблица называется task_comments; с "comments" комментарии молча приходили пустыми.
+      supabase.from("task_comments").select("id,content,kind,user_id,created_at").eq("task_id", task_id).order("created_at").limit(50),
       supabase.from("task_participants").select("user_id,role").eq("task_id", task_id)
     ]);
     return {
@@ -222,11 +226,12 @@ var get_task_default = defineTool3({
 });
 
 // src/lib/mcp/tools/create_task.ts
+import process4 from "node:process";
 import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z4 } from "npm:zod@^4.4.3";
 function db4(ctx) {
-  return createClient4(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient4(process4.env.SUPABASE_URL, process4.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -270,11 +275,12 @@ var create_task_default = defineTool4({
 });
 
 // src/lib/mcp/tools/complete_task.ts
+import process5 from "node:process";
 import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z5 } from "npm:zod@^4.4.3";
 function db5(ctx) {
-  return createClient5(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient5(process5.env.SUPABASE_URL, process5.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -296,11 +302,12 @@ var complete_task_default = defineTool5({
 });
 
 // src/lib/mcp/tools/update_task_deadline.ts
+import process6 from "node:process";
 import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z6 } from "npm:zod@^4.4.3";
 function db6(ctx) {
-  return createClient6(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient6(process6.env.SUPABASE_URL, process6.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -325,11 +332,12 @@ var update_task_deadline_default = defineTool6({
 });
 
 // src/lib/mcp/tools/list_projects.ts
+import process7 from "node:process";
 import { createClient as createClient7 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z7 } from "npm:zod@^4.4.3";
 function db7(ctx) {
-  return createClient7(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient7(process7.env.SUPABASE_URL, process7.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -366,11 +374,12 @@ var list_projects_default = defineTool7({
 });
 
 // src/lib/mcp/tools/get_project.ts
+import process8 from "node:process";
 import { createClient as createClient8 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z8 } from "npm:zod@^4.4.3";
 function db8(ctx) {
-  return createClient8(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient8(process8.env.SUPABASE_URL, process8.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -446,11 +455,12 @@ var get_project_default = defineTool8({
 });
 
 // src/lib/mcp/tools/list_protocols.ts
+import process9 from "node:process";
 import { createClient as createClient9 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z9 } from "npm:zod@^4.4.3";
 function db9(ctx) {
-  return createClient9(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient9(process9.env.SUPABASE_URL, process9.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -473,11 +483,11 @@ var list_protocols_default = defineTool9({
     const supabase = db9(ctx);
     const limit = input.limit ?? 50;
     const offset = input.offset ?? 0;
-    let q = supabase.from("task_groups").select("id,name,description,client_id,created_at,protocol_status,protocol_date", { count: "exact" }).eq("project_type", "protocol").order("protocol_date", { ascending: false, nullsFirst: false }).range(offset, offset + limit - 1);
+    let q = supabase.from("task_groups").select("id,name,description,client_id,created_at,status:draft_status,meeting_date:protocol_meta->>meeting_date", { count: "exact" }).eq("project_type", "protocol").order("protocol_meta->>meeting_date", { ascending: false, nullsFirst: false }).range(offset, offset + limit - 1);
     if (input.client_id) q = q.eq("client_id", input.client_id);
-    if (input.status) q = q.eq("protocol_status", input.status);
-    if (input.date_from) q = q.gte("protocol_date", input.date_from);
-    if (input.date_to) q = q.lte("protocol_date", input.date_to);
+    if (input.status) q = q.eq("draft_status", input.status);
+    if (input.date_from) q = q.gte("protocol_meta->>meeting_date", input.date_from.slice(0, 10));
+    if (input.date_to) q = q.lte("protocol_meta->>meeting_date", input.date_to.slice(0, 10));
     const { data, error, count } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     const rows = data ?? [];
@@ -491,11 +501,12 @@ var list_protocols_default = defineTool9({
 });
 
 // src/lib/mcp/tools/get_protocol.ts
+import process10 from "node:process";
 import { createClient as createClient10 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z10 } from "npm:zod@^4.4.3";
 function db10(ctx) {
-  return createClient10(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient10(process10.env.SUPABASE_URL, process10.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -524,11 +535,12 @@ var get_protocol_default = defineTool10({
 });
 
 // src/lib/mcp/tools/list_clients.ts
+import process11 from "node:process";
 import { createClient as createClient11 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool11 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z11 } from "npm:zod@^4.4.3";
 function db11(ctx) {
-  return createClient11(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient11(process11.env.SUPABASE_URL, process11.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -539,8 +551,8 @@ var list_clients_default = defineTool11({
   description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u043E\u0432. \u041C\u043E\u0436\u043D\u043E \u0438\u0441\u043A\u0430\u0442\u044C \u043F\u043E \u0438\u043C\u0435\u043D\u0438 \u0438 \u0444\u0438\u043B\u044C\u0442\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u0442\u0435\u0440\u0440\u0438\u0442\u043E\u0440\u0438\u0438/\u0440\u0430\u043D\u0433\u0443/\u043C\u0435\u043D\u0435\u0434\u0436\u0435\u0440\u0443. \u0412 \u043E\u0442\u0432\u0435\u0442\u0435 \u0435\u0441\u0442\u044C total \u0438 has_more: \u0435\u0441\u043B\u0438 has_more=true, \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u044B \u043D\u0435 \u0432\u0441\u0435 \u0437\u0430\u043F\u0438\u0441\u0438 \u2014 \u043D\u0435 \u0441\u0443\u0434\u0438\u0442\u0435 \u043E \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u0435 \u043F\u043E \u0434\u043B\u0438\u043D\u0435 \u0441\u043F\u0438\u0441\u043A\u0430.",
   inputSchema: {
     search: z11.string().optional().describe("\u041F\u043E\u0434\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0438\u043C\u0435\u043D\u0438 \u043A\u043B\u0438\u0435\u043D\u0442\u0430"),
-    territory: z11.string().optional(),
-    rank: z11.string().optional(),
+    territory: z11.string().optional().describe("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u0435\u0440\u0440\u0438\u0442\u043E\u0440\u0438\u0438 (\u0442\u0435\u0433), \u0431\u0435\u0437 \u0443\u0447\u0451\u0442\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430"),
+    rank: z11.string().optional().describe("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0440\u0430\u043D\u0433\u0430 (\u0442\u0435\u0433), \u0431\u0435\u0437 \u0443\u0447\u0451\u0442\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430"),
     manager_id: z11.string().uuid().optional(),
     limit: z11.number().int().min(1).max(200).optional(),
     offset: z11.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
@@ -551,14 +563,26 @@ var list_clients_default = defineTool11({
     const supabase = db11(ctx);
     const limit = input.limit ?? 100;
     const offset = input.offset ?? 0;
-    let q = supabase.from("clients").select("id,name,territory,rank,manager_id,retail_type,logo_url", { count: "exact" }).order("name").range(offset, offset + limit - 1);
+    const tagIds = async (name) => {
+      const { data: data2 } = await supabase.from("tags").select("id").ilike("name", name.replace(/[%_\\]/g, "\\$&"));
+      return (data2 ?? []).map((t) => t.id);
+    };
+    let q = supabase.from("clients").select(
+      "id,name,city,manager_id,logo_url,territory:tags!clients_territory_tag_id_fkey(name),rank:tags!clients_rank_tag_id_fkey(name),retail_type:tags!clients_retail_type_tag_id_fkey(name)",
+      { count: "exact" }
+    ).order("name").range(offset, offset + limit - 1);
     if (input.search) q = q.ilike("name", `%${input.search}%`);
-    if (input.territory) q = q.eq("territory", input.territory);
-    if (input.rank) q = q.eq("rank", input.rank);
+    if (input.territory) q = q.in("territory_tag_id", await tagIds(input.territory));
+    if (input.rank) q = q.in("rank_tag_id", await tagIds(input.rank));
     if (input.manager_id) q = q.eq("manager_id", input.manager_id);
     const { data, error, count } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    const rows = data ?? [];
+    const rows = (data ?? []).map((c) => ({
+      ...c,
+      territory: c.territory?.name ?? null,
+      rank: c.rank?.name ?? null,
+      retail_type: c.retail_type?.name ?? null
+    }));
     const total = count ?? rows.length;
     const hasMore = offset + rows.length < total;
     return {
@@ -569,11 +593,12 @@ var list_clients_default = defineTool11({
 });
 
 // src/lib/mcp/tools/get_client.ts
+import process12 from "node:process";
 import { createClient as createClient12 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool12 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z12 } from "npm:zod@^4.4.3";
 function db12(ctx) {
-  return createClient12(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient12(process12.env.SUPABASE_URL, process12.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -587,12 +612,13 @@ var get_client_default = defineTool12({
   handler: async ({ client_id }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
     const supabase = db12(ctx);
-    const since = new Date(Date.now() - 90 * 24 * 3600 * 1e3).toISOString();
+    const since = new Date(Date.now() - 90 * 24 * 3600 * 1e3).toISOString().slice(0, 10);
     const [{ data: client, error }, { data: tasks }, { data: projects }, { data: protocols }] = await Promise.all([
       supabase.from("clients").select("*").eq("id", client_id).maybeSingle(),
       supabase.from("tasks").select("id,title,deadline,is_completed,group_id").eq("client_id", client_id).eq("is_completed", false).limit(100),
       supabase.from("task_groups").select("id,name,project_type").eq("client_id", client_id).neq("project_type", "protocol").limit(50),
-      supabase.from("task_groups").select("id,name,protocol_date,protocol_status").eq("client_id", client_id).eq("project_type", "protocol").gte("protocol_date", since).order("protocol_date", { ascending: false }).limit(50)
+      // Дата встречи — protocol_meta.meeting_date, статус — draft_status (колонок protocol_* нет).
+      supabase.from("task_groups").select("id,name,status:draft_status,meeting_date:protocol_meta->>meeting_date").eq("client_id", client_id).eq("project_type", "protocol").gte("protocol_meta->>meeting_date", since).order("protocol_meta->>meeting_date", { ascending: false }).limit(50)
     ]);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     if (!client) return { content: [{ type: "text", text: "\u041A\u043B\u0438\u0435\u043D\u0442 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D" }], isError: true };

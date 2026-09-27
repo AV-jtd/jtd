@@ -29,6 +29,22 @@ SERVICE_ROLE_KEY=$(get SERVICE_ROLE_KEY)
 REALTIME_CONTAINER="${REALTIME_CONTAINER:-self-hosting-realtime-1}"
 TENANT_EXTERNAL_ID="${TENANT_EXTERNAL_ID:-realtime}"  # = APP_NAME из docker-compose
 
+# Открытые ключи для проверки асимметричных токенов GoTrue (ES256). Без них
+# realtime отвергает токены, подписанные новым ключом, — проверено на стенде
+# 27.09.2026. Токены HS256 (anon, service и выданные до перехода) проверяются
+# по jwt_secret, как раньше. Берутся из JWT_PUBLIC_JWKS в .env.supabase
+# (значение в одинарных кавычках) или из файла JWKS_FILE.
+if [ -n "${JWKS_FILE:-}" ]; then
+  JWT_PUBLIC_JWKS=$(cat "$JWKS_FILE")
+else
+  JWT_PUBLIC_JWKS=$(get JWT_PUBLIC_JWKS | sed "s/^'//; s/'$//")
+fi
+if [ -n "$JWT_PUBLIC_JWKS" ]; then
+  JWT_JWKS_LINE="\"jwt_jwks\": ${JWT_PUBLIC_JWKS},"
+else
+  JWT_JWKS_LINE=""
+fi
+
 REALTIME_IP=$(docker inspect "${REALTIME_CONTAINER}" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
 
 PAYLOAD=$(cat <<EOF
@@ -37,6 +53,7 @@ PAYLOAD=$(cat <<EOF
     "external_id": "${TENANT_EXTERNAL_ID}",
     "name": "${TENANT_EXTERNAL_ID}",
     "jwt_secret": "${JWT_SECRET}",
+    ${JWT_JWKS_LINE}
     "max_concurrent_users": 200,
     "extensions": [
       {
@@ -70,10 +87,11 @@ RESP=$(curl -s -w '\n%{http_code}' -X PUT "http://${REALTIME_IP}:4000/api/tenant
 HTTP_CODE=$(echo "$RESP" | tail -1)
 BODY=$(echo "$RESP" | sed '$d')
 
-echo "HTTP ${HTTP_CODE}"
-echo "$BODY"
+echo "HTTP ${HTTP_CODE}, jwt_jwks: $([ -n "$JWT_JWKS_LINE" ] && echo 'передан' || echo 'нет')"
 
+# Тело при успехе не печатаем: в нём конфигурация тенанта.
 if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
+  echo "$BODY" | cut -c1-300 >&2
   echo "ОШИБКА: тенант не создан/не обновлён" >&2
   exit 1
 fi

@@ -1,3 +1,5 @@
+// Глобального process в edge-runtime (Deno 1.45) нет — только импортом.
+import process from "node:process";
 import { createClient } from "@supabase/supabase-js";
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";
@@ -24,7 +26,8 @@ export default defineTool({
 
     const [{ data: steps }, { data: comments }, { data: participants }] = await Promise.all([
       supabase.from("subtasks").select("id,title,is_completed,deadline,assigned_to").eq("task_id", task_id).order("position"),
-      supabase.from("comments").select("id,content,user_id,created_at").eq("task_id", task_id).order("created_at").limit(50),
+      // Таблица называется task_comments; с "comments" комментарии молча приходили пустыми.
+      supabase.from("task_comments").select("id,content,kind,user_id,created_at").eq("task_id", task_id).order("created_at").limit(50),
       supabase.from("task_participants").select("user_id,role").eq("task_id", task_id),
     ]);
 

@@ -84,6 +84,11 @@ services:
       # старые refresh-токены после изменения продолжают работать, а PostgREST,
       # realtime, storage и Kong issuer не проверяют.
       GOTRUE_JWT_ISSUER: https://justtodoit.ru/sb/auth/v1
+      # Набор ключей: ES256 подписывает (открытая часть уходит в jwks.json —
+      # по нему проверяет подпись MCP-коннектор), прежний HS256 только
+      # проверяет: им подписаны ANON_KEY, SERVICE_ROLE_KEY и токены, выданные
+      # до перехода. Без HS256 в наборе GoTrue отверг бы service-ключ.
+      GOTRUE_JWT_KEYS: ${JWT_KEYS}
       GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
       GOTRUE_MAILER_AUTOCONFIRM: "false"
@@ -107,7 +112,8 @@ services:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
       PGRST_DB_SCHEMAS: public,storage,graphql_public
       PGRST_DB_ANON_ROLE: anon
-      PGRST_JWT_SECRET: ${JWT_SECRET}
+      # JWKS из обоих ключей: HS256 (anon, service, старые токены) и ES256.
+      PGRST_JWT_SECRET: ${JWT_VERIFY_JWKS}
       PGRST_DB_USE_LEGACY_GUCS: "false"
       PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
       PGRST_APP_SETTINGS_JWT_EXP: 3600
@@ -156,6 +162,8 @@ services:
       SERVICE_KEY: ${SERVICE_ROLE_KEY}
       POSTGREST_URL: http://rest:3000
       PGRST_JWT_SECRET: ${JWT_SECRET}
+      # Открытый ключ ES256; HS256 проверяется по секрету выше, как раньше.
+      JWT_JWKS: ${JWT_PUBLIC_JWKS}
       DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/postgres
       FILE_SIZE_LIMIT: ${STORAGE_FILE_SIZE_LIMIT:-52428800}
       ENABLE_IMAGE_TRANSFORMATION: "true"

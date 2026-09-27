@@ -25,6 +25,7 @@ dist-ssr
 
 # Секреты self-hosting стека
 self-hosting/.env.supabase
+self-hosting/.env.supabase.*
 self-hosting/kong.yml
 
 # Локальные настройки Claude Code (машинные, не общие)
