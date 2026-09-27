@@ -15,8 +15,10 @@ services:
     restart: unless-stopped
     volumes:
       - db_data:/var/lib/postgresql/data
-      # Init-скрипт задаёт пароли внутренних пользователей Supabase
-      - ./db-init/roles.sql:/docker-entrypoint-initdb.d/99-roles.sql:ro
+      # Init-скрипт задаёт пароли внутренних пользователей Supabase.
+      # Именно в init-scripts/: в корне initdb.d он выполнится раньше
+      # migrate.sh, который создаёт роли, и инициализация упадёт.
+      - ./db-init/service-roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: postgres

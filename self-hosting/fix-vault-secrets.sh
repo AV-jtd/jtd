@@ -34,7 +34,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 ENV_FILE=self-hosting/.env.supabase
-DB=self-hosting-db-1
+DB="${DB:-self-hosting-db-1}"  # restore.sh передаёт контейнер восстановленной базы
 
 ANON_KEY=$(grep '^ANON_KEY=' "$ENV_FILE" | cut -d= -f2-)
 if [ -z "$ANON_KEY" ]; then

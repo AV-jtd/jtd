@@ -60,12 +60,24 @@ echo "[1/4] PostgreSQL dump..."
 
 DUMP_FILE="${BACKUP_DIR}/daily/db_${TIMESTAMP}.dump"
 
+ROLES_FILE="${BACKUP_DIR}/daily/roles_${TIMESTAMP}.sql"
+
+# Без --no-acl: права (GRANT) нужны, иначе после восстановления PostgREST
+# не пустит к таблицам. Владельцы в дамп попадают всегда.
 PGPASSWORD="${POSTGRES_PASSWORD}" docker exec -e PGPASSWORD "${PGDUMP_CONTAINER}" \
-  pg_dump -h db -U postgres -Fc --no-acl postgres \
+  pg_dump -h db -U postgres -Fc postgres \
   > "${DUMP_FILE}"
 
 DUMP_SIZE=$(du -sh "${DUMP_FILE}" | cut -f1)
 echo "  OK: ${DUMP_FILE} (${DUMP_SIZE})"
+
+# Роли живут на уровне кластера и в pg_dump не попадают. Без них в новом
+# контейнере не будет supabase_realtime_admin и supabase_functions_admin.
+# Пароли не сохраняются: их задаёт db-init/service-roles.sql из POSTGRES_PASSWORD.
+PGPASSWORD="${POSTGRES_PASSWORD}" docker exec -e PGPASSWORD "${PGDUMP_CONTAINER}" \
+  pg_dumpall -h db -U postgres --roles-only --no-role-passwords \
+  > "${ROLES_FILE}"
+echo "  OK: ${ROLES_FILE}"
 
 # ---------- 2. Верификация дампа ----------
 if [ "$DO_VERIFY" = "true" ]; then
@@ -98,25 +110,28 @@ echo "[4/4] Ротация бэкапов..."
 # Еженедельный (по воскресеньям)
 if [ "$DOW" = "7" ]; then
   cp "${DUMP_FILE}" "${BACKUP_DIR}/weekly/db_week$(date +%V_%Y).dump"
+  cp "${ROLES_FILE}" "${BACKUP_DIR}/weekly/roles_week$(date +%V_%Y).sql"
   echo "  Создана еженедельная копия"
 fi
 
 # Ежемесячный (1-го числа)
 if [ "$DOM" = "01" ]; then
   cp "${DUMP_FILE}" "${BACKUP_DIR}/monthly/db_$(date +%Y%m).dump"
+  cp "${ROLES_FILE}" "${BACKUP_DIR}/monthly/roles_$(date +%Y%m).sql"
   echo "  Создана ежемесячная копия"
 fi
 
 # Удалить старые daily (старше BACKUP_KEEP_DAYS дней)
 find "${BACKUP_DIR}/daily" -name "*.dump" -mtime "+${BACKUP_KEEP_DAYS}" -delete
 find "${BACKUP_DIR}/daily" -name "*.tar.gz" -mtime "+${BACKUP_KEEP_DAYS}" -delete
+find "${BACKUP_DIR}/daily" -name "roles_*.sql" -mtime "+${BACKUP_KEEP_DAYS}" -delete
 
 # Удалить старые weekly (старше BACKUP_KEEP_WEEKS недель)
-find "${BACKUP_DIR}/weekly" -name "*.dump" \
+find "${BACKUP_DIR}/weekly" \( -name "*.dump" -o -name "roles_*.sql" \) \
   -mtime "+$(( BACKUP_KEEP_WEEKS * 7 ))" -delete
 
 # Удалить старые monthly (старше BACKUP_KEEP_MONTHS месяцев)
-find "${BACKUP_DIR}/monthly" -name "*.dump" \
+find "${BACKUP_DIR}/monthly" \( -name "*.dump" -o -name "roles_*.sql" \) \
   -mtime "+$(( BACKUP_KEEP_MONTHS * 30 ))" -delete
 
 echo "  Ротация завершена"
@@ -129,6 +144,9 @@ if [ "$DO_S3" = "true" ]; then
     aws s3 cp "${DUMP_FILE}" "s3://${S3_BUCKET}/${S3_KEY}" \
       ${S3_ENDPOINT:+--endpoint-url "${S3_ENDPOINT}"}
     echo "  OK: s3://${S3_BUCKET}/${S3_KEY}"
+    aws s3 cp "${ROLES_FILE}" "s3://${S3_BUCKET}/backups/$(hostname)/roles_${TIMESTAMP}.sql" \
+      ${S3_ENDPOINT:+--endpoint-url "${S3_ENDPOINT}"}
+    echo "  OK: роли"
   else
     echo "  WARN: aws CLI не найден, S3 выгрузка пропущена"
   fi

@@ -21,24 +21,25 @@ docker volume rm self-hosting_backup_data
 ## Восстановление БД из конкретного дампа
 
 ```bash
-# Посмотреть доступные дампы
-./self-hosting/backup/restore.sh --list
-
-# Восстановить из последнего дампа
-POSTGRES_PASSWORD=<пароль> \
-DB_CONTAINER=self-hosting-db-1 \
-./self-hosting/backup/restore.sh --latest
-
-# Восстановить из конкретного файла
-./self-hosting/backup/restore.sh /backups/daily/db_20260613_020000.dump
+./self-hosting/backup/restore.sh --list            # доступные дампы
+./self-hosting/backup/restore.sh --latest          # последний ежедневный
+./self-hosting/backup/restore.sh /var/backups/jtd/daily/db_20260927_030001.dump
 ```
 
-## Проверка работы бэкапов
+Пароль берётся из `.env.supabase`. Скрипт останавливает службы, откладывает
+текущую базу под именем `postgres_before_<время>` (откат — переименовать
+обратно), восстанавливает, пересоздаёт секреты vault и проверяет вход
+служебных ролей. Файл ролей `roles_*.sql` должен лежать рядом с дампом.
+
+Копии, снятые до 27.09.2026, не содержат прав и ролей: скрипт сам применит
+`db-init/grants-fallback.sql`. Почему так — `JOURNAL.md`, запись от 27.09.
+
+## Проверка копий — учебное восстановление
 
 ```bash
-# Прогнать полный тест
-POSTGRES_PASSWORD=<пароль> \
-DB_CONTAINER=self-hosting-db-1 \
-BACKUP_DIR=/var/backups/jtd \
-./self-hosting/backup/test-backup.sh
+bash self-hosting/backup/restore-drill.sh            # последняя копия
+bash self-hosting/backup/restore-drill.sh <дамп>     # конкретная
 ```
+
+Минута, прод не трогается. Проверяет не «данные на месте», а вход по паролю
+и чтение через PostgREST. Прежний `test-backup.sh` этого не проверял.

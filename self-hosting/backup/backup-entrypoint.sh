@@ -25,25 +25,33 @@ LOG="${BACKUP_DIR}/logs/backup_${TIMESTAMP}.log"
 
   DUMP_FILE="${BACKUP_DIR}/daily/db_${TIMESTAMP}.dump"
 
-  pg_dump -h db -U postgres -Fc --no-acl postgres > "${DUMP_FILE}"
+  ROLES_FILE="${BACKUP_DIR}/daily/roles_${TIMESTAMP}.sql"
+
+  # Без --no-acl: без прав (GRANT) восстановленная база не пустит PostgREST
+  # к таблицам. Роли — отдельно: в pg_dump они не попадают. См. backup.sh.
+  pg_dump -h db -U postgres -Fc postgres > "${DUMP_FILE}"
   echo "Dump OK: ${DUMP_FILE} ($(du -sh "${DUMP_FILE}" | cut -f1))"
+  pg_dumpall -h db -U postgres --roles-only --no-role-passwords > "${ROLES_FILE}"
+  echo "Roles OK: ${ROLES_FILE}"
 
   # Еженедельный (воскресенье)
   if [ "$DOW" = "7" ]; then
     cp "${DUMP_FILE}" "${BACKUP_DIR}/weekly/db_week$(date +%V_%Y).dump"
+    cp "${ROLES_FILE}" "${BACKUP_DIR}/weekly/roles_week$(date +%V_%Y).sql"
     echo "Weekly copy created"
   fi
 
   # Ежемесячный (1-е число)
   if [ "$DOM" = "01" ]; then
     cp "${DUMP_FILE}" "${BACKUP_DIR}/monthly/db_$(date +%Y%m).dump"
+    cp "${ROLES_FILE}" "${BACKUP_DIR}/monthly/roles_$(date +%Y%m).sql"
     echo "Monthly copy created"
   fi
 
   # Ротация
-  find "${BACKUP_DIR}/daily" -name "*.dump" -mtime "+${BACKUP_KEEP_DAYS}" -delete
-  find "${BACKUP_DIR}/weekly" -name "*.dump" -mtime "+$((BACKUP_KEEP_WEEKS * 7))" -delete
-  find "${BACKUP_DIR}/monthly" -name "*.dump" -mtime "+$((BACKUP_KEEP_MONTHS * 30))" -delete
+  find "${BACKUP_DIR}/daily" \( -name "*.dump" -o -name "roles_*.sql" \) -mtime "+${BACKUP_KEEP_DAYS}" -delete
+  find "${BACKUP_DIR}/weekly" \( -name "*.dump" -o -name "roles_*.sql" \) -mtime "+$((BACKUP_KEEP_WEEKS * 7))" -delete
+  find "${BACKUP_DIR}/monthly" \( -name "*.dump" -o -name "roles_*.sql" \) -mtime "+$((BACKUP_KEEP_MONTHS * 30))" -delete
 
   echo "${TIMESTAMP}" > "${BACKUP_DIR}/last_backup_timestamp"
   echo "${DUMP_FILE}" > "${BACKUP_DIR}/last_backup_file"
