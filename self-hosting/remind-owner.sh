@@ -47,10 +47,15 @@ fi
 
 # --- Свежая копия бэклога ---
 git fetch origin "$BRANCH" main --quiet 2>/dev/null
-BACKLOG=""
+# Берём ветку, где BACKLOG.md менялся последним. Раньше ветка сессии шла
+# первой всегда — 28.09 это разослало вопрос, закрытый накануне в main:
+# сессия пушила только в main, а ветка отстала на день.
+BACKLOG=""; best_ts=0; best_ref=""
 for ref in "origin/$BRANCH" "origin/main"; do
-  BACKLOG="$(git show "$ref:self-hosting/BACKLOG.md" 2>/dev/null)" && [ -n "$BACKLOG" ] && break
+  ts="$(git log -1 --format=%ct "$ref" -- self-hosting/BACKLOG.md 2>/dev/null)"
+  [ -n "$ts" ] && [ "$ts" -gt "$best_ts" ] && { best_ts="$ts"; best_ref="$ref"; }
 done
+[ -n "$best_ref" ] && BACKLOG="$(git show "$best_ref:self-hosting/BACKLOG.md" 2>/dev/null)"
 if [ -z "$BACKLOG" ]; then
   log "BACKLOG.md не удалось прочитать ни из одной ветки — выхожу"
   exit 1
@@ -77,7 +82,7 @@ if [ "$count" -eq 0 ]; then
   exit 0
 fi
 
-msg="🔔 Ждут вашего решения (${count}):"$'\n\n'"${pending}"$'\n'"Снять вопрос: в self-hosting/BACKLOG.md поменять [ ] на [x]."
+msg="🔔 JustTODOit: Claude ждёт вашего решения (${count})"$'\n\n'"${pending}"$'\n'"Ответьте Claude в рабочей сессии на сервере — он отметит вопрос закрытым, и напоминания прекратятся. Приходит раз в день, пока вопрос открыт."
 
 # --- Кому слать: администраторы с привязанным личным чатом ---
 chats="$(docker exec self-hosting-db-1 psql -U postgres -d postgres -tAc "
