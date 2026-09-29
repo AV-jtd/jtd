@@ -14,3 +14,8 @@ export S3_BUCKET=jtd-backups
 export S3_ENDPOINT=https://s3.regru.cloud
 
 ./backup.sh --verify --s3
+
+# Зашифрованная копия ключей сервера (.env.supabase, kong.yml, secrets/).
+# Шифруется открытым ключом владельца, расшифровать может только он.
+# Сбой не отменяет уже снятый дамп, но виден в логе.
+./backup-secrets.sh --s3 || echo "[secrets] копия ключей НЕ снята — см. выше"
