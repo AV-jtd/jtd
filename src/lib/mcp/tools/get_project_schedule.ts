@@ -4,6 +4,7 @@ import { db, fail } from "./_shared";
 import { resolveNames } from "./_names";
 import { driftDays } from "../../drift";
 import { computeCriticalPath } from "../../criticalPath";
+import { projectProgressPct, taskProgressPct } from "../../progress";
 
 /**
  * Расписание проекта одним вызовом: вехи, задачи с началом и концом,
@@ -30,7 +31,7 @@ export default defineTool({
   name: "get_project_schedule",
   title: "Расписание проекта",
   description:
-    "Расписание проекта для разговора о сроках: вехи с плановой и фактической датой, задачи с началом и концом, связи между ними (что за чем идёт), отклонение от базового плана и запас по срокам. float_days — сколько дней можно сдвинуть, не сдвинув дату проекта; critical — запаса нет, элемент держит дату проекта; critical_path — цепочка, которая её держит. Нужен, чтобы ответить «что едет в проекте», «что держит дату» и «что будет, если сдвинуть». Задач возвращается не больше 300 — при has_more сузьте через only_open, иначе запас посчитан по неполному графу.",
+    "Расписание проекта для разговора о сроках: вехи с плановой и фактической датой, задачи с началом и концом, связи между ними (что за чем идёт), отклонение от базового плана, запас по срокам и готовность в процентах (progress_pct — по подзадачам, как на Ганте; у проекта — среднее по задачам). float_days — сколько дней можно сдвинуть, не сдвинув дату проекта; critical — запаса нет, элемент держит дату проекта; critical_path — цепочка, которая её держит. Нужен, чтобы ответить «что едет в проекте», «что держит дату» и «что будет, если сдвинуть». Задач возвращается не больше 300 — при has_more сузьте через only_open, иначе запас посчитан по неполному графу.",
   inputSchema: {
     project_id: z.string().uuid().describe("UUID проекта (task_groups.id)."),
     include_subprojects: z
@@ -74,9 +75,12 @@ export default defineTool({
     // ── Задачи ────────────────────────────────────────────────────────────
     let tq = supabase
       .from("tasks")
-      .select("id,title,start_at,deadline,original_deadline,is_completed,completed_at,group_id,assigned_to", {
-        count: "exact",
-      })
+      // subtasks приходят вложенным запросом: готовность считается по ним, как
+      // в Ганте приложения, а не по отметке на самой задаче.
+      .select(
+        "id,title,start_at,deadline,original_deadline,is_completed,completed_at,group_id,assigned_to,subtasks(is_completed)",
+        { count: "exact" },
+      )
       .in("group_id", groupIds)
       .or("task_type.is.null,and(task_type.neq.stm_stage,task_type.neq.km_stage)")
       .order("deadline", { ascending: true, nullsFirst: false })
@@ -180,6 +184,8 @@ export default defineTool({
               // Отклонение от базового плана. null — либо не двигали, либо
               // базовая дата испорчена и числу верить нельзя.
               drift_days: driftDays(t.original_deadline, t.deadline),
+              // Готовность: есть подзадачи — доля выполненных, иначе 0 или 100.
+              progress_pct: taskProgressPct(t),
               // Запас: сколько дней можно сдвинуть, не сдвинув дату проекта.
               // null — у задачи нет срока, и места на шкале у неё нет.
               float_days: slack.get(t.id)?.float_days ?? null,
@@ -195,6 +201,7 @@ export default defineTool({
               links_ignored_in_slack: cpm.ignored_links,
               cycle: cpm.cycle ? cpm.cycle.map((id) => label.get(id) ?? id) : null,
             },
+            progress_pct: projectProgressPct(rows),
             counts: {
               milestones: (milestones ?? []).length,
               tasks_returned: rows.length,
