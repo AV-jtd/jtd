@@ -237,3 +237,4 @@
 20260927200000_drop_lovable_email_queue.sql
 20260927210000_mcp_audit_log.sql
 20260930120000_dashboard_counters.sql
+20261001090000_auth_housekeeping.sql
