@@ -238,3 +238,4 @@
 20260927210000_mcp_audit_log.sql
 20260930120000_dashboard_counters.sql
 20261001090000_auth_housekeeping.sql
+20261001100000_task_comments_setbased_visibility.sql

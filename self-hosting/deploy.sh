@@ -197,7 +197,15 @@ docker restart self-hosting-nginx-1 >/dev/null
 
 # ---------- 7. Проверка ----------
 log "Health-check"
-code="$(curl -sk -o /dev/null -w '%{http_code}' https://justtodoit.ru/ || echo 000)"
+# С повторами: проверка шла сразу после `docker restart nginx`, и nginx ещё не
+# принимал соединения. 30.09 так дважды «упали» деплои, которые на деле
+# выкатились целиком (сайт отвечал 200 через секунду).
+code=000
+for _ in $(seq 15); do
+  code="$(curl -sk -o /dev/null -w '%{http_code}' https://justtodoit.ru/ || echo 000)"
+  [ "$code" = "200" ] && break
+  sleep 2
+done
 if [ "$code" != "200" ]; then
   log "⚠️ Сайт вернул $code. dist/ обновлён атомарно (inode сохранён). Проверь: docker restart self-hosting-nginx-1; docker logs self-hosting-nginx-1 --tail 30"
   exit 1
