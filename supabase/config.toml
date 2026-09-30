@@ -37,5 +37,11 @@ project_id = "nvfioycpwyzwukvokwql"
     verify_jwt = false
   [functions.my-tasks-summary]
     verify_jwt = false
+  [functions.assistant-tools]
+    # Токен проверяет сама функция: она спрашивает GoTrue, кто пришёл, и дальше
+    # работает клиентом с этим токеном — как коннектор. Проверять JWT дважды
+    # незачем, а verify_jwt = true у self-hosted edge-runtime отвечает 401 без
+    # тела, и причина отказа человеку не видна.
+    verify_jwt = false
   [functions.mcp]
     verify_jwt = false
