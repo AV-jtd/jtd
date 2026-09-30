@@ -122,12 +122,21 @@ serve(async (req) => {
       if (s.is_completed) subtaskMap[s.task_id].completed++;
     });
 
-    // Fetch projects (all groups user owns, including subprojects)
-    const { data: groups } = await supabase
-      .from("task_groups")
-      .select("id, name, parent_id")
-      .eq("user_id", userId)
-      .limit(200);
+    // Названия проектов — для ВСЕХ проектов, что встречаются в задачах охвата.
+    // Раньше бралось `.eq("user_id", userId).limit(200)`: только свои проекты и
+    // не больше 200. У владельца 30.09 из 332 проектов его задач 167 шли модели
+    // UUID-ом вместо названия (23 чужих + 144 своих за пределами первых 200).
+    const byChunks = async (table: string, cols: string, ids: string[]) => {
+      const out: any[] = [];
+      for (let i = 0; i < ids.length; i += 100) {
+        const { data, error } = await supabase.from(table).select(cols).in("id", ids.slice(i, i + 100));
+        if (error) throw error;
+        if (data) out.push(...data);
+      }
+      return out;
+    };
+    const groupIdsInScope = [...new Set(tasks.map((t: any) => t.group_id).filter(Boolean))] as string[];
+    const groups = await byChunks("task_groups", "id, name, parent_id", groupIdsInScope);
 
     // Build group name map for resolving group_id → name in task context
     const groupNameMap: Record<string, string> = {};
@@ -169,10 +178,13 @@ serve(async (req) => {
       }
     }
 
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, display_name")
-      .limit(100);
+    // Имена — только тех, кто встречается в задачах и шагах. Раньше — первые
+    // 100 профилей без порядка: пользователей 68, но предел бы скоро упёрся.
+    const personIds = [...new Set([
+      ...tasks.flatMap((t: any) => [t.assigned_to, t.user_id]),
+      ...allSubtasks.map((s: any) => s.assigned_to),
+    ].filter(Boolean))] as string[];
+    const profiles = await byChunks("profiles", "id, display_name", personIds);
 
     const profileMap: Record<string, string> = {};
     (profiles || []).forEach((p: any) => { profileMap[p.id] = p.display_name || "Без имени"; });
@@ -229,7 +241,7 @@ serve(async (req) => {
     const projectHealth: Record<string, { total: number; done: number; overdue: number; name: string }> = {};
     allTasks.forEach((t: any) => {
       if (!t.group_id) return;
-      const gName = (groups || []).find((g: any) => g.id === t.group_id)?.name || t.group_id;
+      const gName = groupNameMap[t.group_id] || t.group_id;
       if (!projectHealth[t.group_id]) projectHealth[t.group_id] = { total: 0, done: 0, overdue: 0, name: gName };
       projectHealth[t.group_id].total++;
       if (t.is_completed) projectHealth[t.group_id].done++;
@@ -289,7 +301,7 @@ serve(async (req) => {
     context += `- ⚠️ Без дедлайна: ${noDeadline.length}\n`;
     context += `- 📈 Со сдвигом дедлайна: ${driftedTasks.length}${driftedTasks.length > 0 ? ` (ср. дрейф: +${avgDrift} дн.)` : ""}\n`;
     context += `- 🧊 Забытых (7+ дн. без активности): ${stale.length}\n`;
-    if (!projectId) context += `- 📂 Проектов: ${(groups || []).length}\n`;
+    if (!projectId) context += `- 📂 Проектов с активными задачами: ${new Set(activeTasks.map((t: any) => t.group_id).filter(Boolean)).size}\n`;
     if (subprojectNames.length > 0) context += `- 🔀 Стримы: ${subprojectNames.join(", ")}\n`;
 
     // Subtask/step analytics in context
