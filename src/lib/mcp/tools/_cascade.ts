@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isPlanningPhase } from "./_shared";
 import { resolveAllViolations, type GraphEntity, type ResolveUpdate } from "../../dependencyGraph";
 import { computeCascadeUpdates } from "../../cascadeDependencies";
 
@@ -108,6 +109,8 @@ export async function cascade(
 type Scope = {
   entities: Map<string, GraphEntity>;
   createdAt: Map<string, string>;
+  /** Проект задачи: по нему решается, идёт ли базовая дата за сроком. */
+  groupId: Map<string, string | null>;
   kind: Map<string, "task" | "milestone">;
   name: Map<string, string>;
   was: Map<string, string | null>;
@@ -123,22 +126,25 @@ async function loadScope(
   const s: Scope = {
     entities: new Map(),
     createdAt: new Map(),
+    groupId: new Map(),
     kind: new Map(),
     name: new Map(),
     was: new Map(),
   };
   if (ids.length === 0) return s;
 
-  const tasks = await fetchByIds(supabase, "tasks", "id,title,start_at,deadline,created_at", ids);
+  const tasks = await fetchByIds(supabase, "tasks", "id,title,start_at,deadline,created_at,group_id", ids);
   if ("error" in tasks) return tasks;
   const milestones = await fetchByIds(supabase, "project_milestones", "id,name,planned_date,created_at", ids);
   if ("error" in milestones) return milestones;
 
   for (const t of tasks as unknown as Array<{
     id: string; title: string; start_at: string | null; deadline: string | null; created_at: string;
+    group_id: string | null;
   }>) {
     s.entities.set(t.id, { id: t.id, start_at: t.start_at, deadline: t.deadline });
     s.createdAt.set(t.id, t.created_at);
+    s.groupId.set(t.id, t.group_id);
     s.kind.set(t.id, "task");
     s.name.set(t.id, t.title);
     s.was.set(t.id, t.deadline);
@@ -163,6 +169,9 @@ async function applyUpdates(
   opts: { dryRun?: boolean },
 ): Promise<CascadeResult | { error: string }> {
   const shifted: CascadeResult["shifted"] = [];
+  // Кэш на весь вызов: при сдвиге двадцати задач одного проекта это один
+  // запрос статуса базового плана вместо двадцати.
+  const planningCache = new Map<string, boolean>();
   for (const [id, upd] of updates) {
     const what = scope.kind.get(id);
     if (!what) continue; // узел вне компоненты или недоступен по RLS
@@ -171,6 +180,12 @@ async function applyUpdates(
       if (upd.deadline) payload.deadline = upd.deadline;
       if (upd.start_at) payload.start_at = upd.start_at;
       if (Object.keys(payload).length === 0) continue;
+      // Базовая дата идёт за сроком, пока план не зафиксирован — как в
+      // приложении. Иначе каскад на этапе планирования наплодил бы сдвигов,
+      // которых не было.
+      if (upd.deadline && (await isPlanningPhase(supabase, scope.groupId.get(id), planningCache))) {
+        payload.original_deadline = upd.deadline;
+      }
       if (!opts.dryRun) {
         const { error } = await supabase.from("tasks").update(payload).eq("id", id);
         if (error) return { error: error.message };
@@ -231,13 +246,15 @@ export async function moveWithCascade(
   // Одиночный узел в компоненту не попадает — дочитываем его отдельно.
   if (!scope.entities.has(id)) {
     const table = kind === "task" ? "tasks" : "project_milestones";
-    const columns = kind === "task" ? "id,title,start_at,deadline,created_at" : "id,name,planned_date,created_at";
+    const columns =
+      kind === "task" ? "id,title,start_at,deadline,created_at,group_id" : "id,name,planned_date,created_at";
     const { data, error } = await supabase.from(table).select(columns).eq("id", id).maybeSingle();
     if (error) return { error: error.message };
     if (!data) return { error: "Задача или веха не найдена, либо нет доступа" };
     const row = data as unknown as {
       id: string; title?: string; name?: string;
       start_at?: string | null; deadline?: string | null; planned_date?: string | null; created_at: string;
+      group_id?: string | null;
     };
     scope.entities.set(id, {
       id,
@@ -245,6 +262,7 @@ export async function moveWithCascade(
       deadline: kind === "task" ? (row.deadline ?? null) : (row.planned_date ?? null),
     });
     scope.createdAt.set(id, row.created_at);
+    scope.groupId.set(id, row.group_id ?? null);
     scope.kind.set(id, kind);
     scope.name.set(id, (row.title ?? row.name)!);
     scope.was.set(id, kind === "task" ? (row.deadline ?? null) : (row.planned_date ?? null));

@@ -359,6 +359,23 @@ async function insertTask(supabase, uid, fields, opts = {}) {
   }
   return { task: data, warnings };
 }
+function shouldKeepBaselineInStep(groupStatus, parentStatus) {
+  return groupStatus === "planning" || parentStatus === "planning";
+}
+async function isPlanningPhase(supabase, groupId, cache = /* @__PURE__ */ new Map()) {
+  if (!groupId) return false;
+  const known = cache.get(groupId);
+  if (known !== void 0) return known;
+  const { data: group } = await supabase.from("task_groups").select("baseline_status,parent_id").eq("id", groupId).maybeSingle();
+  let parentStatus = null;
+  if (group?.parent_id && group.baseline_status !== "planning") {
+    const { data: parent } = await supabase.from("task_groups").select("baseline_status").eq("id", group.parent_id).maybeSingle();
+    parentStatus = parent?.baseline_status ?? null;
+  }
+  const answer = shouldKeepBaselineInStep(group?.baseline_status, parentStatus);
+  cache.set(groupId, answer);
+  return answer;
+}
 
 // src/lib/mcp/tools/create_task.ts
 var create_task_default = defineTool4({
@@ -492,42 +509,49 @@ var complete_task_default = defineTool5({
 });
 
 // src/lib/mcp/tools/update_task_deadline.ts
-import process5 from "node:process";
-import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z6 } from "npm:zod@^4.4.3";
-function db5(ctx) {
-  return createClient5(process5.env.SUPABASE_URL, process5.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
 var update_task_deadline_default = defineTool6({
   name: "update_task_deadline",
   title: "\u0421\u0434\u0432\u0438\u043D\u0443\u0442\u044C \u0434\u0435\u0434\u043B\u0430\u0439\u043D",
-  description: "\u041C\u0435\u043D\u044F\u0435\u0442 \u0434\u0435\u0434\u043B\u0430\u0439\u043D \u0437\u0430\u0434\u0430\u0447\u0438. \u0415\u0441\u043B\u0438 \u0443 \u0437\u0430\u0434\u0430\u0447\u0438 \u0431\u044B\u043B baseline lock \u2014 \u0441\u0434\u0432\u0438\u0433 \u0437\u0430\u0444\u0438\u043A\u0441\u0438\u0440\u0443\u0435\u0442\u0441\u044F \u043A\u0430\u043A drift.",
+  description: "\u041C\u0435\u043D\u044F\u0435\u0442 \u0441\u0440\u043E\u043A \u043E\u0434\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438. \u0421\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0435 \u0437\u0430\u0434\u0430\u0447\u0438 \u041D\u0415 \u0434\u0432\u0438\u0433\u0430\u044E\u0442\u0441\u044F \u2014 \u0434\u043B\u044F \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u0430 \u0432\u043C\u0435\u0441\u0442\u0435 \u0441 \u0445\u0432\u043E\u0441\u0442\u043E\u043C \u0435\u0441\u0442\u044C move_task (\u0438 preview_shift, \u0447\u0442\u043E\u0431\u044B \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C). \u041F\u043E\u043A\u0430 \u0431\u0430\u0437\u043E\u0432\u044B\u0439 \u043F\u043B\u0430\u043D \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u043D\u0435 \u0437\u0430\u0444\u0438\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043D, \u0431\u0430\u0437\u043E\u0432\u0430\u044F \u0434\u0430\u0442\u0430 \u0438\u0434\u0451\u0442 \u0437\u0430 \u0441\u0440\u043E\u043A\u043E\u043C, \u0438 \u0441\u0434\u0432\u0438\u0433 \u043D\u0435 \u0437\u0430\u043F\u0438\u0441\u044B\u0432\u0430\u0435\u0442\u0441\u044F; \u043F\u043E\u0441\u043B\u0435 \u0444\u0438\u043A\u0441\u0430\u0446\u0438\u0438 \u0440\u0430\u0437\u043D\u0438\u0446\u0430 \u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u0441\u044F \u043E\u0442\u043A\u043B\u043E\u043D\u0435\u043D\u0438\u0435\u043C \u043E\u0442 \u043F\u043B\u0430\u043D\u0430.",
   inputSchema: {
     task_id: z6.string().uuid(),
-    deadline: z6.string().describe("\u041D\u043E\u0432\u044B\u0439 \u0434\u0435\u0434\u043B\u0430\u0439\u043D, ISO datetime")
+    deadline: z6.string().describe("\u041D\u043E\u0432\u044B\u0439 \u0441\u0440\u043E\u043A, ISO datetime")
   },
-  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   handler: async ({ task_id, deadline }, ctx) => {
-    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
-    const supabase = db5(ctx);
-    const { data, error } = await supabase.from("tasks").update({ deadline }).eq("id", task_id).select("id,title,deadline,original_deadline").maybeSingle();
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    if (!data) return { content: [{ type: "text", text: "\u0417\u0430\u0434\u0430\u0447\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0438\u043B\u0438 \u043D\u0435\u0442 \u043F\u0440\u0430\u0432" }], isError: true };
-    return { content: [{ type: "text", text: `\u0414\u0435\u0434\u043B\u0430\u0439\u043D \u043E\u0431\u043D\u043E\u0432\u043B\u0451\u043D: ${data.title}` }], structuredContent: { task: data } };
+    if (!ctx.isAuthenticated()) return fail("\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D");
+    const supabase = db4(ctx);
+    const d = new Date(deadline);
+    if (Number.isNaN(d.getTime())) return fail(`\u041D\u0435 \u0440\u0430\u0437\u043E\u0431\u0440\u0430\u043B \u0434\u0430\u0442\u0443 \xAB${deadline}\xBB. \u041D\u0443\u0436\u0435\u043D ISO datetime.`);
+    const year = d.getUTCFullYear();
+    if (year < 2e3 || year > 2100) return fail(`\u0414\u0430\u0442\u0430 ${deadline} \u0432\u043D\u0435 \u0440\u0430\u0437\u0443\u043C\u043D\u043E\u0433\u043E \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D\u0430 (2000\u20132100).`);
+    const { data: task, error: rErr } = await supabase.from("tasks").select("id,title,start_at,group_id").eq("id", task_id).maybeSingle();
+    if (rErr) return fail(rErr.message);
+    if (!task) return fail("\u0417\u0430\u0434\u0430\u0447\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0438\u043B\u0438 \u043D\u0435\u0442 \u043F\u0440\u0430\u0432");
+    if (task.start_at && new Date(task.start_at) > d) {
+      return fail(`\u041D\u0430\u0447\u0430\u043B\u043E \u0437\u0430\u0434\u0430\u0447\u0438 (${task.start_at}) \u043F\u043E\u0437\u0436\u0435 \u043D\u043E\u0432\u043E\u0433\u043E \u0441\u0440\u043E\u043A\u0430 \u2014 \u0437\u0430\u0434\u0430\u0447\u0430 \u043F\u043E\u043B\u0443\u0447\u0438\u043B\u0430\u0441\u044C \u0431\u044B \u043E\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043B\u044C\u043D\u043E\u0439 \u0434\u043B\u0438\u043D\u044B.`);
+    }
+    const updates = { deadline: d.toISOString() };
+    if (await isPlanningPhase(supabase, task.group_id)) updates.original_deadline = updates.deadline;
+    const { data, error } = await supabase.from("tasks").update(updates).eq("id", task_id).select("id,title,deadline,original_deadline").maybeSingle();
+    if (error) return fail(error.message);
+    if (!data) return fail("\u041D\u0435\u0442 \u043F\u0440\u0430\u0432 \u043D\u0430 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0435 \u044D\u0442\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438");
+    return {
+      content: [{ type: "text", text: `\u0421\u0440\u043E\u043A \u043E\u0431\u043D\u043E\u0432\u043B\u0451\u043D: ${data.title} \u2192 ${data.deadline}` }],
+      structuredContent: { task: data, baseline_moved_with_deadline: "original_deadline" in updates }
+    };
   }
 });
 
 // src/lib/mcp/tools/list_projects.ts
-import process6 from "node:process";
-import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.95.3";
+import process5 from "node:process";
+import { createClient as createClient5 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z7 } from "npm:zod@^4.4.3";
-function db6(ctx) {
-  return createClient6(process6.env.SUPABASE_URL, process6.env.SUPABASE_PUBLISHABLE_KEY, {
+function db5(ctx) {
+  return createClient5(process5.env.SUPABASE_URL, process5.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -545,7 +569,7 @@ var list_projects_default = defineTool7({
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
-    const supabase = db6(ctx);
+    const supabase = db5(ctx);
     const limit = input.limit ?? 100;
     const offset = input.offset ?? 0;
     let q = supabase.from("task_groups").select("id,name,project_type,client_id,parent_id,closed_at,description", { count: "exact" }).order("name").range(offset, offset + limit - 1);
@@ -564,12 +588,12 @@ var list_projects_default = defineTool7({
 });
 
 // src/lib/mcp/tools/get_project.ts
-import process7 from "node:process";
-import { createClient as createClient7 } from "npm:@supabase/supabase-js@^2.95.3";
+import process6 from "node:process";
+import { createClient as createClient6 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z8 } from "npm:zod@^4.4.3";
-function db7(ctx) {
-  return createClient7(process7.env.SUPABASE_URL, process7.env.SUPABASE_PUBLISHABLE_KEY, {
+function db6(ctx) {
+  return createClient6(process6.env.SUPABASE_URL, process6.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -585,7 +609,7 @@ var get_project_default = defineTool8({
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async ({ project_id, messages_limit }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
-    const supabase = db7(ctx);
+    const supabase = db6(ctx);
     const msgLimit = messages_limit ?? 10;
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
     const countOf = (build) => build(baseTasks());
@@ -1191,18 +1215,20 @@ async function loadScope(supabase, deps, seeds) {
   const s = {
     entities: /* @__PURE__ */ new Map(),
     createdAt: /* @__PURE__ */ new Map(),
+    groupId: /* @__PURE__ */ new Map(),
     kind: /* @__PURE__ */ new Map(),
     name: /* @__PURE__ */ new Map(),
     was: /* @__PURE__ */ new Map()
   };
   if (ids.length === 0) return s;
-  const tasks = await fetchByIds(supabase, "tasks", "id,title,start_at,deadline,created_at", ids);
+  const tasks = await fetchByIds(supabase, "tasks", "id,title,start_at,deadline,created_at,group_id", ids);
   if ("error" in tasks) return tasks;
   const milestones = await fetchByIds(supabase, "project_milestones", "id,name,planned_date,created_at", ids);
   if ("error" in milestones) return milestones;
   for (const t of tasks) {
     s.entities.set(t.id, { id: t.id, start_at: t.start_at, deadline: t.deadline });
     s.createdAt.set(t.id, t.created_at);
+    s.groupId.set(t.id, t.group_id);
     s.kind.set(t.id, "task");
     s.name.set(t.id, t.title);
     s.was.set(t.id, t.deadline);
@@ -1218,6 +1244,7 @@ async function loadScope(supabase, deps, seeds) {
 }
 async function applyUpdates(supabase, scope, updates, opts) {
   const shifted = [];
+  const planningCache = /* @__PURE__ */ new Map();
   for (const [id, upd] of updates) {
     const what = scope.kind.get(id);
     if (!what) continue;
@@ -1226,6 +1253,9 @@ async function applyUpdates(supabase, scope, updates, opts) {
       if (upd.deadline) payload.deadline = upd.deadline;
       if (upd.start_at) payload.start_at = upd.start_at;
       if (Object.keys(payload).length === 0) continue;
+      if (upd.deadline && await isPlanningPhase(supabase, scope.groupId.get(id), planningCache)) {
+        payload.original_deadline = upd.deadline;
+      }
       if (!opts.dryRun) {
         const { error } = await supabase.from("tasks").update(payload).eq("id", id);
         if (error) return { error: error.message };
@@ -1262,7 +1292,7 @@ async function moveWithCascade(supabase, id, newDeadline, opts = {}) {
   if (!kind) return { error: "\u0417\u0430\u0434\u0430\u0447\u0430 \u0438\u043B\u0438 \u0432\u0435\u0445\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430, \u043B\u0438\u0431\u043E \u043D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430" };
   if (!scope.entities.has(id)) {
     const table = kind === "task" ? "tasks" : "project_milestones";
-    const columns = kind === "task" ? "id,title,start_at,deadline,created_at" : "id,name,planned_date,created_at";
+    const columns = kind === "task" ? "id,title,start_at,deadline,created_at,group_id" : "id,name,planned_date,created_at";
     const { data, error } = await supabase.from(table).select(columns).eq("id", id).maybeSingle();
     if (error) return { error: error.message };
     if (!data) return { error: "\u0417\u0430\u0434\u0430\u0447\u0430 \u0438\u043B\u0438 \u0432\u0435\u0445\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430, \u043B\u0438\u0431\u043E \u043D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430" };
@@ -1273,6 +1303,7 @@ async function moveWithCascade(supabase, id, newDeadline, opts = {}) {
       deadline: kind === "task" ? row.deadline ?? null : row.planned_date ?? null
     });
     scope.createdAt.set(id, row.created_at);
+    scope.groupId.set(id, row.group_id ?? null);
     scope.kind.set(id, kind);
     scope.name.set(id, row.title ?? row.name);
     scope.was.set(id, kind === "task" ? row.deadline ?? null : row.planned_date ?? null);
@@ -1752,6 +1783,7 @@ var upsert_plan_default = defineTool16({
         ]
       };
     }
+    const planningCache = /* @__PURE__ */ new Map();
     const resolved = /* @__PURE__ */ new Map();
     const done = [];
     const warnings = [];
@@ -1767,6 +1799,9 @@ var upsert_plan_default = defineTool16({
         if (it.kind === "task") {
           if (it.start_at) patch.start_at = it.start_at;
           if (it.deadline) patch.deadline = it.deadline;
+          if (it.deadline && await isPlanningPhase(supabase, input.project_id, planningCache)) {
+            patch.original_deadline = it.deadline;
+          }
           if (it.description !== void 0) patch.description = it.description;
           if (it.assignee) patch.assigned_to = assignees.get(it.assignee).id;
         } else {
@@ -2314,12 +2349,12 @@ var apply_plan_template_default = defineTool18({
 });
 
 // src/lib/mcp/tools/list_protocols.ts
-import process8 from "node:process";
-import { createClient as createClient8 } from "npm:@supabase/supabase-js@^2.95.3";
+import process7 from "node:process";
+import { createClient as createClient7 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool19 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z19 } from "npm:zod@^4.4.3";
-function db8(ctx) {
-  return createClient8(process8.env.SUPABASE_URL, process8.env.SUPABASE_PUBLISHABLE_KEY, {
+function db7(ctx) {
+  return createClient7(process7.env.SUPABASE_URL, process7.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -2339,7 +2374,7 @@ var list_protocols_default = defineTool19({
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
-    const supabase = db8(ctx);
+    const supabase = db7(ctx);
     const limit = input.limit ?? 50;
     const offset = input.offset ?? 0;
     let q = supabase.from("task_groups").select("id,name,description,client_id,created_at,status:draft_status,meeting_date:protocol_meta->>meeting_date", { count: "exact" }).eq("project_type", "protocol").order("protocol_meta->>meeting_date", { ascending: false, nullsFirst: false }).range(offset, offset + limit - 1);
@@ -2360,12 +2395,12 @@ var list_protocols_default = defineTool19({
 });
 
 // src/lib/mcp/tools/get_protocol.ts
-import process9 from "node:process";
-import { createClient as createClient9 } from "npm:@supabase/supabase-js@^2.95.3";
+import process8 from "node:process";
+import { createClient as createClient8 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool20 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z20 } from "npm:zod@^4.4.3";
-function db9(ctx) {
-  return createClient9(process9.env.SUPABASE_URL, process9.env.SUPABASE_PUBLISHABLE_KEY, {
+function db8(ctx) {
+  return createClient8(process8.env.SUPABASE_URL, process8.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -2378,7 +2413,7 @@ var get_protocol_default = defineTool20({
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async ({ protocol_id }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
-    const supabase = db9(ctx);
+    const supabase = db8(ctx);
     const [{ data: protocol, error }, { data: agenda }, { data: followups }] = await Promise.all([
       supabase.from("task_groups").select("*").eq("id", protocol_id).eq("project_type", "protocol").maybeSingle(),
       supabase.from("tasks").select("id,title,description,is_completed,deadline,assigned_to").eq("group_id", protocol_id).order("position"),
@@ -2394,12 +2429,12 @@ var get_protocol_default = defineTool20({
 });
 
 // src/lib/mcp/tools/list_clients.ts
-import process10 from "node:process";
-import { createClient as createClient10 } from "npm:@supabase/supabase-js@^2.95.3";
+import process9 from "node:process";
+import { createClient as createClient9 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool21 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z21 } from "npm:zod@^4.4.3";
-function db10(ctx) {
-  return createClient10(process10.env.SUPABASE_URL, process10.env.SUPABASE_PUBLISHABLE_KEY, {
+function db9(ctx) {
+  return createClient9(process9.env.SUPABASE_URL, process9.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -2419,7 +2454,7 @@ var list_clients_default = defineTool21({
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
-    const supabase = db10(ctx);
+    const supabase = db9(ctx);
     const limit = input.limit ?? 100;
     const offset = input.offset ?? 0;
     const tagIds = async (name) => {
@@ -2452,12 +2487,12 @@ var list_clients_default = defineTool21({
 });
 
 // src/lib/mcp/tools/get_client.ts
-import process11 from "node:process";
-import { createClient as createClient11 } from "npm:@supabase/supabase-js@^2.95.3";
+import process10 from "node:process";
+import { createClient as createClient10 } from "npm:@supabase/supabase-js@^2.95.3";
 import { defineTool as defineTool22 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z22 } from "npm:zod@^4.4.3";
-function db11(ctx) {
-  return createClient11(process11.env.SUPABASE_URL, process11.env.SUPABASE_PUBLISHABLE_KEY, {
+function db10(ctx) {
+  return createClient10(process10.env.SUPABASE_URL, process10.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -2470,7 +2505,7 @@ var get_client_default = defineTool22({
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async ({ client_id }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
-    const supabase = db11(ctx);
+    const supabase = db10(ctx);
     const since = new Date(Date.now() - 90 * 24 * 3600 * 1e3).toISOString().slice(0, 10);
     const [{ data: client, error }, { data: tasks }, { data: projects }, { data: protocols }] = await Promise.all([
       supabase.from("clients").select("*").eq("id", client_id).maybeSingle(),
@@ -2509,7 +2544,7 @@ var update_task_default = defineTool23({
     if (!ctx.isAuthenticated()) return fail("\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D");
     const uid = ctx.getUserId();
     const supabase = db4(ctx);
-    const { data: task, error: rErr } = await supabase.from("tasks").select("id,title,assigned_to,is_completed").eq("id", input.task_id).maybeSingle();
+    const { data: task, error: rErr } = await supabase.from("tasks").select("id,title,assigned_to,is_completed,group_id").eq("id", input.task_id).maybeSingle();
     if (rErr) return fail(rErr.message);
     if (!task) return fail("\u0417\u0430\u0434\u0430\u0447\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430 \u0438\u043B\u0438 \u043D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430");
     const updates = {};
@@ -2545,6 +2580,9 @@ var update_task_default = defineTool23({
     }
     if (input.is_important !== void 0) updates.is_important = input.is_important;
     if (input.priority !== void 0) updates.priority = input.priority;
+    if (updates.deadline && await isPlanningPhase(supabase, task.group_id)) {
+      updates.original_deadline = updates.deadline;
+    }
     const changed = [];
     if (Object.keys(updates).length) {
       const { data: upd, error } = await supabase.from("tasks").update(updates).eq("id", task.id).select("id");
