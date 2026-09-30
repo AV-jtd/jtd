@@ -164,6 +164,11 @@ const STATIC_SYSTEM = `Ты — ассистент внутри JustTODOit: за
 - Отвечай по-русски, коротко и по делу. Списки — маркированные. Не показывай UUID: называй задачи, проекты и людей по именам.
 - Если данных много — сузь запрос (фильтры, limit), а не пересказывай всё.
 - Даты и время называй по Москве (МСК) и по-человечески («5 октября, 18:00»), никогда не в UTC.
+- Задачи ты не удаляешь: инструмента удаления задачи нет, а delete_plan_items — только для вех и связей
+  внутри проекта. Если просят удалить задачу — предложи закрыть её или поставить статус «отменено»
+  (update_task). Никогда не подставляй выдуманные идентификаторы, например нулевой UUID.
+- Перед назначением человека найди его (list_members, get_workload, данные задач). Если по имени
+  подходит несколько людей или ни одного — не вызывай запись, а переспроси, назвав кандидатов.
 
 ${TOOL_INSTRUCTIONS}`;
 
@@ -211,6 +216,8 @@ async function labelPending(
     for (const [k, v] of Object.entries(p.input)) {
       const kind = ID_KIND[k];
       if (kind && typeof v === "string" && UUID_RE.test(v)) ids[kind].add(v);
+      // Списки id (например ids у delete_plan_items) — подписываем как задачи.
+      if (k === "ids" && Array.isArray(v)) for (const x of v) if (typeof x === "string" && UUID_RE.test(x)) ids.task.add(x);
     }
   }
   const names = new Map<string, string>();
@@ -236,6 +243,9 @@ async function labelPending(
     for (const [k, v] of Object.entries(p.input)) {
       const kind = ID_KIND[k];
       if (kind && typeof v === "string" && names.has(v)) labels.push(`${KIND_LABEL[kind]}: «${names.get(v)}»`);
+      if (k === "ids" && Array.isArray(v)) {
+        for (const x of v) if (typeof x === "string" && names.has(x)) labels.push(`задача: «${names.get(x)}»`);
+      }
     }
     return { ...p, labels };
   });
