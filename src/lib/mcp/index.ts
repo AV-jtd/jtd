@@ -24,6 +24,8 @@ import listMembers from "./tools/list_members";
 import getWorkload from "./tools/get_workload";
 import deletePlanItems from "./tools/delete_plan_items";
 import getAttention from "./tools/get_attention";
+import createProtocol from "./tools/create_protocol";
+import publishProtocol from "./tools/publish_protocol";
 import listProtocols from "./tools/list_protocols";
 import getProtocol from "./tools/get_protocol";
 import listClients from "./tools/list_clients";
@@ -50,6 +52,7 @@ export default defineMcp({
   instructions:
     "Инструменты JustTODOit: задачи, проекты, протоколы встреч, CRM-клиенты. Все действия — от имени залогиненного пользователя, RLS применяется. Даты в ISO 8601. " +
     "«Что горит», «что на этой неделе», «что у меня без сроков» — это get_attention: он отвечает сразу по всем проектам, называть проект не нужно. Начинай с него, когда вопрос без имени проекта. " +
+    "Протокол совещания оформляется через create_protocol: он создаётся ЧЕРНОВИКОМ — исполнители его не видят и уведомлений не получают. Покажи протокол человеку и опубликуй через publish_protocol только после сверки; публикация видна людям и неотзывна, поэтому без apply=true она лишь перечисляет, что станет видно. " +
     "Задачи из писем создавай с source (тема, отправитель, дата) — по нему потом сверяются письма с задачами через search_tasks. " +
     "Про сроки и зависимости проекта спрашивай get_project_schedule — вехи, задачи с началом и концом, связи между ними и запас по срокам приходят одним вызовом. На вопрос «что держит дату проекта» отвечай по critical_path и полю critical, на «есть ли люфт» — по float_days; отрицательный запас значит, что связь уже нарушена. " +
     "Вехи заводятся и переносятся через create_milestone и update_milestone; плановая и фактическая даты — разные вещи, перенос плана не значит достижение. " +
@@ -73,7 +76,7 @@ export default defineMcp({
   tools: [
     getAttention, listTasks, searchTasks, getTask, createTask, updateTask, completeTask, updateTaskDeadline, addComment,
     listProjects, getProject, getProjectSchedule, createMilestone, updateMilestone, linkTasks, unlinkTasks, previewShift, moveTask, upsertPlan, createProject, applyPlanTemplate, getBaseline, lockBaseline, unlockBaseline, listMembers, getWorkload, deletePlanItems,
-    listProtocols, getProtocol,
+    listProtocols, getProtocol, createProtocol, publishProtocol,
     listClients, getClient,
   ].map(withAudit),
   // По умолчанию библиотека шлёт метрики каждого вызова (инструмент, исход,

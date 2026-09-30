@@ -179,6 +179,10 @@ export async function insertTask(
     is_important?: boolean;
     priority?: number | null;
     status_meta: Record<string, unknown>;
+    /** Черновик протокола: задача не видна исполнителю до публикации. */
+    is_draft?: boolean;
+    source_protocol_id?: string | null;
+    protocol_scope?: string | null;
   },
   opts: { notifyAssignee?: boolean } = {},
 ): Promise<{ task: { id: string; title: string; deadline: string | null; group_id: string | null; assigned_to: string }; warnings: string[] } | { error: string }> {
@@ -197,6 +201,9 @@ export async function insertTask(
       // Начало по умолчанию «сейчас» — как в приложении. План передаёт своё.
       start_at: fields.start_at ?? new Date().toISOString(),
       status_meta: fields.status_meta,
+      ...(fields.is_draft ? { is_draft: true } : {}),
+      ...(fields.source_protocol_id ? { source_protocol_id: fields.source_protocol_id } : {}),
+      ...(fields.protocol_scope ? { protocol_scope: fields.protocol_scope } : {}),
     })
     .select("id,title,deadline,group_id,assigned_to")
     .single();
@@ -209,6 +216,8 @@ export async function insertTask(
   if (pErr) warnings.push(`участник-создатель не добавлен: ${pErr.message}`);
 
   if (data.group_id) {
+    // Тег проекта ставится и черновику: приложение делает это до проверки на
+    // черновик, и без тега задача не попадёт в подборки после публикации.
     const { data: group } = await supabase
       .from("task_groups").select("linked_tag_id").eq("id", data.group_id).maybeSingle();
     if (group?.linked_tag_id) {
@@ -216,13 +225,18 @@ export async function insertTask(
         .from("task_tags").insert({ task_id: data.id, tag_id: group.linked_tag_id });
       if (tErr) warnings.push(`тег проекта не поставлен: ${tErr.message}`);
     }
-    const { data: members } = await supabase.from("group_members").select("user_id").eq("group_id", data.group_id);
-    await notify(
-      supabase, "new_task_in_group", data.title,
-      (members ?? []).map((m) => m.user_id).filter((id) => id !== uid), data.id,
-    );
+    // А уведомления черновик не рассылает: задача ещё не существует для
+    // исполнителя, и письмо про неё было бы обещанием, которого никто не давал.
+    // Ровно так же поступает приложение (useTasks.addTask, «SKIP for drafts»).
+    if (!fields.is_draft) {
+      const { data: members } = await supabase.from("group_members").select("user_id").eq("group_id", data.group_id);
+      await notify(
+        supabase, "new_task_in_group", data.title,
+        (members ?? []).map((m) => m.user_id).filter((id) => id !== uid), data.id,
+      );
+    }
   }
-  if (opts.notifyAssignee !== false && fields.assigned_to !== uid) {
+  if (!fields.is_draft && opts.notifyAssignee !== false && fields.assigned_to !== uid) {
     await notify(supabase, "task_assigned", data.title, [fields.assigned_to], data.id);
   }
 
