@@ -3,7 +3,7 @@ import { useTasks, useTaskGroups, useAvailableUsers, useVisibleTags, useTaskMuta
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useGroupTaskStats } from "@/hooks/useGroupTaskStats";
+import { useDashboardCounters } from "@/hooks/useDashboardCounters";
 import { Users, ListChecks, ChevronDown as ChevronDownIcon, CheckCircle } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import TaskItem from "@/components/TaskItem";
@@ -2053,33 +2053,14 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     return Array.from(ids);
   }, [rootGroups, groups, selectedProjectIds]);
 
-  // Фильтры по людям и тегам серверный агрегат не принимает — при них числа
-  // по-прежнему считаются по загруженному списку. Это допустимо: такой фильтр
-  // сужает выборку, и в предел загрузки она обычно уже не упирается.
-  const hasDetailFilter = selectedAssigneeIds.length > 0 || selectedTagIds.length > 0 || selectedParticipantIds.length > 0;
-
-  // Числа берутся из того же серверного агрегата, что питает карточки PMO.
-  // Раньше дашборд считал их длиной загруженного массива, а загрузка обрывается
-  // на двадцатой странице по сто строк — то есть на 2000 задач. У кого видимых
-  // больше (на 27.09 это семь человек из 68), числа были неверны, причём молча:
-  // сортировка ставит незакрытые первыми, до выполненных очередь не доходила
-  // вовсе, отсюда «Прогресс 0%» и «Выполнено 0» при реальных 55%.
-  const { byId: serverStatsById } = useGroupTaskStats(hasDetailFilter ? null : scopedGroupIds);
-
-  const serverTotals = useMemo(() => {
-    if (hasDetailFilter || scopedGroupIds.length === 0) return null;
-    let total = 0, completed = 0, overdue = 0, drift = 0, upcoming = 0, seen = 0;
-    for (const id of scopedGroupIds) {
-      const st = serverStatsById?.[id];
-      if (!st) continue;
-      seen += 1;
-      total += st.total; completed += st.completed; overdue += st.overdue;
-      drift += st.drift; upcoming += st.upcoming_7d;
-    }
-    // Пока агрегат не доехал, чисел нет — лучше показать прежние, чем нули.
-    if (seen === 0) return null;
-    return { total, completed, overdue, drift, upcoming };
-  }, [hasDetailFilter, scopedGroupIds, serverStatsById]);
+  // Все сводные числа — у сервера (get_dashboard_counters), с теми же
+  // фильтрами по людям, тегам и участникам. Раньше их считали длиной
+  // загруженного массива, а загрузка обрывается на 2000 задач, незакрытые
+  // первыми: 30.09 у владельца «выполнено за неделю» было 22 вместо 45, дрифт
+  // 386 вместо 465. Пока ответ не пришёл — числа по массиву, не нули.
+  const { data: counters } = useDashboardCounters(
+    scopedGroupIds, selectedAssigneeIds, selectedTagIds, selectedParticipantIds,
+  );
 
   const projectStats = useMemo(() => {
     const baseGroups = selectedProjectIds.length > 0
@@ -2112,33 +2093,30 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
     const relevantTasks = projectStats.flatMap(s => [...s.tasks, ...s.subprojects.flatMap(sp => sp.tasks)]);
     const uniqueTasks = Array.from(new Map(relevantTasks.map(t => [t.id, t])).values());
     const activeTasks = uniqueTasks.filter(t => !t.is_completed);
-    // Пять чисел ниже берутся у сервера, когда он их дал: длина загруженного
-    // массива для них негодна, список обрывается на 2000 задач. Остальные
-    // показатели (сравнения с прошлой неделей, без исполнителя, без срока)
-    // серверный агрегат пока не возвращает и считаются по массиву — это
-    // отдельная задача, см. бэклог.
-    const totalTasksCount = serverTotals ? serverTotals.total : uniqueTasks.length;
-    const totalCompleted = serverTotals ? serverTotals.completed : uniqueTasks.filter(t => t.is_completed).length;
+    // Числа — у сервера, когда он ответил (см. useDashboardCounters). Списки
+    // для раскрывающихся панелей по-прежнему из массива: это примеры, а не счёт.
+    const c = scopedGroupIds.length > 0 ? counters : null;
+    const totalTasksCount = c ? c.total : uniqueTasks.length;
+    const totalCompleted = c ? c.completed : uniqueTasks.filter(t => t.is_completed).length;
     const completionRate = totalTasksCount > 0 ? Math.round((totalCompleted / totalTasksCount) * 100) : 0;
-    const totalOverdue = serverTotals ? serverTotals.overdue : activeTasks.filter(t => t.deadline && new Date(t.deadline) < now).length;
-    const totalDrift = serverTotals ? serverTotals.drift : uniqueTasks.filter(t => isDrifted(t.original_deadline, t.deadline)).length;
+    const totalOverdue = c ? c.overdue : activeTasks.filter(t => t.deadline && new Date(t.deadline) < now).length;
+    const totalDrift = c ? c.drift : uniqueTasks.filter(t => isDrifted(t.original_deadline, t.deadline)).length;
     const activeProjects = projectStats.filter(s => s.total > 0 && s.timingStatus !== "completed").length;
-    const tasksThisWeek = serverTotals ? serverTotals.upcoming : activeTasks.filter(t => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow).length;
+    const tasksThisWeek = c ? c.upcoming_7d : activeTasks.filter(t => t.deadline && new Date(t.deadline) >= now && new Date(t.deadline) <= weekFromNow).length;
 
     // Week-over-week: completed
-    const completedThisWeek = uniqueTasks.filter(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d7).length;
-    const completedLastWeek = uniqueTasks.filter(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d14 && new Date(t.completed_at) < d7).length;
+    const completedThisWeek = c ? c.completed_7d : uniqueTasks.filter(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d7).length;
+    const completedLastWeek = c ? c.completed_prev_7d : uniqueTasks.filter(t => t.is_completed && t.completed_at && new Date(t.completed_at) >= d14 && new Date(t.completed_at) < d7).length;
 
     // Week-over-week: overdue delta (how many were overdue a week ago vs now)
-    const overdueLastWeek = activeTasks.filter(t => t.deadline && new Date(t.deadline) < d7).length;
+    const overdueLastWeek = c ? c.overdue_week_ago : activeTasks.filter(t => t.deadline && new Date(t.deadline) < d7).length;
 
     // New smart metrics
     const unassignedTasks = activeTasks.filter(t => !t.assigned_to);
     const noDeadlineTasks = activeTasks.filter(t => !t.deadline);
 
     // WoW for drift (tasks that had drift a week ago - approximate by created_at)
-    const driftLastWeek = uniqueTasks.filter(t => isDrifted(t.original_deadline, t.deadline) && new Date(t.created_at) < d7).length;
-    const currentDrift = uniqueTasks.filter(t => isDrifted(t.original_deadline, t.deadline)).length;
+    const driftLastWeek = c ? c.drift_week_ago : uniqueTasks.filter(t => isDrifted(t.original_deadline, t.deadline) && new Date(t.created_at) < d7).length;
 
     // Overdue & drift task lists for detail panel
     const overdueTasks = uniqueTasks
@@ -2153,7 +2131,9 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       });
 
     return {
-      completionRate, totalCompleted, totalOverdue, totalDrift: currentDrift, activeProjects, tasksThisWeek,
+      // Раньше здесь стояло totalDrift: currentDrift — число по массиву молча
+      // перекрывало серверное, и карточка дрифта оставалась неверной.
+      completionRate, totalCompleted, totalOverdue, totalDrift, activeProjects, tasksThisWeek,
       totalProjects: projectStats.length,
       totalTasks: totalTasksCount,
       overdueTasks, driftTasks,
@@ -2161,9 +2141,11 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
       overdueLastWeek,
       unassignedTasks,
       noDeadlineTasks,
+      unassignedCount: c ? c.unassigned : unassignedTasks.length,
+      noDeadlineCount: c ? c.no_deadline : noDeadlineTasks.length,
       driftLastWeek,
     };
-  }, [projectStats, serverTotals]);
+  }, [projectStats, counters, scopedGroupIds]);
 
   const handleNavigateToTask = (taskId: string) => {
     setSheetTaskId(taskId);
@@ -2371,21 +2353,21 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           />
           <KpiCard
             label="Без ответственного"
-            value={summary.unassignedTasks.length}
-            color={summary.unassignedTasks.length > 0 ? "hsl(25, 95%, 53%)" : "hsl(var(--muted-foreground))"}
+            value={summary.unassignedCount}
+            color={summary.unassignedCount > 0 ? "hsl(25, 95%, 53%)" : "hsl(var(--muted-foreground))"}
             active={expandedKpi === "unassigned"}
             onClick={() => setExpandedKpi(prev => prev === "unassigned" ? null : "unassigned")}
-            trend={summary.unassignedTasks.length > 0 ? `${Math.round(summary.unassignedTasks.length / Math.max(summary.totalTasks - summary.totalCompleted, 1) * 100)}% активных` : undefined}
-            trendType={summary.unassignedTasks.length > 0 ? "up-bad" : "flat"}
+            trend={summary.unassignedCount > 0 ? `${Math.round(summary.unassignedCount / Math.max(summary.totalTasks - summary.totalCompleted, 1) * 100)}% активных` : undefined}
+            trendType={summary.unassignedCount > 0 ? "up-bad" : "flat"}
           />
           <KpiCard
             label="Без сроков"
-            value={summary.noDeadlineTasks.length}
-            color={summary.noDeadlineTasks.length > 0 ? "hsl(280, 67%, 55%)" : "hsl(var(--muted-foreground))"}
+            value={summary.noDeadlineCount}
+            color={summary.noDeadlineCount > 0 ? "hsl(280, 67%, 55%)" : "hsl(var(--muted-foreground))"}
             active={expandedKpi === "no_deadline"}
             onClick={() => setExpandedKpi(prev => prev === "no_deadline" ? null : "no_deadline")}
-            trend={summary.noDeadlineTasks.length > 0 ? `${Math.round(summary.noDeadlineTasks.length / Math.max(summary.totalTasks - summary.totalCompleted, 1) * 100)}% активных` : undefined}
-            trendType={summary.noDeadlineTasks.length > 0 ? "up-bad" : "flat"}
+            trend={summary.noDeadlineCount > 0 ? `${Math.round(summary.noDeadlineCount / Math.max(summary.totalTasks - summary.totalCompleted, 1) * 100)}% активных` : undefined}
+            trendType={summary.noDeadlineCount > 0 ? "up-bad" : "flat"}
           />
           <KpiCard
             label="Активных проектов"
