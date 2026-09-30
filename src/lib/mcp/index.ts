@@ -10,6 +10,8 @@ import getProject from "./tools/get_project";
 import getProjectSchedule from "./tools/get_project_schedule";
 import createMilestone from "./tools/create_milestone";
 import updateMilestone from "./tools/update_milestone";
+import linkTasks from "./tools/link_tasks";
+import unlinkTasks from "./tools/unlink_tasks";
 import listProtocols from "./tools/list_protocols";
 import getProtocol from "./tools/get_protocol";
 import listClients from "./tools/list_clients";
@@ -38,6 +40,7 @@ export default defineMcp({
     "Задачи из писем создавай с source (тема, отправитель, дата) — по нему потом сверяются письма с задачами через search_tasks. " +
     "Про сроки и зависимости проекта спрашивай get_project_schedule — вехи, задачи с началом и концом и связи между ними приходят одним вызовом. " +
     "Вехи заводятся и переносятся через create_milestone и update_milestone; плановая и фактическая даты — разные вещи, перенос плана не значит достижение. " +
+    "Связи «что за чем идёт» создаются через link_tasks и снимаются через unlink_tasks; после создания связи преемники автоматически сдвигаются вперёд — сдвинутое приходит в ответе, о нём стоит сказать человеку. " +
     "Каждый вызов пишется в журнал обращений.",
   auth: auth.oauth.issuer({
     issuer: `${AUTH_BASE}/auth/v1`,
@@ -51,7 +54,7 @@ export default defineMcp({
   }),
   tools: [
     listTasks, searchTasks, getTask, createTask, updateTask, completeTask, updateTaskDeadline, addComment,
-    listProjects, getProject, getProjectSchedule, createMilestone, updateMilestone,
+    listProjects, getProject, getProjectSchedule, createMilestone, updateMilestone, linkTasks, unlinkTasks,
     listProtocols, getProtocol,
     listClients, getClient,
   ].map(withAudit),
