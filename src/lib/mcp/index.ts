@@ -7,6 +7,7 @@ import completeTask from "./tools/complete_task";
 import updateTaskDeadline from "./tools/update_task_deadline";
 import listProjects from "./tools/list_projects";
 import getProject from "./tools/get_project";
+import getProjectSchedule from "./tools/get_project_schedule";
 import listProtocols from "./tools/list_protocols";
 import getProtocol from "./tools/get_protocol";
 import listClients from "./tools/list_clients";
@@ -33,6 +34,7 @@ export default defineMcp({
   instructions:
     "Инструменты JustTODOit: задачи, проекты, протоколы встреч, CRM-клиенты. Все действия — от имени залогиненного пользователя, RLS применяется. Даты в ISO 8601. " +
     "Задачи из писем создавай с source (тема, отправитель, дата) — по нему потом сверяются письма с задачами через search_tasks. " +
+    "Про сроки и зависимости проекта спрашивай get_project_schedule — вехи, задачи с началом и концом и связи между ними приходят одним вызовом. " +
     "Каждый вызов пишется в журнал обращений.",
   auth: auth.oauth.issuer({
     issuer: `${AUTH_BASE}/auth/v1`,
@@ -46,7 +48,7 @@ export default defineMcp({
   }),
   tools: [
     listTasks, searchTasks, getTask, createTask, updateTask, completeTask, updateTaskDeadline, addComment,
-    listProjects, getProject,
+    listProjects, getProject, getProjectSchedule,
     listProtocols, getProtocol,
     listClients, getClient,
   ].map(withAudit),
