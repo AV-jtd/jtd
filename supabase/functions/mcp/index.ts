@@ -956,6 +956,53 @@ function resolveAllViolations(dependencies, entities, options = {}) {
   return updates;
 }
 
+// src/lib/cascadeDependencies.ts
+import { addDays as addDays2, parseISO as parseISO2, differenceInCalendarDays as differenceInCalendarDays2 } from "npm:date-fns@^3.6.0";
+function computeCascadeUpdates(changedEntityId, newDeadline, oldDeadline, dependencies, entities) {
+  const updates = /* @__PURE__ */ new Map();
+  const daysDelta = differenceInCalendarDays2(newDeadline, oldDeadline);
+  if (daysDelta === 0) return updates;
+  const successorMap = /* @__PURE__ */ new Map();
+  dependencies.forEach((d) => {
+    if (!successorMap.has(d.predecessor_id)) successorMap.set(d.predecessor_id, []);
+    successorMap.get(d.predecessor_id).push({
+      successor_id: d.successor_id,
+      dependency_type: d.dependency_type,
+      lag_days: d.lag_days
+    });
+  });
+  const visited = /* @__PURE__ */ new Set();
+  const queue = [{ entityId: changedEntityId, pushDays: daysDelta }];
+  const isForward = daysDelta > 0;
+  while (queue.length > 0) {
+    const { entityId, pushDays } = queue.shift();
+    const succs = successorMap.get(entityId) || [];
+    for (const succ of succs) {
+      if (visited.has(succ.successor_id)) continue;
+      visited.add(succ.successor_id);
+      const entity = entities.get(succ.successor_id);
+      if (!entity) continue;
+      const effectivePush = isForward ? pushDays + succ.lag_days : pushDays;
+      if (effectivePush === 0) continue;
+      const update = {};
+      if (entity.deadline) {
+        update.deadline = addDays2(parseISO2(entity.deadline), effectivePush).toISOString();
+      }
+      if (entity.start_at) {
+        update.start_at = addDays2(parseISO2(entity.start_at), effectivePush).toISOString();
+      } else if (entity.deadline) {
+        const newDeadlineDate = addDays2(parseISO2(entity.deadline), effectivePush);
+        update.start_at = addDays2(newDeadlineDate, -1).toISOString();
+      }
+      if (update.deadline || update.start_at) {
+        updates.set(succ.successor_id, update);
+      }
+      queue.push({ entityId: succ.successor_id, pushDays: effectivePush });
+    }
+  }
+  return updates;
+}
+
 // src/lib/mcp/tools/_cascade.ts
 var CHUNK = 50;
 async function fetchDependencies(supabase) {
@@ -993,32 +1040,46 @@ async function fetchByIds(supabase, table, columns, ids) {
   return out;
 }
 async function cascade(supabase, deps, seeds, opts = {}) {
-  const scope = [...dependencyComponent(deps, seeds)];
-  if (scope.length === 0) return { shifted: [] };
-  const tasks = await fetchByIds(supabase, "tasks", "id,title,start_at,deadline", scope);
+  const scope = await loadScope(supabase, deps, seeds);
+  if ("error" in scope) return scope;
+  if (scope.entities.size === 0) return { shifted: [] };
+  const updates = resolveAllViolations(deps, scope.entities);
+  return applyUpdates(supabase, scope, updates, opts);
+}
+async function loadScope(supabase, deps, seeds) {
+  const ids = [...dependencyComponent(deps, seeds)];
+  const s = {
+    entities: /* @__PURE__ */ new Map(),
+    createdAt: /* @__PURE__ */ new Map(),
+    kind: /* @__PURE__ */ new Map(),
+    name: /* @__PURE__ */ new Map(),
+    was: /* @__PURE__ */ new Map()
+  };
+  if (ids.length === 0) return s;
+  const tasks = await fetchByIds(supabase, "tasks", "id,title,start_at,deadline,created_at", ids);
   if ("error" in tasks) return tasks;
-  const milestones = await fetchByIds(supabase, "project_milestones", "id,name,planned_date", scope);
+  const milestones = await fetchByIds(supabase, "project_milestones", "id,name,planned_date,created_at", ids);
   if ("error" in milestones) return milestones;
-  const entities = /* @__PURE__ */ new Map();
-  const kind = /* @__PURE__ */ new Map();
-  const name = /* @__PURE__ */ new Map();
-  const was = /* @__PURE__ */ new Map();
   for (const t of tasks) {
-    entities.set(t.id, { id: t.id, start_at: t.start_at, deadline: t.deadline });
-    kind.set(t.id, "task");
-    name.set(t.id, t.title);
-    was.set(t.id, t.deadline);
+    s.entities.set(t.id, { id: t.id, start_at: t.start_at, deadline: t.deadline });
+    s.createdAt.set(t.id, t.created_at);
+    s.kind.set(t.id, "task");
+    s.name.set(t.id, t.title);
+    s.was.set(t.id, t.deadline);
   }
   for (const m of milestones) {
-    entities.set(m.id, { id: m.id, deadline: m.planned_date });
-    kind.set(m.id, "milestone");
-    name.set(m.id, m.name);
-    was.set(m.id, m.planned_date);
+    s.entities.set(m.id, { id: m.id, deadline: m.planned_date });
+    s.createdAt.set(m.id, m.created_at);
+    s.kind.set(m.id, "milestone");
+    s.name.set(m.id, m.name);
+    s.was.set(m.id, m.planned_date);
   }
-  const updates = resolveAllViolations(deps, entities);
+  return s;
+}
+async function applyUpdates(supabase, scope, updates, opts) {
   const shifted = [];
   for (const [id, upd] of updates) {
-    const what = kind.get(id);
+    const what = scope.kind.get(id);
     if (!what) continue;
     if (what === "task") {
       const payload = {};
@@ -1029,16 +1090,117 @@ async function cascade(supabase, deps, seeds, opts = {}) {
         const { error } = await supabase.from("tasks").update(payload).eq("id", id);
         if (error) return { error: error.message };
       }
-      shifted.push({ id, kind: "task", name: name.get(id), from: was.get(id) ?? null, to: upd.deadline });
+      shifted.push({
+        id,
+        kind: "task",
+        name: scope.name.get(id),
+        from: scope.was.get(id) ?? null,
+        to: upd.deadline ?? upd.start_at
+      });
     } else if (upd.deadline) {
       if (!opts.dryRun) {
         const { error } = await supabase.from("project_milestones").update({ planned_date: upd.deadline }).eq("id", id);
         if (error) return { error: error.message };
       }
-      shifted.push({ id, kind: "milestone", name: name.get(id), from: was.get(id) ?? null, to: upd.deadline });
+      shifted.push({
+        id,
+        kind: "milestone",
+        name: scope.name.get(id),
+        from: scope.was.get(id) ?? null,
+        to: upd.deadline
+      });
     }
   }
   return { shifted };
+}
+async function moveWithCascade(supabase, id, newDeadline, opts = {}) {
+  const deps = await fetchDependencies(supabase);
+  if ("error" in deps) return deps;
+  const scope = await loadScope(supabase, deps, [id]);
+  if ("error" in scope) return scope;
+  const kind = scope.kind.get(id) ?? await entityKind(supabase, id);
+  if (!kind) return { error: "\u0417\u0430\u0434\u0430\u0447\u0430 \u0438\u043B\u0438 \u0432\u0435\u0445\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430, \u043B\u0438\u0431\u043E \u043D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430" };
+  if (!scope.entities.has(id)) {
+    const table = kind === "task" ? "tasks" : "project_milestones";
+    const columns = kind === "task" ? "id,title,start_at,deadline,created_at" : "id,name,planned_date,created_at";
+    const { data, error } = await supabase.from(table).select(columns).eq("id", id).maybeSingle();
+    if (error) return { error: error.message };
+    if (!data) return { error: "\u0417\u0430\u0434\u0430\u0447\u0430 \u0438\u043B\u0438 \u0432\u0435\u0445\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430, \u043B\u0438\u0431\u043E \u043D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430" };
+    const row = data;
+    scope.entities.set(id, {
+      id,
+      start_at: row.start_at ?? null,
+      deadline: kind === "task" ? row.deadline ?? null : row.planned_date ?? null
+    });
+    scope.createdAt.set(id, row.created_at);
+    scope.kind.set(id, kind);
+    scope.name.set(id, row.title ?? row.name);
+    scope.was.set(id, kind === "task" ? row.deadline ?? null : row.planned_date ?? null);
+  }
+  const self = scope.entities.get(id);
+  const oldDeadline = self.deadline;
+  if (!oldDeadline) {
+    return {
+      error: "\u0423 \u044D\u0442\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438 \u043D\u0435\u0442 \u0441\u0440\u043E\u043A\u0430, \u0438 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u0438\u0442\u044C \u043D\u0435\u0447\u0435\u0433\u043E: \u0441\u0434\u0432\u0438\u0433 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043E\u0442 \u0441\u0442\u0430\u0440\u043E\u0439 \u0434\u0430\u0442\u044B \u043A \u043D\u043E\u0432\u043E\u0439. \u041F\u043E\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u0441\u0440\u043E\u043A \u0447\u0435\u0440\u0435\u0437 update_task."
+    };
+  }
+  const shiftDays = Math.round((newDeadline.getTime() - new Date(oldDeadline).getTime()) / 864e5);
+  if (shiftDays === 0) {
+    return {
+      error: "\u041D\u043E\u0432\u0430\u044F \u0434\u0430\u0442\u0430 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u0435\u0442 \u0441\u043E \u0441\u0442\u0430\u0440\u043E\u0439 \u2014 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u0438\u0442\u044C \u043D\u0435\u0447\u0435\u0433\u043E"
+    };
+  }
+  const dateEntities = /* @__PURE__ */ new Map();
+  scope.entities.forEach((e, eid) => {
+    dateEntities.set(eid, {
+      id: eid,
+      deadline: e.deadline,
+      start_at: e.start_at,
+      created_at: scope.createdAt.get(eid) ?? (/* @__PURE__ */ new Date(0)).toISOString()
+    });
+  });
+  const first = computeCascadeUpdates(id, newDeadline, new Date(oldDeadline), deps, dateEntities);
+  const selfUpdate = { deadline: newDeadline.toISOString() };
+  if (kind === "task" && self.start_at) {
+    selfUpdate.start_at = new Date(new Date(self.start_at).getTime() + shiftDays * 864e5).toISOString();
+  }
+  const merged = /* @__PURE__ */ new Map([[id, selfUpdate]]);
+  for (const [eid, upd] of first) merged.set(eid, upd);
+  const firstPass = await applyUpdates(supabase, scope, merged, opts);
+  if ("error" in firstPass) return firstPass;
+  const after = /* @__PURE__ */ new Map();
+  scope.entities.forEach((e, eid) => {
+    const upd = merged.get(eid);
+    after.set(eid, {
+      id: eid,
+      deadline: upd?.deadline ?? e.deadline,
+      start_at: upd?.start_at ?? e.start_at
+    });
+  });
+  const remaining = resolveAllViolations(deps, after);
+  for (const eid of merged.keys()) {
+    if (eid === id) remaining.delete(eid);
+  }
+  const secondPass = await applyUpdates(supabase, scope, remaining, opts);
+  if ("error" in secondPass) return secondPass;
+  const byId = /* @__PURE__ */ new Map();
+  for (const s of [...firstPass.shifted, ...secondPass.shifted]) {
+    if (s.id === id) continue;
+    const prev = byId.get(s.id);
+    byId.set(s.id, prev ? { ...s, from: prev.from } : s);
+  }
+  const shifted = [...byId.values()];
+  return {
+    moved: {
+      id,
+      kind,
+      name: scope.name.get(id),
+      from: oldDeadline,
+      to: newDeadline.toISOString(),
+      shift_days: shiftDays
+    },
+    shifted
+  };
 }
 async function entityKind(supabase, id) {
   const { data: task } = await supabase.from("tasks").select("id").eq("id", id).maybeSingle();
@@ -1157,28 +1319,134 @@ var unlink_tasks_default = defineTool13({
   }
 });
 
+// src/lib/mcp/tools/preview_shift.ts
+import { defineTool as defineTool14 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z14 } from "npm:zod@^4.4.3";
+
+// src/lib/mcp/tools/_dates.ts
+async function parseTargetDate(supabase, input) {
+  const hasDate = input.new_deadline !== void 0;
+  const hasShift = input.shift_days !== void 0;
+  if (hasDate === hasShift) {
+    return { error: "\u041D\u0443\u0436\u043D\u043E \u0443\u043A\u0430\u0437\u0430\u0442\u044C \u0440\u043E\u0432\u043D\u043E \u043E\u0434\u043D\u043E: new_deadline \u0438\u043B\u0438 shift_days" };
+  }
+  if (hasDate) {
+    const d = new Date(input.new_deadline);
+    if (Number.isNaN(d.getTime())) return { error: `\u041D\u0435 \u0440\u0430\u0437\u043E\u0431\u0440\u0430\u043B \u0434\u0430\u0442\u0443 \xAB${input.new_deadline}\xBB. \u041D\u0443\u0436\u0435\u043D ISO datetime.` };
+    const y = d.getUTCFullYear();
+    if (y < 2e3 || y > 2100) return { error: `\u0414\u0430\u0442\u0430 ${input.new_deadline} \u0432\u043D\u0435 \u0440\u0430\u0437\u0443\u043C\u043D\u043E\u0433\u043E \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D\u0430 (2000\u20132100).` };
+    return { date: d };
+  }
+  if (input.shift_days === 0) return { error: "\u0421\u0434\u0432\u0438\u0433 \u043D\u0430 \u043D\u043E\u043B\u044C \u0434\u043D\u0435\u0439 \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043C\u0435\u043D\u044F\u0435\u0442" };
+  const kind = await entityKind(supabase, input.id);
+  if (!kind) return { error: "\u0417\u0430\u0434\u0430\u0447\u0430 \u0438\u043B\u0438 \u0432\u0435\u0445\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430, \u043B\u0438\u0431\u043E \u043D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430" };
+  const table = kind === "task" ? "tasks" : "project_milestones";
+  const column = kind === "task" ? "deadline" : "planned_date";
+  const { data, error } = await supabase.from(table).select(column).eq("id", input.id).maybeSingle();
+  if (error) return { error: error.message };
+  const current = data?.[column] ?? null;
+  if (!current) {
+    return {
+      error: kind === "task" ? "\u0423 \u0437\u0430\u0434\u0430\u0447\u0438 \u043D\u0435\u0442 \u0441\u0440\u043E\u043A\u0430, \u0441\u0434\u0432\u0438\u0433\u0430\u0442\u044C \u043D\u0435\u0447\u0435\u0433\u043E. \u041F\u043E\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u0441\u0440\u043E\u043A \u0447\u0435\u0440\u0435\u0437 update_task \u0438\u043B\u0438 \u0443\u043A\u0430\u0436\u0438\u0442\u0435 new_deadline." : "\u0423 \u0432\u0435\u0445\u0438 \u043D\u0435\u0442 \u043F\u043B\u0430\u043D\u043E\u0432\u043E\u0439 \u0434\u0430\u0442\u044B. \u0423\u043A\u0430\u0436\u0438\u0442\u0435 new_deadline."
+    };
+  }
+  return { date: new Date(new Date(current).getTime() + input.shift_days * 864e5) };
+}
+
+// src/lib/mcp/tools/preview_shift.ts
+var preview_shift_default = defineTool14({
+  name: "preview_shift",
+  title: "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043F\u043E\u0441\u043B\u0435\u0434\u0441\u0442\u0432\u0438\u044F \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u0430",
+  description: "\u0421\u0447\u0438\u0442\u0430\u0435\u0442, \u0447\u0442\u043E \u043F\u0440\u043E\u0438\u0437\u043E\u0439\u0434\u0451\u0442 \u043F\u0440\u0438 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u0435 \u0437\u0430\u0434\u0430\u0447\u0438 \u0438\u043B\u0438 \u0432\u0435\u0445\u0438: \u043D\u0430 \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0434\u043D\u0435\u0439 \u0441\u0434\u0432\u0438\u043D\u0435\u0442\u0441\u044F \u043E\u043D\u0430 \u0441\u0430\u043C\u0430 \u0438 \u0447\u0442\u043E \u043F\u043E\u0442\u044F\u043D\u0435\u0442\u0441\u044F \u0437\u0430 \u043D\u0435\u0439 \u043F\u043E \u0441\u0432\u044F\u0437\u044F\u043C. \u041D\u0418\u0427\u0415\u0413\u041E \u043D\u0435 \u0437\u0430\u043F\u0438\u0441\u044B\u0432\u0430\u0435\u0442. \u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043D\u043E\u0432\u0443\u044E \u0434\u0430\u0442\u0443 (new_deadline) \u043B\u0438\u0431\u043E \u0441\u0434\u0432\u0438\u0433 \u0432 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0445 \u0434\u043D\u044F\u0445 (shift_days, \u043C\u043E\u0436\u043D\u043E \u043E\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u2014 \u043F\u0435\u0440\u0435\u043D\u043E\u0441 \u043D\u0430\u0437\u0430\u0434). \u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0439\u0442\u0435 \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442 \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443 \u0434\u043E \u0437\u0430\u043F\u0438\u0441\u0438: \u0441\u0434\u0432\u0438\u0433 \u0437\u0430\u0434\u0435\u0432\u0430\u0435\u0442 \u0441\u0440\u043E\u043A\u0438, \u043E \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0443\u0436\u0435 \u043C\u043E\u0433\u043B\u0438 \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0438\u0442\u044C\u0441\u044F. \u041F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442 \u043F\u0435\u0440\u0435\u043D\u043E\u0441 move_task.",
+  inputSchema: {
+    id: z14.string().uuid().describe("UUID \u0437\u0430\u0434\u0430\u0447\u0438 \u0438\u043B\u0438 \u0432\u0435\u0445\u0438."),
+    new_deadline: z14.string().optional().describe("\u041D\u043E\u0432\u044B\u0439 \u0441\u0440\u043E\u043A, ISO datetime."),
+    shift_days: z14.number().int().min(-3650).max(3650).optional().describe("\u0421\u0434\u0432\u0438\u0433 \u0432 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0445 \u0434\u043D\u044F\u0445 \u0432\u043C\u0435\u0441\u0442\u043E \u043D\u043E\u0432\u043E\u0439 \u0434\u0430\u0442\u044B.")
+  },
+  annotations: { readOnlyHint: true, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return fail("\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D");
+    const supabase = db4(ctx);
+    const target = await parseTargetDate(supabase, input);
+    if ("error" in target) return fail(target.error);
+    const result = await moveWithCascade(supabase, input.id, target.date, { dryRun: true });
+    if ("error" in result) return fail(result.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            written: false,
+            move: result.moved,
+            would_shift: result.shifted,
+            would_shift_count: result.shifted.length,
+            apply_with: "move_task"
+          })
+        }
+      ]
+    };
+  }
+});
+
+// src/lib/mcp/tools/move_task.ts
+import { defineTool as defineTool15 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z15 } from "npm:zod@^4.4.3";
+var move_task_default = defineTool15({
+  name: "move_task",
+  title: "\u041F\u0435\u0440\u0435\u043D\u0435\u0441\u0442\u0438 \u0437\u0430\u0434\u0430\u0447\u0443 \u0441 \u043F\u0435\u0440\u0435\u0441\u0447\u0451\u0442\u043E\u043C \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0445",
+  description: "\u041F\u0435\u0440\u0435\u043D\u043E\u0441\u0438\u0442 \u0437\u0430\u0434\u0430\u0447\u0443 \u0438\u043B\u0438 \u0432\u0435\u0445\u0443 \u0438 \u0441\u0434\u0432\u0438\u0433\u0430\u0435\u0442 \u0432\u0441\u0451, \u0447\u0442\u043E \u0441\u0442\u043E\u0438\u0442 \u0437\u0430 \u043D\u0435\u0439 \u043F\u043E \u0441\u0432\u044F\u0437\u044F\u043C \u2014 \u043A\u0430\u043A \u043F\u0435\u0440\u0435\u0442\u0430\u0441\u043A\u0438\u0432\u0430\u043D\u0438\u0435 \u0432 \u0413\u0430\u043D\u0442\u0435. \u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043D\u043E\u0432\u0443\u044E \u0434\u0430\u0442\u0443 (new_deadline) \u043B\u0438\u0431\u043E \u0441\u0434\u0432\u0438\u0433 \u0432 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0445 \u0434\u043D\u044F\u0445 (shift_days, \u043E\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u2014 \u043D\u0430\u0437\u0430\u0434). \u0423 \u0437\u0430\u0434\u0430\u0447\u0438 \u043D\u0430\u0447\u0430\u043B\u043E \u0435\u0434\u0435\u0442 \u0432\u043C\u0435\u0441\u0442\u0435 \u0441\u043E \u0441\u0440\u043E\u043A\u043E\u043C, \u0434\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u0435\u0442\u0441\u044F. \u0417\u0430\u0442\u0440\u0430\u0433\u0438\u0432\u0430\u0435\u0442 \u0447\u0443\u0436\u0438\u0435 \u0441\u0440\u043E\u043A\u0438, \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u043A\u0430\u0436\u0438\u0442\u0435 \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443 preview_shift, \u0430 move_task \u0432\u044B\u0437\u044B\u0432\u0430\u0439\u0442\u0435 \u043F\u043E\u0441\u043B\u0435 \u0435\u0433\u043E \u0441\u043E\u0433\u043B\u0430\u0441\u0438\u044F. \u0415\u0441\u043B\u0438 \u043D\u0443\u0436\u043D\u043E \u043F\u043E\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u0441\u0440\u043E\u043A \u041E\u0414\u041D\u041E\u0419 \u0437\u0430\u0434\u0430\u0447\u0438, \u043D\u0438\u0447\u0435\u0433\u043E \u0437\u0430 \u043D\u0435\u0439 \u043D\u0435 \u0434\u0432\u0438\u0433\u0430\u044F, \u2014 \u044D\u0442\u043E update_task.",
+  inputSchema: {
+    id: z15.string().uuid().describe("UUID \u0437\u0430\u0434\u0430\u0447\u0438 \u0438\u043B\u0438 \u0432\u0435\u0445\u0438."),
+    new_deadline: z15.string().optional().describe("\u041D\u043E\u0432\u044B\u0439 \u0441\u0440\u043E\u043A, ISO datetime."),
+    shift_days: z15.number().int().min(-3650).max(3650).optional().describe("\u0421\u0434\u0432\u0438\u0433 \u0432 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0445 \u0434\u043D\u044F\u0445 \u0432\u043C\u0435\u0441\u0442\u043E \u043D\u043E\u0432\u043E\u0439 \u0434\u0430\u0442\u044B.")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return fail("\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D");
+    const supabase = db4(ctx);
+    const target = await parseTargetDate(supabase, input);
+    if ("error" in target) return fail(target.error);
+    const result = await moveWithCascade(supabase, input.id, target.date);
+    if ("error" in result) return fail(result.error);
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            written: true,
+            move: result.moved,
+            shifted: result.shifted,
+            shifted_count: result.shifted.length,
+            note: result.shifted.length > 0 ? "\u0421\u0434\u0432\u0438\u043D\u0443\u043B\u0438\u0441\u044C \u0447\u0443\u0436\u0438\u0435 \u0441\u0440\u043E\u043A\u0438 \u2014 \u043E \u043D\u0438\u0445 \u0441\u0442\u043E\u0438\u0442 \u0441\u043A\u0430\u0437\u0430\u0442\u044C \u043B\u044E\u0434\u044F\u043C." : "\u0421\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0445 \u0441\u0434\u0432\u0438\u0433\u043E\u0432 \u043D\u0435 \u043F\u043E\u0442\u0440\u0435\u0431\u043E\u0432\u0430\u043B\u043E\u0441\u044C."
+          })
+        }
+      ]
+    };
+  }
+});
+
 // src/lib/mcp/tools/list_protocols.ts
 import process8 from "node:process";
 import { createClient as createClient8 } from "npm:@supabase/supabase-js@^2.95.3";
-import { defineTool as defineTool14 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z14 } from "npm:zod@^4.4.3";
+import { defineTool as defineTool16 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z16 } from "npm:zod@^4.4.3";
 function db8(ctx) {
   return createClient8(process8.env.SUPABASE_URL, process8.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var list_protocols_default = defineTool14({
+var list_protocols_default = defineTool16({
   name: "list_protocols",
   title: "\u0421\u043F\u0438\u0441\u043E\u043A \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u043E\u0432 \u0432\u0441\u0442\u0440\u0435\u0447",
   description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B (task_groups \u0441 project_type='protocol'). \u0424\u0438\u043B\u044C\u0442\u0440\u044B: \u043A\u043B\u0438\u0435\u043D\u0442, \u0441\u0442\u0430\u0442\u0443\u0441 (draft/published), \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D \u0434\u0430\u0442. \u0412 \u043E\u0442\u0432\u0435\u0442\u0435 \u0435\u0441\u0442\u044C total \u0438 has_more: \u0435\u0441\u043B\u0438 has_more=true, \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u044B \u043D\u0435 \u0432\u0441\u0435 \u0437\u0430\u043F\u0438\u0441\u0438 \u2014 \u043D\u0435 \u0441\u0443\u0434\u0438\u0442\u0435 \u043E \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u0435 \u043F\u043E \u0434\u043B\u0438\u043D\u0435 \u0441\u043F\u0438\u0441\u043A\u0430.",
   inputSchema: {
-    client_id: z14.string().uuid().optional(),
-    status: z14.enum(["draft", "published"]).optional(),
-    date_from: z14.string().optional().describe("ISO date, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E"),
-    date_to: z14.string().optional().describe("ISO date, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E"),
-    limit: z14.number().int().min(1).max(100).optional(),
-    offset: z14.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
+    client_id: z16.string().uuid().optional(),
+    status: z16.enum(["draft", "published"]).optional(),
+    date_from: z16.string().optional().describe("ISO date, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E"),
+    date_to: z16.string().optional().describe("ISO date, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E"),
+    limit: z16.number().int().min(1).max(100).optional(),
+    offset: z16.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
@@ -1206,19 +1474,19 @@ var list_protocols_default = defineTool14({
 // src/lib/mcp/tools/get_protocol.ts
 import process9 from "node:process";
 import { createClient as createClient9 } from "npm:@supabase/supabase-js@^2.95.3";
-import { defineTool as defineTool15 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z15 } from "npm:zod@^4.4.3";
+import { defineTool as defineTool17 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z17 } from "npm:zod@^4.4.3";
 function db9(ctx) {
   return createClient9(process9.env.SUPABASE_URL, process9.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var get_protocol_default = defineTool15({
+var get_protocol_default = defineTool17({
   name: "get_protocol",
   title: "\u041F\u0440\u043E\u0442\u043E\u043A\u043E\u043B \u2014 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u043C\u043E\u0435 \u0438 \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0435 \u0437\u0430\u0434\u0430\u0447\u0438",
   description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B, \u0437\u0430\u0434\u0430\u0447\u0438 \u043F\u043E\u0432\u0435\u0441\u0442\u043A\u0438 \u0438 \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u043E\u0440\u043E\u0436\u0434\u0451\u043D\u043D\u044B\u0435 \u0438\u0437 \u0432\u0441\u0442\u0440\u0435\u0447\u0438 (source_protocol_id).",
-  inputSchema: { protocol_id: z15.string().uuid() },
+  inputSchema: { protocol_id: z17.string().uuid() },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async ({ protocol_id }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
@@ -1240,25 +1508,25 @@ var get_protocol_default = defineTool15({
 // src/lib/mcp/tools/list_clients.ts
 import process10 from "node:process";
 import { createClient as createClient10 } from "npm:@supabase/supabase-js@^2.95.3";
-import { defineTool as defineTool16 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z16 } from "npm:zod@^4.4.3";
+import { defineTool as defineTool18 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z18 } from "npm:zod@^4.4.3";
 function db10(ctx) {
   return createClient10(process10.env.SUPABASE_URL, process10.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var list_clients_default = defineTool16({
+var list_clients_default = defineTool18({
   name: "list_clients",
   title: "\u0421\u043F\u0438\u0441\u043E\u043A CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u043E\u0432",
   description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u043E\u0432. \u041C\u043E\u0436\u043D\u043E \u0438\u0441\u043A\u0430\u0442\u044C \u043F\u043E \u0438\u043C\u0435\u043D\u0438 \u0438 \u0444\u0438\u043B\u044C\u0442\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u0442\u0435\u0440\u0440\u0438\u0442\u043E\u0440\u0438\u0438/\u0440\u0430\u043D\u0433\u0443/\u043C\u0435\u043D\u0435\u0434\u0436\u0435\u0440\u0443. \u0412 \u043E\u0442\u0432\u0435\u0442\u0435 \u0435\u0441\u0442\u044C total \u0438 has_more: \u0435\u0441\u043B\u0438 has_more=true, \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u044B \u043D\u0435 \u0432\u0441\u0435 \u0437\u0430\u043F\u0438\u0441\u0438 \u2014 \u043D\u0435 \u0441\u0443\u0434\u0438\u0442\u0435 \u043E \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u0435 \u043F\u043E \u0434\u043B\u0438\u043D\u0435 \u0441\u043F\u0438\u0441\u043A\u0430.",
   inputSchema: {
-    search: z16.string().optional().describe("\u041F\u043E\u0434\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0438\u043C\u0435\u043D\u0438 \u043A\u043B\u0438\u0435\u043D\u0442\u0430"),
-    territory: z16.string().optional().describe("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u0435\u0440\u0440\u0438\u0442\u043E\u0440\u0438\u0438 (\u0442\u0435\u0433), \u0431\u0435\u0437 \u0443\u0447\u0451\u0442\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430"),
-    rank: z16.string().optional().describe("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0440\u0430\u043D\u0433\u0430 (\u0442\u0435\u0433), \u0431\u0435\u0437 \u0443\u0447\u0451\u0442\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430"),
-    manager_id: z16.string().uuid().optional(),
-    limit: z16.number().int().min(1).max(200).optional(),
-    offset: z16.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
+    search: z18.string().optional().describe("\u041F\u043E\u0434\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0438\u043C\u0435\u043D\u0438 \u043A\u043B\u0438\u0435\u043D\u0442\u0430"),
+    territory: z18.string().optional().describe("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u0435\u0440\u0440\u0438\u0442\u043E\u0440\u0438\u0438 (\u0442\u0435\u0433), \u0431\u0435\u0437 \u0443\u0447\u0451\u0442\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430"),
+    rank: z18.string().optional().describe("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0440\u0430\u043D\u0433\u0430 (\u0442\u0435\u0433), \u0431\u0435\u0437 \u0443\u0447\u0451\u0442\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430"),
+    manager_id: z18.string().uuid().optional(),
+    limit: z18.number().int().min(1).max(200).optional(),
+    offset: z18.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
@@ -1298,19 +1566,19 @@ var list_clients_default = defineTool16({
 // src/lib/mcp/tools/get_client.ts
 import process11 from "node:process";
 import { createClient as createClient11 } from "npm:@supabase/supabase-js@^2.95.3";
-import { defineTool as defineTool17 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z17 } from "npm:zod@^4.4.3";
+import { defineTool as defineTool19 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z19 } from "npm:zod@^4.4.3";
 function db11(ctx) {
   return createClient11(process11.env.SUPABASE_URL, process11.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var get_client_default = defineTool17({
+var get_client_default = defineTool19({
   name: "get_client",
   title: "\u041A\u043B\u0438\u0435\u043D\u0442 \u2014 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u0438 \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u044C",
   description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u0430, \u043F\u0440\u0438\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0435 \u043E\u0442\u043A\u0440\u044B\u0442\u044B\u0435 \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B \u0438 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B \u0437\u0430 90 \u0434\u043D\u0435\u0439.",
-  inputSchema: { client_id: z17.string().uuid() },
+  inputSchema: { client_id: z19.string().uuid() },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async ({ client_id }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
@@ -1333,19 +1601,20 @@ var get_client_default = defineTool17({
 });
 
 // src/lib/mcp/tools/update_task.ts
-import { defineTool as defineTool18 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z18 } from "npm:zod@^4.4.3";
-var update_task_default = defineTool18({
+import { defineTool as defineTool20 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z20 } from "npm:zod@^4.4.3";
+var update_task_default = defineTool20({
   name: "update_task",
   title: "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0437\u0430\u0434\u0430\u0447\u0443",
-  description: "\u041C\u0435\u043D\u044F\u0435\u0442 \u0437\u0430\u0434\u0430\u0447\u0443: \u0441\u0442\u0430\u0442\u0443\u0441, \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044F, \u0441\u0440\u043E\u043A, \u0432\u0430\u0436\u043D\u043E\u0441\u0442\u044C, \u043F\u0440\u0438\u043E\u0440\u0438\u0442\u0435\u0442. \u041F\u0435\u0440\u0435\u0434\u0430\u0432\u0430\u0439 \u0442\u043E\u043B\u044C\u043A\u043E \u0442\u043E, \u0447\u0442\u043E \u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F. status \u2014 \u0442\u0435 \u0436\u0435 \u0441\u0442\u0430\u0442\u0443\u0441\u044B, \u0447\u0442\u043E \u0432 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438: \xAB\u0432 \u0440\u0430\u0431\u043E\u0442\u0435\xBB, \xAB\u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E\xBB, \xAB\u0436\u0434\u0451\u043C \u043E\u0442\u0432\u0435\u0442\xBB, \xAB\u043F\u043E\u043B\u0443\u0447\u0435\u043D \u043E\u0442\u0432\u0435\u0442\xBB, \xAB\u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E\xBB, \xAB\u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E\xBB; \xABnone\xBB \u0441\u043D\u0438\u043C\u0430\u0435\u0442 \u0441\u0442\u0430\u0442\u0443\u0441. \u0421\u0442\u0430\u0442\u0443\u0441 \u2014 \u044D\u0442\u043E \u043F\u043E\u043C\u0435\u0442\u043A\u0430 \u0445\u043E\u0434\u0430 \u0440\u0430\u0431\u043E\u0442\u044B, \u043E\u043D \u041D\u0415 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u0437\u0430\u0434\u0430\u0447\u0443: \u0434\u043B\u044F \u0437\u0430\u043A\u0440\u044B\u0442\u0438\u044F \u2014 complete_task. assignee \u2014 id, \u043F\u043E\u0447\u0442\u0430 \u0438\u043B\u0438 \u0438\u043C\u044F; \u043D\u043E\u0432\u044B\u0439 \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C \u043F\u043E\u043B\u0443\u0447\u0438\u0442 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435. deadline: null \u0441\u043D\u0438\u043C\u0430\u0435\u0442 \u0441\u0440\u043E\u043A.",
+  description: "\u041C\u0435\u043D\u044F\u0435\u0442 \u0437\u0430\u0434\u0430\u0447\u0443: \u0441\u0442\u0430\u0442\u0443\u0441, \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044F, \u0441\u0440\u043E\u043A, \u0432\u0430\u0436\u043D\u043E\u0441\u0442\u044C, \u043F\u0440\u0438\u043E\u0440\u0438\u0442\u0435\u0442. \u041F\u0435\u0440\u0435\u0434\u0430\u0432\u0430\u0439 \u0442\u043E\u043B\u044C\u043A\u043E \u0442\u043E, \u0447\u0442\u043E \u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F. status \u2014 \u0442\u0435 \u0436\u0435 \u0441\u0442\u0430\u0442\u0443\u0441\u044B, \u0447\u0442\u043E \u0432 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438: \xAB\u0432 \u0440\u0430\u0431\u043E\u0442\u0435\xBB, \xAB\u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E\xBB, \xAB\u0436\u0434\u0451\u043C \u043E\u0442\u0432\u0435\u0442\xBB, \xAB\u043F\u043E\u043B\u0443\u0447\u0435\u043D \u043E\u0442\u0432\u0435\u0442\xBB, \xAB\u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E\xBB, \xAB\u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E\xBB; \xABnone\xBB \u0441\u043D\u0438\u043C\u0430\u0435\u0442 \u0441\u0442\u0430\u0442\u0443\u0441. \u0421\u0442\u0430\u0442\u0443\u0441 \u2014 \u044D\u0442\u043E \u043F\u043E\u043C\u0435\u0442\u043A\u0430 \u0445\u043E\u0434\u0430 \u0440\u0430\u0431\u043E\u0442\u044B, \u043E\u043D \u041D\u0415 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u0437\u0430\u0434\u0430\u0447\u0443: \u0434\u043B\u044F \u0437\u0430\u043A\u0440\u044B\u0442\u0438\u044F \u2014 complete_task. assignee \u2014 id, \u043F\u043E\u0447\u0442\u0430 \u0438\u043B\u0438 \u0438\u043C\u044F; \u043D\u043E\u0432\u044B\u0439 \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C \u043F\u043E\u043B\u0443\u0447\u0438\u0442 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435. deadline: null \u0441\u043D\u0438\u043C\u0430\u0435\u0442 \u0441\u0440\u043E\u043A. start_at \u2014 \u0434\u0430\u0442\u0430 \u043D\u0430\u0447\u0430\u043B\u0430: \u0441 \u043D\u0435\u0439 \u0437\u0430\u0434\u0430\u0447\u0430 \u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u0441\u044F \u043E\u0442\u0440\u0435\u0437\u043A\u043E\u043C \u043D\u0430 \u0413\u0430\u043D\u0442\u0435, \u0430 \u043D\u0435 \u0442\u043E\u0447\u043A\u043E\u0439; \u0434\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u043D\u0438\u0433\u0434\u0435 \u043D\u0435 \u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F, \u043E\u043D\u0430 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u0438\u0437 \u043D\u0430\u0447\u0430\u043B\u0430 \u0438 \u0441\u0440\u043E\u043A\u0430. \u0412\u043D\u0438\u043C\u0430\u043D\u0438\u0435: \u0437\u0434\u0435\u0441\u044C \u0441\u0440\u043E\u043A \u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F \u0411\u0415\u0417 \u043F\u0435\u0440\u0435\u0441\u0447\u0451\u0442\u0430 \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0445 \u0437\u0430\u0434\u0430\u0447 \u2014 \u044D\u0442\u043E \u043F\u0440\u0430\u0432\u043A\u0430 \u0437\u0430\u0434\u0430\u0447\u0438, \u043A\u0430\u043A \u0432 \u0435\u0451 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0435. \u0427\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u043D\u0435\u0441\u0442\u0438 \u0437\u0430\u0434\u0430\u0447\u0443 \u0432\u043C\u0435\u0441\u0442\u0435 \u0441\u043E \u0432\u0441\u0435\u043C, \u0447\u0442\u043E \u0437\u0430 \u043D\u0435\u0439 \u0441\u0442\u043E\u0438\u0442, \u0435\u0441\u0442\u044C move_task (\u0438 preview_shift, \u0447\u0442\u043E\u0431\u044B \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C).",
   inputSchema: {
-    task_id: z18.string().uuid(),
-    status: z18.enum([...STATUS_NAMES, "none"]).optional(),
-    assignee: z18.string().optional().describe("\u041D\u043E\u0432\u044B\u0439 \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C: id, \u043F\u043E\u0447\u0442\u0430 \u0438\u043B\u0438 \u0438\u043C\u044F"),
-    deadline: z18.string().nullable().optional().describe("ISO datetime; null \u2014 \u0441\u043D\u044F\u0442\u044C \u0441\u0440\u043E\u043A"),
-    is_important: z18.boolean().optional(),
-    priority: z18.number().int().min(1).max(4).nullable().optional()
+    task_id: z20.string().uuid(),
+    status: z20.enum([...STATUS_NAMES, "none"]).optional(),
+    assignee: z20.string().optional().describe("\u041D\u043E\u0432\u044B\u0439 \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C: id, \u043F\u043E\u0447\u0442\u0430 \u0438\u043B\u0438 \u0438\u043C\u044F"),
+    deadline: z20.string().nullable().optional().describe("ISO datetime; null \u2014 \u0441\u043D\u044F\u0442\u044C \u0441\u0440\u043E\u043A"),
+    start_at: z20.string().nullable().optional().describe("\u0414\u0430\u0442\u0430 \u043D\u0430\u0447\u0430\u043B\u0430, ISO datetime; null \u2014 \u0441\u043D\u044F\u0442\u044C \u043D\u0430\u0447\u0430\u043B\u043E"),
+    is_important: z20.boolean().optional(),
+    priority: z20.number().int().min(1).max(4).nullable().optional()
   },
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
@@ -1363,7 +1632,29 @@ var update_task_default = defineTool18({
       newAssignee = r;
       updates.assigned_to = r.id;
     }
-    if (input.deadline !== void 0) updates.deadline = input.deadline;
+    for (const field of ["deadline", "start_at"]) {
+      const raw = input[field];
+      if (raw === void 0) continue;
+      if (raw === null) {
+        updates[field] = null;
+        continue;
+      }
+      const d = new Date(raw);
+      if (Number.isNaN(d.getTime())) return fail(`\u041D\u0435 \u0440\u0430\u0437\u043E\u0431\u0440\u0430\u043B ${field}: \xAB${raw}\xBB. \u041D\u0443\u0436\u0435\u043D ISO datetime.`);
+      const y = d.getUTCFullYear();
+      if (y < 2e3 || y > 2100) return fail(`\u0414\u0430\u0442\u0430 ${raw} \u0432\u043D\u0435 \u0440\u0430\u0437\u0443\u043C\u043D\u043E\u0433\u043E \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D\u0430 (2000\u20132100).`);
+      updates[field] = d.toISOString();
+    }
+    const finalStart = "start_at" in updates ? updates.start_at : void 0;
+    const finalDeadline = "deadline" in updates ? updates.deadline : void 0;
+    if (finalStart || finalDeadline) {
+      const { data: cur } = await supabase.from("tasks").select("start_at,deadline").eq("id", input.task_id).maybeSingle();
+      const start = finalStart !== void 0 ? finalStart : cur?.start_at ?? null;
+      const end = finalDeadline !== void 0 ? finalDeadline : cur?.deadline ?? null;
+      if (start && end && new Date(start).getTime() > new Date(end).getTime()) {
+        return fail(`\u041D\u0430\u0447\u0430\u043B\u043E (${start}) \u043F\u043E\u0437\u0436\u0435 \u0441\u0440\u043E\u043A\u0430 (${end}) \u2014 \u0442\u0430\u043A \u0437\u0430\u0434\u0430\u0447\u0430 \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u0441\u044F \u043E\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043B\u044C\u043D\u043E\u0439 \u0434\u043B\u0438\u043D\u044B.`);
+      }
+    }
     if (input.is_important !== void 0) updates.is_important = input.is_important;
     if (input.priority !== void 0) updates.priority = input.priority;
     const changed = [];
@@ -1373,6 +1664,7 @@ var update_task_default = defineTool18({
       if (!upd?.length) return fail("\u041D\u0435\u0442 \u043F\u0440\u0430\u0432 \u043D\u0430 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0435 \u044D\u0442\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438");
       if (newAssignee) changed.push(`\u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C \u2192 ${newAssignee.name}`);
       if ("deadline" in updates) changed.push(updates.deadline ? `\u0441\u0440\u043E\u043A \u2192 ${updates.deadline}` : "\u0441\u0440\u043E\u043A \u0441\u043D\u044F\u0442");
+      if ("start_at" in updates) changed.push(updates.start_at ? `\u043D\u0430\u0447\u0430\u043B\u043E \u2192 ${updates.start_at}` : "\u043D\u0430\u0447\u0430\u043B\u043E \u0441\u043D\u044F\u0442\u043E");
       if ("is_important" in updates) changed.push(updates.is_important ? "\u0432\u0430\u0436\u043D\u0430\u044F" : "\u043D\u0435 \u0432\u0430\u0436\u043D\u0430\u044F");
       if ("priority" in updates) changed.push(`\u043F\u0440\u0438\u043E\u0440\u0438\u0442\u0435\u0442 \u2192 ${updates.priority ?? "\u043D\u0435\u0442"}`);
     }
@@ -1393,16 +1685,16 @@ var update_task_default = defineTool18({
 });
 
 // src/lib/mcp/tools/add_comment.ts
-import { defineTool as defineTool19 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z19 } from "npm:zod@^4.4.3";
-var add_comment_default = defineTool19({
+import { defineTool as defineTool21 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z21 } from "npm:zod@^4.4.3";
+var add_comment_default = defineTool21({
   name: "add_comment",
   title: "\u041D\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u0432 \u0447\u0430\u0442 \u0437\u0430\u0434\u0430\u0447\u0438",
   description: "\u0414\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u0432 \u0447\u0430\u0442 \u0437\u0430\u0434\u0430\u0447\u0438 \u043E\u0442 \u0438\u043C\u0435\u043D\u0438 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F, \u0441 \u043F\u043E\u043C\u0435\u0442\u043A\u043E\u0439, \u0447\u0442\u043E \u0435\u0433\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043B Claude. \u041F\u043E\u0434\u0445\u043E\u0434\u0438\u0442, \u0447\u0442\u043E\u0431\u044B \u0437\u0430\u0444\u0438\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0432 \u0437\u0430\u0434\u0430\u0447\u0435 \u0441\u0443\u0442\u044C \u043F\u0438\u0441\u044C\u043C\u0430 \u0438\u043B\u0438 \u043E\u0442\u0432\u0435\u0442\u0430. reply_to \u2014 id \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u043E\u0435 \u044D\u0442\u043E \u043E\u0442\u0432\u0435\u0442; \u0430\u0432\u0442\u043E\u0440 \u0442\u043E\u0433\u043E \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u043F\u043E\u043B\u0443\u0447\u0438\u0442 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435, \u043A\u0430\u043A \u0432 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438.",
   inputSchema: {
-    task_id: z19.string().uuid(),
-    content: z19.string().min(1).max(4e3),
-    reply_to: z19.string().uuid().optional()
+    task_id: z21.string().uuid(),
+    content: z21.string().min(1).max(4e3),
+    reply_to: z21.string().uuid().optional()
   },
   annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   handler: async (input, ctx) => {
@@ -1483,7 +1775,7 @@ var mcp_default = defineMcp({
   name: "justtodoit-mcp",
   title: "JustTODOit",
   version: "0.2.0",
-  instructions: "\u0418\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u044B JustTODOit: \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B, \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B \u0432\u0441\u0442\u0440\u0435\u0447, CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u044B. \u0412\u0441\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F \u2014 \u043E\u0442 \u0438\u043C\u0435\u043D\u0438 \u0437\u0430\u043B\u043E\u0433\u0438\u043D\u0435\u043D\u043D\u043E\u0433\u043E \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F, RLS \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F. \u0414\u0430\u0442\u044B \u0432 ISO 8601. \u0417\u0430\u0434\u0430\u0447\u0438 \u0438\u0437 \u043F\u0438\u0441\u0435\u043C \u0441\u043E\u0437\u0434\u0430\u0432\u0430\u0439 \u0441 source (\u0442\u0435\u043C\u0430, \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u044C, \u0434\u0430\u0442\u0430) \u2014 \u043F\u043E \u043D\u0435\u043C\u0443 \u043F\u043E\u0442\u043E\u043C \u0441\u0432\u0435\u0440\u044F\u044E\u0442\u0441\u044F \u043F\u0438\u0441\u044C\u043C\u0430 \u0441 \u0437\u0430\u0434\u0430\u0447\u0430\u043C\u0438 \u0447\u0435\u0440\u0435\u0437 search_tasks. \u041F\u0440\u043E \u0441\u0440\u043E\u043A\u0438 \u0438 \u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E\u0441\u0442\u0438 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0439 get_project_schedule \u2014 \u0432\u0435\u0445\u0438, \u0437\u0430\u0434\u0430\u0447\u0438 \u0441 \u043D\u0430\u0447\u0430\u043B\u043E\u043C \u0438 \u043A\u043E\u043D\u0446\u043E\u043C \u0438 \u0441\u0432\u044F\u0437\u0438 \u043C\u0435\u0436\u0434\u0443 \u043D\u0438\u043C\u0438 \u043F\u0440\u0438\u0445\u043E\u0434\u044F\u0442 \u043E\u0434\u043D\u0438\u043C \u0432\u044B\u0437\u043E\u0432\u043E\u043C. \u0412\u0435\u0445\u0438 \u0437\u0430\u0432\u043E\u0434\u044F\u0442\u0441\u044F \u0438 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u044F\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 create_milestone \u0438 update_milestone; \u043F\u043B\u0430\u043D\u043E\u0432\u0430\u044F \u0438 \u0444\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0430\u044F \u0434\u0430\u0442\u044B \u2014 \u0440\u0430\u0437\u043D\u044B\u0435 \u0432\u0435\u0449\u0438, \u043F\u0435\u0440\u0435\u043D\u043E\u0441 \u043F\u043B\u0430\u043D\u0430 \u043D\u0435 \u0437\u043D\u0430\u0447\u0438\u0442 \u0434\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u0435. \u0421\u0432\u044F\u0437\u0438 \xAB\u0447\u0442\u043E \u0437\u0430 \u0447\u0435\u043C \u0438\u0434\u0451\u0442\xBB \u0441\u043E\u0437\u0434\u0430\u044E\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 link_tasks \u0438 \u0441\u043D\u0438\u043C\u0430\u044E\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 unlink_tasks; \u043F\u043E\u0441\u043B\u0435 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u0441\u0432\u044F\u0437\u0438 \u043F\u0440\u0435\u0435\u043C\u043D\u0438\u043A\u0438 \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u0441\u0434\u0432\u0438\u0433\u0430\u044E\u0442\u0441\u044F \u0432\u043F\u0435\u0440\u0451\u0434 \u2014 \u0441\u0434\u0432\u0438\u043D\u0443\u0442\u043E\u0435 \u043F\u0440\u0438\u0445\u043E\u0434\u0438\u0442 \u0432 \u043E\u0442\u0432\u0435\u0442\u0435, \u043E \u043D\u0451\u043C \u0441\u0442\u043E\u0438\u0442 \u0441\u043A\u0430\u0437\u0430\u0442\u044C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443. \u041A\u0430\u0436\u0434\u044B\u0439 \u0432\u044B\u0437\u043E\u0432 \u043F\u0438\u0448\u0435\u0442\u0441\u044F \u0432 \u0436\u0443\u0440\u043D\u0430\u043B \u043E\u0431\u0440\u0430\u0449\u0435\u043D\u0438\u0439.",
+  instructions: "\u0418\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u044B JustTODOit: \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B, \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B \u0432\u0441\u0442\u0440\u0435\u0447, CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u044B. \u0412\u0441\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F \u2014 \u043E\u0442 \u0438\u043C\u0435\u043D\u0438 \u0437\u0430\u043B\u043E\u0433\u0438\u043D\u0435\u043D\u043D\u043E\u0433\u043E \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F, RLS \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F. \u0414\u0430\u0442\u044B \u0432 ISO 8601. \u0417\u0430\u0434\u0430\u0447\u0438 \u0438\u0437 \u043F\u0438\u0441\u0435\u043C \u0441\u043E\u0437\u0434\u0430\u0432\u0430\u0439 \u0441 source (\u0442\u0435\u043C\u0430, \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u044C, \u0434\u0430\u0442\u0430) \u2014 \u043F\u043E \u043D\u0435\u043C\u0443 \u043F\u043E\u0442\u043E\u043C \u0441\u0432\u0435\u0440\u044F\u044E\u0442\u0441\u044F \u043F\u0438\u0441\u044C\u043C\u0430 \u0441 \u0437\u0430\u0434\u0430\u0447\u0430\u043C\u0438 \u0447\u0435\u0440\u0435\u0437 search_tasks. \u041F\u0440\u043E \u0441\u0440\u043E\u043A\u0438 \u0438 \u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E\u0441\u0442\u0438 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0439 get_project_schedule \u2014 \u0432\u0435\u0445\u0438, \u0437\u0430\u0434\u0430\u0447\u0438 \u0441 \u043D\u0430\u0447\u0430\u043B\u043E\u043C \u0438 \u043A\u043E\u043D\u0446\u043E\u043C \u0438 \u0441\u0432\u044F\u0437\u0438 \u043C\u0435\u0436\u0434\u0443 \u043D\u0438\u043C\u0438 \u043F\u0440\u0438\u0445\u043E\u0434\u044F\u0442 \u043E\u0434\u043D\u0438\u043C \u0432\u044B\u0437\u043E\u0432\u043E\u043C. \u0412\u0435\u0445\u0438 \u0437\u0430\u0432\u043E\u0434\u044F\u0442\u0441\u044F \u0438 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u044F\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 create_milestone \u0438 update_milestone; \u043F\u043B\u0430\u043D\u043E\u0432\u0430\u044F \u0438 \u0444\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0430\u044F \u0434\u0430\u0442\u044B \u2014 \u0440\u0430\u0437\u043D\u044B\u0435 \u0432\u0435\u0449\u0438, \u043F\u0435\u0440\u0435\u043D\u043E\u0441 \u043F\u043B\u0430\u043D\u0430 \u043D\u0435 \u0437\u043D\u0430\u0447\u0438\u0442 \u0434\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u0435. \u0421\u0432\u044F\u0437\u0438 \xAB\u0447\u0442\u043E \u0437\u0430 \u0447\u0435\u043C \u0438\u0434\u0451\u0442\xBB \u0441\u043E\u0437\u0434\u0430\u044E\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 link_tasks \u0438 \u0441\u043D\u0438\u043C\u0430\u044E\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 unlink_tasks; \u043F\u043E\u0441\u043B\u0435 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u0441\u0432\u044F\u0437\u0438 \u043F\u0440\u0435\u0435\u043C\u043D\u0438\u043A\u0438 \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u0441\u0434\u0432\u0438\u0433\u0430\u044E\u0442\u0441\u044F \u0432\u043F\u0435\u0440\u0451\u0434 \u2014 \u0441\u0434\u0432\u0438\u043D\u0443\u0442\u043E\u0435 \u043F\u0440\u0438\u0445\u043E\u0434\u0438\u0442 \u0432 \u043E\u0442\u0432\u0435\u0442\u0435, \u043E \u043D\u0451\u043C \u0441\u0442\u043E\u0438\u0442 \u0441\u043A\u0430\u0437\u0430\u0442\u044C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443. \u041F\u0435\u0440\u0435\u043D\u043E\u0441 \u0441\u0440\u043E\u043A\u043E\u0432: preview_shift \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0447\u0442\u043E \u043F\u043E\u0442\u044F\u043D\u0435\u0442\u0441\u044F \u0437\u0430 \u0437\u0430\u0434\u0430\u0447\u0435\u0439, \u0431\u0435\u0437 \u0437\u0430\u043F\u0438\u0441\u0438; move_task \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442. \u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u043A\u0430\u0436\u0438 \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443 preview_shift \u0438 \u043F\u043E\u043B\u0443\u0447\u0438 \u0441\u043E\u0433\u043B\u0430\u0441\u0438\u0435 \u2014 \u0441\u0434\u0432\u0438\u0433 \u0437\u0430\u0434\u0435\u0432\u0430\u0435\u0442 \u0447\u0443\u0436\u0438\u0435 \u0441\u0440\u043E\u043A\u0438, \u043E \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0443\u0436\u0435 \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0438\u043B\u0438\u0441\u044C. \u041F\u0440\u0430\u0432\u043A\u0430 \u0441\u0440\u043E\u043A\u0430 \u043E\u0434\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438 \u0431\u0435\u0437 \u0445\u0432\u043E\u0441\u0442\u0430 \u2014 \u044D\u0442\u043E update_task. \u0414\u043D\u0438 \u0432\u0435\u0437\u0434\u0435 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0435. \u041A\u0430\u0436\u0434\u044B\u0439 \u0432\u044B\u0437\u043E\u0432 \u043F\u0438\u0448\u0435\u0442\u0441\u044F \u0432 \u0436\u0443\u0440\u043D\u0430\u043B \u043E\u0431\u0440\u0430\u0449\u0435\u043D\u0438\u0439.",
   auth: auth.oauth.issuer({
     issuer: `${AUTH_BASE}/auth/v1`,
     // resource закрепляем явно. Без него библиотека берёт адрес из заголовка
@@ -1510,6 +1802,8 @@ var mcp_default = defineMcp({
     update_milestone_default,
     link_tasks_default,
     unlink_tasks_default,
+    preview_shift_default,
+    move_task_default,
     list_protocols_default,
     get_protocol_default,
     list_clients_default,
