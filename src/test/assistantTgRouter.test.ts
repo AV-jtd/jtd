@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { looksLikeAssistantRequest as ask } from "../../supabase/functions/_shared/assistantTg";
+import { looksLikeAssistantRequest as ask } from "../../supabase/functions/_shared/assistantTgRouter";
 
 describe("бот: вопрос ассистенту или задача", () => {
   it.each([

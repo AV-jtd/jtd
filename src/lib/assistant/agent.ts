@@ -16,6 +16,14 @@
  * окна и уходит обратно. Подделать её может только сам пользователь, а
  * инструменты всё равно исполняются его токеном и его правами.
  *
+ * Пошаговый режим (`stepwise`, 01.10.2026). Цикл целиком шёл 5–9 с молча.
+ * В пошаговом режиме функция возвращается после каждого хода модели с
+ * инструментами чтения (`status: "working"`), окно показывает «смотрю задачи…»
+ * и зовёт снова с той же перепиской. Потоковая передача через Kong и nginx не
+ * нужна, а предел ходов считается по самой переписке — по числу ответов
+ * ассистента после последнего сообщения пользователя, — так что вызывающий
+ * его не обойдёт, сколько бы раз ни звал.
+ *
  * Модель и инструменты подаются снаружи (`AgentDeps`) — цикл проверяется
  * тестами без сети и без базы (src/test/assistantAgent.test.ts).
  */
@@ -50,10 +58,13 @@ export type AgentStep = { name: string; title: string; ok: boolean };
 
 export type AgentResult =
   | { status: "done"; reply: string; messages: ChatMessage[]; steps: AgentStep[] }
+  | { status: "working"; reply: string; messages: ChatMessage[]; steps: AgentStep[] }
   | { status: "confirm"; reply: string; messages: ChatMessage[]; steps: AgentStep[]; pending: PendingAction[] };
 
 /** Предел ходов модели на один запрос — чтобы зацикливание не стоило денег. */
 export const MAX_STEPS = 8;
+/** Предел ходов на одну реплику пользователя в пошаговом режиме (с продолжениями после карточек). */
+export const MAX_TURNS_PER_REQUEST = 16;
 /** Предел длины результата инструмента, который уходит модели. */
 export const MAX_RESULT_CHARS = 15000;
 
@@ -79,6 +90,16 @@ export function toolResultForModel(r: ToolResult): string {
   return out;
 }
 
+/** Сколько ходов модели уже было после последнего сообщения пользователя. */
+export function turnsSinceUser(messages: ChatMessage[]): number {
+  let n = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") break;
+    if (messages[i].role === "assistant") n++;
+  }
+  return n;
+}
+
 /** Вызовы из последнего хода ассистента, на которые ещё нет ответа инструмента. */
 function unanswered(messages: ChatMessage[]): ToolCall[] {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -99,6 +120,8 @@ export async function runAgent(opts: {
   /** Решение по действиям, ждавшим подтверждения. */
   decision?: { approve: boolean };
   maxSteps?: number;
+  /** Вернуться после хода с чтением, не дожидаясь ответа: окно покажет прогресс. */
+  stepwise?: boolean;
 }): Promise<AgentResult> {
   const { deps } = opts;
   const messages = [...opts.messages];
@@ -125,6 +148,13 @@ export async function runAgent(opts: {
   }
 
   const max = opts.maxSteps ?? MAX_STEPS;
+  const stop = (n: number, lastText: string): AgentResult => ({
+    status: "done",
+    reply: (lastText ? lastText + "\n\n" : "") + `_Остановился после ${n} шагов. Уточните запрос или попросите продолжить._`,
+    messages,
+    steps,
+  });
+  if (opts.stepwise && turnsSinceUser(messages) >= MAX_TURNS_PER_REQUEST) return stop(MAX_TURNS_PER_REQUEST, "");
   let lastText = "";
   for (let step = 0; step < max; step++) {
     const turn = await deps.callModel(messages);
@@ -144,11 +174,7 @@ export async function runAgent(opts: {
     if (pending.length > 0) {
       return { status: "confirm", reply: turn.content ?? "", messages, steps, pending };
     }
+    if (opts.stepwise) return { status: "working", reply: turn.content ?? "", messages, steps };
   }
-  return {
-    status: "done",
-    reply: (lastText ? lastText + "\n\n" : "") + `_Остановился после ${max} шагов. Уточните запрос или попросите продолжить._`,
-    messages,
-    steps,
-  };
+  return stop(max, lastText);
 }

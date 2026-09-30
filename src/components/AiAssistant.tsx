@@ -17,6 +17,7 @@ import { parseQuickTask } from "@/lib/quickTaskParse";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { useQueryClient } from "@tanstack/react-query";
+import { useFocusedTask } from "@/lib/assistant/focusedTask";
 
 interface ParsedTask {
   title: string;
@@ -64,9 +65,15 @@ interface Message {
 }
 
 type AgentStep = { name: string; title: string; ok: boolean };
-type PendingAction = { id: string; name: string; title: string; input: Record<string, unknown>; destructive: boolean; labels?: string[] };
+type PendingAction = {
+  id: string; name: string; title: string; input: Record<string, unknown>; destructive: boolean; labels?: string[];
+  /** «Было → станет» (lib/assistant/changes.ts); поля из changed_keys в список аргументов не попадают. */
+  changes?: { field: string; from: string; to: string }[];
+  changed_keys?: string[];
+  note?: string;
+};
 type AgentResponse = {
-  status: "done" | "confirm";
+  status: "done" | "confirm" | "working";
   reply: string;
   steps: AgentStep[];
   pending?: PendingAction[];
@@ -95,9 +102,9 @@ function humanDate(v: string): string {
   return `${date}, ${time}`;
 }
 
-function formatArgs(input: Record<string, unknown>): string[] {
+function formatArgs(input: Record<string, unknown>, skip: string[] = []): string[] {
   return Object.entries(input)
-    .filter(([k, v]) => v !== null && v !== undefined && v !== "" && !k.endsWith("_id") && !(typeof v === "string" && UUID_LIKE.test(v)))
+    .filter(([k, v]) => !skip.includes(k) && v !== null && v !== undefined && v !== "" && !k.endsWith("_id") && !(typeof v === "string" && UUID_LIKE.test(v)))
     .map(([k, v]) => {
       const val = typeof v === "boolean" ? (v ? "да" : "нет")
         : typeof v === "string" && ISO_DATE.test(v) ? humanDate(v)
@@ -207,6 +214,12 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  /** Что ассистент делает прямо сейчас — строка у индикатора загрузки. */
+  const [progress, setProgress] = useState<string | null>(null);
+  // Последняя открытая задача — «эта задача» для ассистента; крестиком её можно убрать.
+  const focusedRaw = useFocusedTask();
+  const [dismissedTaskId, setDismissedTaskId] = useState<string | null>(null);
+  const focusedTask = focusedRaw && focusedRaw.id !== dismissedTaskId ? focusedRaw : null;
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -392,7 +405,35 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
     module: currentModule,
     project_id: moduleContext?.activeProjectId || undefined,
     project_name: moduleContext?.activeProjectName || undefined,
+    task_id: focusedTask?.id,
+    task_title: focusedTask?.title,
   });
+
+  /**
+   * Ход ассистента пошагово: функция возвращается после каждого чтения
+   * («working»), а мы показываем, что он смотрит, и зовём дальше. Предел ходов
+   * сервер считает по переписке; здесь — только страховка от бесконечного цикла.
+   */
+  const callAgent = async (body: Record<string, unknown>) => {
+    let req: Record<string, unknown> = { ...body, action: "chat", stepwise: true, context: agentContext() };
+    const allSteps: AgentStep[] = [];
+    setProgress("Думаю…");
+    try {
+      for (let i = 0; i < 20; i++) {
+        const { data, error } = await supabase.functions.invoke("assistant-tools", { body: req });
+        if (error || !data?.status) return { data: null, error };
+        const r = data as AgentResponse;
+        allSteps.push(...(r.steps ?? []));
+        if (r.status !== "working") return { data: { ...r, steps: allSteps }, error: null };
+        const titles = [...new Set(allSteps.map((s) => s.title))];
+        setProgress(`Смотрю: ${titles.slice(-3).join(" · ")}…`);
+        req = { action: "chat", stepwise: true, messages: r.messages, context: agentContext() };
+      }
+      return { data: null, error: null };
+    } finally {
+      setProgress(null);
+    }
+  };
 
   const showAgentResult = (data: AgentResponse) => {
     if (data.status === "confirm" && data.pending?.length) {
@@ -435,10 +476,8 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
       if (last && last.role === m.role) last.content += "\n\n" + m.content;
       else history.push({ role: m.role, content: m.content });
     }
-    const { data, error } = await supabase.functions.invoke("assistant-tools", {
-      body: { action: "chat", messages: history, context: agentContext() },
-    });
-    if (error) return agentFailed(error);
+    const { data, error } = await callAgent({ messages: history });
+    if (error) return agentFailed(error as never);
     if (!data?.status) return false;
     showAgentResult(data as AgentResponse);
     return true;
@@ -452,11 +491,9 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
     updateMessage(msgIndex, { agent: { pending: msg.agent.pending, decided: approve ? "approved" : "rejected" } });
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("assistant-tools", {
-        body: { action: "chat", messages: convo, decision: { approve }, context: agentContext() },
-      });
-      if (error) {
-        if (!agentFailed(error)) addMessage({ role: "assistant", content: "❌ Не удалось выполнить. Попробуйте ещё раз." });
+      const { data, error } = await callAgent({ messages: convo, decision: { approve } });
+      if (error || !data) {
+        if (!agentFailed(error as never)) addMessage({ role: "assistant", content: "❌ Не удалось выполнить. Попробуйте ещё раз." });
         return;
       }
       showAgentResult(data as AgentResponse);
@@ -683,7 +720,31 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
                         <div className={cn("text-[11px] font-medium", a.destructive && "text-destructive")}>
                           {a.destructive ? "⚠️ " : "✎ "}{a.title}
                         </div>
-                        {[...(a.labels ?? []), ...formatArgs(a.input)].map(line => (
+                        {(a.labels ?? []).map(line => (
+                          <div key={line} className="text-[10px] text-muted-foreground">{line}</div>
+                        ))}
+                        {a.changes && a.changes.length > 0 && (
+                          <table className="mt-1 w-full text-[10px]">
+                            <tbody>
+                              {a.changes.map(c => (
+                                <tr key={c.field} className="align-top">
+                                  <td className="pr-2 py-0.5 text-muted-foreground whitespace-nowrap">{c.field}</td>
+                                  {c.from === c.to ? (
+                                    <td className="py-0.5" colSpan={3}>{c.to} <span className="text-muted-foreground">(без изменений)</span></td>
+                                  ) : (
+                                    <>
+                                      <td className="py-0.5 text-muted-foreground line-through decoration-muted-foreground/60">{c.from}</td>
+                                      <td className="px-1 py-0.5 text-muted-foreground">→</td>
+                                      <td className="py-0.5 font-medium text-foreground">{c.to}</td>
+                                    </>
+                                  )}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                        {a.note && <div className="mt-1 text-[10px] text-amber-600 dark:text-amber-400">{a.note}</div>}
+                        {formatArgs(a.input, a.changed_keys).map(line => (
                           <div key={line} className="text-[10px] text-muted-foreground">{line}</div>
                         ))}
                       </div>
@@ -744,8 +805,9 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
 
           {loading && (
             <div className="flex justify-start">
-              <div className="bg-muted rounded-xl px-3 py-2">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <div className="bg-muted rounded-xl px-3 py-2 flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
+                {progress && <span className="text-[11px] text-muted-foreground">{progress}</span>}
               </div>
             </div>
           )}
@@ -753,6 +815,22 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
 
         {/* Input */}
         <div className="shrink-0 border-t border-border px-3 py-3">
+          {focusedTask && (
+            <div className="mb-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="shrink-0">Задача:</span>
+              <span className="truncate rounded bg-muted px-1.5 py-0.5 text-foreground" title="«Эта задача» в вопросе — про неё">
+                {focusedTask.title}
+              </span>
+              <button
+                type="button"
+                className="shrink-0 rounded p-0.5 hover:bg-muted hover:text-foreground"
+                aria-label="Не учитывать эту задачу"
+                onClick={() => setDismissedTaskId(focusedTask.id)}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
           <form
             onSubmit={(e) => { e.preventDefault(); handleSend(); }}
             className="flex gap-2"

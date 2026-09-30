@@ -4431,7 +4431,8 @@ async function handleAssistantTg(
     await supabase.from("assistant_tg_sessions").update({ origin: opts.autoRouted ? opts.origin ?? null : null }).eq("id", sessionId);
 
     const userToken = await mintUserToken(userId, au?.user?.email ?? null);
-    const r = await callAssistant(userToken, { messages: historyForModel(history) });
+    const typing = () => tgCall(token, "sendChatAction", { chat_id: chatId, action: "typing" });
+    const r = await callAssistant(userToken, { messages: historyForModel(history) }, typing);
     if (r.error) return await assistantError(token, chatId, r.error);
     await sendAssistantResult(supabase, token, chatId, sessionId, r, history, !!opts.autoRouted);
     return true;
@@ -4463,7 +4464,8 @@ async function handleAssistantDecision(
   try {
     const { data: au } = await supabase.auth.admin.getUserById(profileId);
     const userToken = await mintUserToken(profileId, au?.user?.email ?? null);
-    const r = await callAssistant(userToken, { messages: sess.agent_messages, decision: { approve } });
+    const typing = () => tgCall(token, "sendChatAction", { chat_id: chatId, action: "typing" });
+    const r = await callAssistant(userToken, { messages: sess.agent_messages, decision: { approve } }, typing);
     if (r.error) {
       if (!(await assistantError(token, chatId, r.error))) {
         await tgCall(token, "sendMessage", { chat_id: chatId, text: "❌ Не удалось выполнить. Попробуйте ещё раз: /ai" });

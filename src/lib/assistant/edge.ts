@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import { runTool, toolCatalog, TOOL_INSTRUCTIONS } from "./toolLayer";
 import { runAgent, type ChatMessage } from "./agent";
 import { callOpenRouter, DEFAULT_MODEL, ModelError } from "./openrouter";
+import { computeChanges, type MilestoneSnapshot, type ShiftPreview, type TaskSnapshot } from "./changes";
+import { resolveUser } from "../mcp/tools/_shared";
 
 /**
  * Функция `assistant-tools` — вход для ассистента ВНУТРИ приложения.
@@ -60,8 +62,10 @@ serve?.(async (req: Request) => {
     tool?: string;
     input?: unknown;
     messages?: ChatMessage[];
-    context?: { module?: string; project_id?: string; project_name?: string; task_id?: string };
+    context?: { module?: string; project_id?: string; project_name?: string; task_id?: string; task_title?: string };
     decision?: { approve?: boolean };
+    /** Пошаговый режим: вернуться после каждого хода с чтением (agent.ts). */
+    stepwise?: boolean;
   };
   try {
     body = await req.json();
@@ -115,6 +119,7 @@ serve?.(async (req: Request) => {
       const result = await runAgent({
         messages,
         decision: typeof body.decision?.approve === "boolean" ? { approve: body.decision.approve } : undefined,
+        stepwise: body.stepwise === true,
         deps: {
           catalog,
           runTool: (name, input) => runTool(name, input, ctx),
@@ -133,7 +138,7 @@ serve?.(async (req: Request) => {
       // действие текстом (проверка 30.09: «перенос» пришёл без слов — человек не
       // понял бы, какую задачу двигают). Подписи берутся токеном пользователя.
       if (result.status === "confirm") {
-        const labelled = await labelPending(token, result.pending);
+        const labelled = await labelPending(token, result.pending, ctx);
         return json({ ...result, pending: labelled });
       }
       return json(result);
@@ -176,7 +181,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /** Меняющаяся часть: дата, кто спрашивает и что у него сейчас на экране. */
 function describeSituation(
-  ctx: { module?: string; project_id?: string; project_name?: string; task_id?: string } | undefined,
+  ctx: { module?: string; project_id?: string; project_name?: string; task_id?: string; task_title?: string } | undefined,
   userName: string | undefined,
 ): string {
   const now = new Date();
@@ -192,7 +197,12 @@ function describeSituation(
   if (ctx?.project_id && UUID_RE.test(ctx.project_id)) {
     where.push(`проект «${(ctx.project_name ?? "").slice(0, 200)}» (project_id ${ctx.project_id})`);
   }
-  if (ctx?.task_id && UUID_RE.test(ctx.task_id)) where.push(`задача task_id ${ctx.task_id}`);
+  if (ctx?.task_id && UUID_RE.test(ctx.task_id)) {
+    // Задачу человек мог открыть и закрыть перед тем, как позвать ассистента:
+    // окно присылает последнюю открытую за 15 минут.
+    const t = (ctx.task_title ?? "").slice(0, 300);
+    where.push(`задача${t ? ` «${t}»` : ""} (task_id ${ctx.task_id}) — последняя открытая`);
+  }
   if (where.length) {
     lines.push(`Сейчас на экране: ${where.join(", ")}. «Этот проект», «эта задача», «здесь» — про них.`);
   }
@@ -206,10 +216,11 @@ const ID_KIND: Record<string, LabelKey> = {
   assigned_to: "person", assignee_id: "person", user_id: "person",
 };
 
-/** Подписать идентификаторы в действиях, ждущих подтверждения. */
+/** Подписать идентификаторы в действиях, ждущих подтверждения, и посчитать «было → станет». */
 async function labelPending(
   token: string,
   pending: { id: string; name: string; title: string; input: Record<string, unknown>; destructive: boolean }[],
+  ctx: { token: string; userId: string; clientId: string },
 ) {
   const ids: Record<LabelKey, Set<string>> = { task: new Set(), project: new Set(), person: new Set() };
   for (const p of pending) {
@@ -237,8 +248,16 @@ async function labelPending(
     load("task_groups", "name", ids.project),
     load("profiles", "display_name", ids.person),
   ]);
+  const snaps = await loadSnapshots(db, pending, ctx);
   const KIND_LABEL: Record<LabelKey, string> = { task: "задача", project: "проект", person: "человек" };
   return pending.map((p) => {
+    const cs = computeChanges(p, {
+      task: typeof p.input.task_id === "string" ? snaps.tasks.get(p.input.task_id) : undefined,
+      milestone: typeof p.input.milestone_id === "string" ? snaps.milestones.get(p.input.milestone_id) : undefined,
+      personName: (id) => (id ? snaps.people.get(id) : undefined),
+      newAssigneeName: snaps.assignees.get(p.id),
+      shift: snaps.shifts.get(p.id),
+    });
     const labels: string[] = [];
     for (const [k, v] of Object.entries(p.input)) {
       const kind = ID_KIND[k];
@@ -247,6 +266,72 @@ async function labelPending(
         for (const x of v) if (typeof x === "string" && names.has(x)) labels.push(`задача: «${names.get(x)}»`);
       }
     }
-    return { ...p, labels };
+    return { ...p, labels, changes: cs.changes, changed_keys: cs.keys, note: cs.note };
   });
+}
+
+// deno-lint-ignore no-explicit-any
+type Db = any;
+
+/** Текущие значения того, что собираются менять, — токеном пользователя. */
+async function loadSnapshots(
+  db: Db,
+  pending: { id: string; name: string; input: Record<string, unknown> }[],
+  ctx: { token: string; userId: string; clientId: string },
+) {
+  const tasks = new Map<string, TaskSnapshot>();
+  const milestones = new Map<string, MilestoneSnapshot>();
+  const people = new Map<string, string>();
+  const assignees = new Map<string, string>();
+  const shifts = new Map<string, ShiftPreview>();
+  const str = (v: unknown) => (typeof v === "string" && UUID_RE.test(v) ? v : null);
+
+  const taskIds = [...new Set(pending
+    .filter((p) => ["update_task", "update_task_deadline", "complete_task"].includes(p.name))
+    .map((p) => str(p.input.task_id)).filter((x): x is string => !!x))];
+  const msIds = [...new Set(pending.filter((p) => p.name === "update_milestone")
+    .map((p) => str(p.input.milestone_id)).filter((x): x is string => !!x))];
+
+  try {
+    if (taskIds.length) {
+      const { data } = await db.from("tasks")
+        .select("id,title,deadline,start_at,assigned_to,is_important,priority,is_completed").in("id", taskIds);
+      const { data: tagRows, error: tagErr } = await db.from("task_tags")
+        .select("task_id, tags!inner(name, tag_categories!inner(system_key))").in("task_id", taskIds);
+      const status = new Map<string, string>();
+      for (const r of (tagRows ?? []) as unknown as { task_id: string; tags: { name: string; tag_categories: { system_key: string | null } } }[]) {
+        if (r.tags?.tag_categories?.system_key === "protocol_status") status.set(r.task_id, r.tags.name);
+      }
+      for (const t of (data ?? []) as unknown as (TaskSnapshot & { id: string })[]) {
+        tasks.set(t.id, { ...t, status: tagErr ? undefined : status.get(t.id) ?? null });
+      }
+      const pids = [...new Set([...tasks.values()].map((t) => t.assigned_to).filter((x): x is string => !!x))];
+      if (pids.length) {
+        const { data: ps } = await db.from("profiles").select("id,display_name").in("id", pids);
+        for (const r of (ps ?? []) as unknown as { id: string; display_name: string }[]) people.set(r.id, r.display_name);
+      }
+    }
+    if (msIds.length) {
+      const { data } = await db.from("project_milestones").select("id,name,planned_date,actual_date,status").in("id", msIds);
+      for (const m of (data ?? []) as unknown as (MilestoneSnapshot & { id: string })[]) milestones.set(m.id, m);
+    }
+    await Promise.all(pending.map(async (p) => {
+      if (p.name === "update_task" && typeof p.input.assignee === "string") {
+        const r = await resolveUser(db as never, p.input.assignee);
+        if (!("error" in r)) assignees.set(p.id, r.name);
+      }
+      if (p.name === "move_task") {
+        // Тот же расчёт, что применит move_task, но без записи.
+        const r = await runTool("preview_shift", p.input, ctx);
+        if (r.ok) {
+          const j = JSON.parse(r.text) as { move?: { from: string | null; to: string }; would_shift_count?: number; recorded_as_drift?: boolean };
+          if (j.move) shifts.set(p.id, { from: j.move.from, to: j.move.to, count: j.would_shift_count ?? 0, drift: !!j.recorded_as_drift });
+        }
+      }
+    }));
+  } catch (e) {
+    // Таблица «было → станет» — удобство: без неё карточка покажет аргументы.
+    console.error("assistant snapshots failed:", (e as Error)?.stack ?? e);
+  }
+  return { tasks, milestones, people, assignees, shifts };
 }

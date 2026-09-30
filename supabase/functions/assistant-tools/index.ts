@@ -3768,6 +3768,7 @@ async function runTool(name, rawInput, ctx) {
 
 // src/lib/assistant/agent.ts
 var MAX_STEPS = 8;
+var MAX_TURNS_PER_REQUEST = 16;
 var MAX_RESULT_CHARS = 15e3;
 var REJECTED = "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u043E\u0442\u043A\u043B\u043E\u043D\u0438\u043B \u044D\u0442\u043E \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435. \u041D\u0435 \u043F\u043E\u0432\u0442\u043E\u0440\u044F\u0439 \u0435\u0433\u043E \u0431\u0435\u0437 \u043D\u043E\u0432\u043E\u0439 \u043F\u0440\u043E\u0441\u044C\u0431\u044B.";
 function parseArgs(raw) {
@@ -3790,6 +3791,14 @@ ${JSON.stringify(r.structured)}`;
 \u2026 [\u043E\u0431\u0440\u0435\u0437\u0430\u043D\u043E: ${out.length - MAX_RESULT_CHARS} \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432. \u0421\u0443\u0437\u044C \u0437\u0430\u043F\u0440\u043E\u0441 \u2014 \u0444\u0438\u043B\u044C\u0442\u0440, limit, offset]`;
   }
   return out;
+}
+function turnsSinceUser(messages) {
+  let n = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") break;
+    if (messages[i].role === "assistant") n++;
+  }
+  return n;
 }
 function unanswered(messages) {
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -3823,6 +3832,13 @@ async function runAgent(opts) {
     for (const call of unanswered(messages)) messages.push({ role: "tool", tool_call_id: call.id, content: REJECTED });
   }
   const max = opts.maxSteps ?? MAX_STEPS;
+  const stop = (n, lastText2) => ({
+    status: "done",
+    reply: (lastText2 ? lastText2 + "\n\n" : "") + `_\u041E\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u043B\u0441\u044F \u043F\u043E\u0441\u043B\u0435 ${n} \u0448\u0430\u0433\u043E\u0432. \u0423\u0442\u043E\u0447\u043D\u0438\u0442\u0435 \u0437\u0430\u043F\u0440\u043E\u0441 \u0438\u043B\u0438 \u043F\u043E\u043F\u0440\u043E\u0441\u0438\u0442\u0435 \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C._`,
+    messages,
+    steps
+  });
+  if (opts.stepwise && turnsSinceUser(messages) >= MAX_TURNS_PER_REQUEST) return stop(MAX_TURNS_PER_REQUEST, "");
   let lastText = "";
   for (let step = 0; step < max; step++) {
     const turn = await deps.callModel(messages);
@@ -3839,13 +3855,9 @@ async function runAgent(opts) {
     if (pending.length > 0) {
       return { status: "confirm", reply: turn.content ?? "", messages, steps, pending };
     }
+    if (opts.stepwise) return { status: "working", reply: turn.content ?? "", messages, steps };
   }
-  return {
-    status: "done",
-    reply: (lastText ? lastText + "\n\n" : "") + `_\u041E\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u043B\u0441\u044F \u043F\u043E\u0441\u043B\u0435 ${max} \u0448\u0430\u0433\u043E\u0432. \u0423\u0442\u043E\u0447\u043D\u0438\u0442\u0435 \u0437\u0430\u043F\u0440\u043E\u0441 \u0438\u043B\u0438 \u043F\u043E\u043F\u0440\u043E\u0441\u0438\u0442\u0435 \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C._`,
-    messages,
-    steps
-  };
+  return stop(max, lastText);
 }
 
 // src/lib/assistant/openrouter.ts
@@ -3904,6 +3916,98 @@ async function callOpenRouter(opts) {
     tool_calls: Array.isArray(msg.tool_calls) && msg.tool_calls.length ? msg.tool_calls : void 0,
     cost: data?.usage?.cost
   };
+}
+
+// src/lib/assistant/changes.ts
+var PRIORITY = { 1: "P1 \u2014 \u043A\u0440\u0438\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0439", 2: "P2 \u2014 \u0432\u044B\u0441\u043E\u043A\u0438\u0439", 3: "P3 \u2014 \u0441\u0440\u0435\u0434\u043D\u0438\u0439", 4: "P4 \u2014 \u043D\u0438\u0437\u043A\u0438\u0439" };
+var MILESTONE_STATUS = {
+  pending: "\u043E\u0436\u0438\u0434\u0430\u0435\u0442\u0441\u044F",
+  in_progress: "\u0432 \u0440\u0430\u0431\u043E\u0442\u0435",
+  go: "go",
+  no_go: "no-go",
+  conditional: "\u0443\u0441\u043B\u043E\u0432\u043D\u043E",
+  completed: "\u0434\u043E\u0441\u0442\u0438\u0433\u043D\u0443\u0442\u0430",
+  missed: "\u043F\u0440\u043E\u043F\u0443\u0449\u0435\u043D\u0430"
+};
+function mskDate(v, empty = "\u2014") {
+  if (!v) return empty;
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (day) return `${day[3]}.${day[2]}.${day[1]}`;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return v;
+  const date = d.toLocaleDateString("ru-RU", { timeZone: "Europe/Moscow", day: "2-digit", month: "2-digit", year: "numeric" });
+  const time = d.toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" });
+  return time === "00:00" ? date : `${date}, ${time}`;
+}
+var yesNo = (v) => v ? "\u0434\u0430" : "\u043D\u0435\u0442";
+function computeChanges(action, s) {
+  const out = [];
+  const keys = [];
+  const push = (key, field, from, to) => {
+    keys.push(key);
+    out.push({ field, from, to });
+  };
+  const inp = action.input;
+  const t = s.task;
+  switch (action.name) {
+    case "update_task": {
+      if (!t) break;
+      if (inp.status !== void 0) {
+        push("status", "\u0441\u0442\u0430\u0442\u0443\u0441", t.status === void 0 ? "\u2014" : t.status ?? "\u0431\u0435\u0437 \u0441\u0442\u0430\u0442\u0443\u0441\u0430", inp.status === "none" ? "\u0431\u0435\u0437 \u0441\u0442\u0430\u0442\u0443\u0441\u0430" : String(inp.status));
+      }
+      if (inp.assignee !== void 0) {
+        push("assignee", "\u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C", s.personName(t.assigned_to) ?? "\u2014", s.newAssigneeName ?? String(inp.assignee));
+      }
+      if (inp.deadline !== void 0) {
+        push("deadline", "\u0441\u0440\u043E\u043A", mskDate(t.deadline, "\u0431\u0435\u0437 \u0441\u0440\u043E\u043A\u0430"), mskDate(inp.deadline, "\u0431\u0435\u0437 \u0441\u0440\u043E\u043A\u0430"));
+      }
+      if (inp.start_at !== void 0) {
+        push("start_at", "\u043D\u0430\u0447\u0430\u043B\u043E", mskDate(t.start_at), mskDate(inp.start_at));
+      }
+      if (inp.is_important !== void 0) push("is_important", "\u0432\u0430\u0436\u043D\u0430\u044F", yesNo(t.is_important), yesNo(inp.is_important));
+      if (inp.priority !== void 0) {
+        push("priority", "\u043F\u0440\u0438\u043E\u0440\u0438\u0442\u0435\u0442", t.priority ? PRIORITY[t.priority] : "\u2014", inp.priority ? PRIORITY[inp.priority] : "\u2014");
+      }
+      break;
+    }
+    case "update_task_deadline": {
+      if (!t) break;
+      push("deadline", "\u0441\u0440\u043E\u043A", mskDate(t.deadline, "\u0431\u0435\u0437 \u0441\u0440\u043E\u043A\u0430"), mskDate(inp.deadline));
+      break;
+    }
+    case "complete_task": {
+      if (!t) break;
+      out.push({ field: "\u0437\u0430\u0434\u0430\u0447\u0430", from: t.is_completed ? "\u0437\u0430\u043A\u0440\u044B\u0442\u0430" : "\u043E\u0442\u043A\u0440\u044B\u0442\u0430", to: "\u0437\u0430\u043A\u0440\u044B\u0442\u0430" });
+      break;
+    }
+    case "move_task": {
+      if (!s.shift) break;
+      keys.push("new_deadline", "shift_days");
+      out.push({ field: "\u0441\u0440\u043E\u043A", from: mskDate(s.shift.from, "\u0431\u0435\u0437 \u0441\u0440\u043E\u043A\u0430"), to: mskDate(s.shift.to) });
+      const notes = [];
+      if (s.shift.count > 0) notes.push(`\u0412\u043C\u0435\u0441\u0442\u0435 \u0441 \u043D\u0435\u0439 \u0441\u0434\u0432\u0438\u043D\u0435\u0442\u0441\u044F \u0435\u0449\u0451 ${s.shift.count} ${plural(s.shift.count, "\u0441\u0432\u044F\u0437\u0430\u043D\u043D\u0430\u044F \u0437\u0430\u0434\u0430\u0447\u0430", "\u0441\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0435 \u0437\u0430\u0434\u0430\u0447\u0438", "\u0441\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0445 \u0437\u0430\u0434\u0430\u0447")}.`);
+      if (s.shift.drift) notes.push("\u041F\u043B\u0430\u043D \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u0437\u0430\u0444\u0438\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043D: \u043F\u0435\u0440\u0435\u043D\u043E\u0441 \u0437\u0430\u043F\u0438\u0448\u0435\u0442\u0441\u044F \u043A\u0430\u043A \u043E\u0442\u043A\u043B\u043E\u043D\u0435\u043D\u0438\u0435.");
+      return { changes: out, keys, note: notes.join(" ") || void 0 };
+    }
+    case "update_milestone": {
+      const m = s.milestone;
+      if (!m) break;
+      if (inp.name !== void 0) push("name", "\u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", m.name, String(inp.name));
+      if (inp.planned_date !== void 0) push("planned_date", "\u043F\u043B\u0430\u043D\u043E\u0432\u0430\u044F \u0434\u0430\u0442\u0430", mskDate(m.planned_date), mskDate(inp.planned_date));
+      if (inp.actual_date !== void 0) push("actual_date", "\u0444\u0430\u043A\u0442", mskDate(m.actual_date), mskDate(inp.actual_date));
+      if (inp.status !== void 0) {
+        push("status", "\u0441\u0442\u0430\u0442\u0443\u0441", MILESTONE_STATUS[m.status ?? ""] ?? m.status ?? "\u2014", MILESTONE_STATUS[String(inp.status)] ?? String(inp.status));
+      }
+      break;
+    }
+  }
+  return { changes: out, keys };
+}
+function plural(n, one, few, many) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
 }
 
 // src/lib/assistant/edge.ts
@@ -3969,6 +4073,7 @@ serve?.(async (req) => {
       const result = await runAgent({
         messages,
         decision: typeof body.decision?.approve === "boolean" ? { approve: body.decision.approve } : void 0,
+        stepwise: body.stepwise === true,
         deps: {
           catalog,
           runTool: (name, input) => runTool(name, input, ctx),
@@ -3983,7 +4088,7 @@ serve?.(async (req) => {
         }
       });
       if (result.status === "confirm") {
-        const labelled = await labelPending(token, result.pending);
+        const labelled = await labelPending(token, result.pending, ctx);
         return json({ ...result, pending: labelled });
       }
       return json(result);
@@ -4037,7 +4142,10 @@ function describeSituation(ctx, userName) {
   if (ctx?.project_id && UUID_RE2.test(ctx.project_id)) {
     where.push(`\u043F\u0440\u043E\u0435\u043A\u0442 \xAB${(ctx.project_name ?? "").slice(0, 200)}\xBB (project_id ${ctx.project_id})`);
   }
-  if (ctx?.task_id && UUID_RE2.test(ctx.task_id)) where.push(`\u0437\u0430\u0434\u0430\u0447\u0430 task_id ${ctx.task_id}`);
+  if (ctx?.task_id && UUID_RE2.test(ctx.task_id)) {
+    const t = (ctx.task_title ?? "").slice(0, 300);
+    where.push(`\u0437\u0430\u0434\u0430\u0447\u0430${t ? ` \xAB${t}\xBB` : ""} (task_id ${ctx.task_id}) \u2014 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u0430\u044F`);
+  }
   if (where.length) {
     lines.push(`\u0421\u0435\u0439\u0447\u0430\u0441 \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435: ${where.join(", ")}. \xAB\u042D\u0442\u043E\u0442 \u043F\u0440\u043E\u0435\u043A\u0442\xBB, \xAB\u044D\u0442\u0430 \u0437\u0430\u0434\u0430\u0447\u0430\xBB, \xAB\u0437\u0434\u0435\u0441\u044C\xBB \u2014 \u043F\u0440\u043E \u043D\u0438\u0445.`);
   }
@@ -4056,7 +4164,7 @@ var ID_KIND = {
   assignee_id: "person",
   user_id: "person"
 };
-async function labelPending(token, pending) {
+async function labelPending(token, pending, ctx) {
   const ids = { task: /* @__PURE__ */ new Set(), project: /* @__PURE__ */ new Set(), person: /* @__PURE__ */ new Set() };
   for (const p of pending) {
     for (const [k, v] of Object.entries(p.input)) {
@@ -4084,8 +4192,16 @@ async function labelPending(token, pending) {
     load("task_groups", "name", ids.project),
     load("profiles", "display_name", ids.person)
   ]);
+  const snaps = await loadSnapshots(db11, pending, ctx);
   const KIND_LABEL = { task: "\u0437\u0430\u0434\u0430\u0447\u0430", project: "\u043F\u0440\u043E\u0435\u043A\u0442", person: "\u0447\u0435\u043B\u043E\u0432\u0435\u043A" };
   return pending.map((p) => {
+    const cs = computeChanges(p, {
+      task: typeof p.input.task_id === "string" ? snaps.tasks.get(p.input.task_id) : void 0,
+      milestone: typeof p.input.milestone_id === "string" ? snaps.milestones.get(p.input.milestone_id) : void 0,
+      personName: (id) => id ? snaps.people.get(id) : void 0,
+      newAssigneeName: snaps.assignees.get(p.id),
+      shift: snaps.shifts.get(p.id)
+    });
     const labels = [];
     for (const [k, v] of Object.entries(p.input)) {
       const kind = ID_KIND[k];
@@ -4094,6 +4210,54 @@ async function labelPending(token, pending) {
         for (const x of v) if (typeof x === "string" && names.has(x)) labels.push(`\u0437\u0430\u0434\u0430\u0447\u0430: \xAB${names.get(x)}\xBB`);
       }
     }
-    return { ...p, labels };
+    return { ...p, labels, changes: cs.changes, changed_keys: cs.keys, note: cs.note };
   });
+}
+async function loadSnapshots(db11, pending, ctx) {
+  const tasks = /* @__PURE__ */ new Map();
+  const milestones = /* @__PURE__ */ new Map();
+  const people = /* @__PURE__ */ new Map();
+  const assignees = /* @__PURE__ */ new Map();
+  const shifts = /* @__PURE__ */ new Map();
+  const str = (v) => typeof v === "string" && UUID_RE2.test(v) ? v : null;
+  const taskIds = [...new Set(pending.filter((p) => ["update_task", "update_task_deadline", "complete_task"].includes(p.name)).map((p) => str(p.input.task_id)).filter((x) => !!x))];
+  const msIds = [...new Set(pending.filter((p) => p.name === "update_milestone").map((p) => str(p.input.milestone_id)).filter((x) => !!x))];
+  try {
+    if (taskIds.length) {
+      const { data } = await db11.from("tasks").select("id,title,deadline,start_at,assigned_to,is_important,priority,is_completed").in("id", taskIds);
+      const { data: tagRows, error: tagErr } = await db11.from("task_tags").select("task_id, tags!inner(name, tag_categories!inner(system_key))").in("task_id", taskIds);
+      const status = /* @__PURE__ */ new Map();
+      for (const r of tagRows ?? []) {
+        if (r.tags?.tag_categories?.system_key === "protocol_status") status.set(r.task_id, r.tags.name);
+      }
+      for (const t of data ?? []) {
+        tasks.set(t.id, { ...t, status: tagErr ? void 0 : status.get(t.id) ?? null });
+      }
+      const pids = [...new Set([...tasks.values()].map((t) => t.assigned_to).filter((x) => !!x))];
+      if (pids.length) {
+        const { data: ps } = await db11.from("profiles").select("id,display_name").in("id", pids);
+        for (const r of ps ?? []) people.set(r.id, r.display_name);
+      }
+    }
+    if (msIds.length) {
+      const { data } = await db11.from("project_milestones").select("id,name,planned_date,actual_date,status").in("id", msIds);
+      for (const m of data ?? []) milestones.set(m.id, m);
+    }
+    await Promise.all(pending.map(async (p) => {
+      if (p.name === "update_task" && typeof p.input.assignee === "string") {
+        const r = await resolveUser(db11, p.input.assignee);
+        if (!("error" in r)) assignees.set(p.id, r.name);
+      }
+      if (p.name === "move_task") {
+        const r = await runTool("preview_shift", p.input, ctx);
+        if (r.ok) {
+          const j = JSON.parse(r.text);
+          if (j.move) shifts.set(p.id, { from: j.move.from, to: j.move.to, count: j.would_shift_count ?? 0, drift: !!j.recorded_as_drift });
+        }
+      }
+    }));
+  } catch (e) {
+    console.error("assistant snapshots failed:", e?.stack ?? e);
+  }
+  return { tasks, milestones, people, assignees, shifts };
 }

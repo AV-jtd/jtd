@@ -147,3 +147,30 @@ describe("runAgent — предохранители", () => {
     expect(ran).toEqual(["list_tasks:{}"]);
   });
 });
+
+describe("runAgent — пошаговый режим", () => {
+  it("после хода с чтением возвращает working, следующий вызов продолжает", async () => {
+    const a = scripted([{ content: "Смотрю.", tool_calls: [call("list_tasks")] }]);
+    const r1 = await runAgent({ messages: [user("что горит?")], deps: a.deps, stepwise: true });
+    expect(r1.status).toBe("working");
+    expect(r1.steps.map((s) => s.name)).toEqual(["list_tasks"]);
+    const b = scripted([{ content: "Горит одна задача." }]);
+    const r2 = await runAgent({ messages: r1.messages, deps: b.deps, stepwise: true });
+    expect(r2.status).toBe("done");
+    expect(r2.reply).toBe("Горит одна задача.");
+  });
+
+  it("предел ходов считается по переписке — повторные вызовы его не обходят", async () => {
+    let msgs: ChatMessage[] = [user("ищи")];
+    let last;
+    for (let i = 0; i < 30; i++) {
+      const { deps } = scripted([{ tool_calls: [call("list_tasks")] }]);
+      last = await runAgent({ messages: msgs, deps, stepwise: true });
+      msgs = last.messages;
+      if (last.status === "done") break;
+    }
+    expect(last!.status).toBe("done");
+    expect(last!.reply).toContain("Остановился");
+    expect(msgs.filter((m) => m.role === "assistant").length).toBe(16);
+  });
+});

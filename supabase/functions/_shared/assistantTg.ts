@@ -41,27 +41,46 @@ export async function mintUserToken(userId: string, email: string | null): Promi
 }
 
 export type AssistantReply = {
-  status?: "done" | "confirm";
+  status?: "done" | "confirm" | "working";
   reply?: string;
   steps?: { title: string }[];
-  pending?: { id: string; title: string; input: Record<string, unknown>; destructive: boolean; labels?: string[] }[];
+  pending?: {
+    id: string; title: string; input: Record<string, unknown>; destructive: boolean; labels?: string[];
+    changes?: { field: string; from: string; to: string }[]; changed_keys?: string[]; note?: string;
+  }[];
   messages?: unknown[];
   error?: string;
 };
 
-export async function callAssistant(token: string, body: Record<string, unknown>): Promise<AssistantReply> {
-  const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/assistant-tools`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-    },
-    body: JSON.stringify({ action: "chat", context: { module: "tasks" }, ...body }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) return { error: (data as { error?: string })?.error ?? `HTTP ${res.status}` };
-  return data as AssistantReply;
+/**
+ * Ход ассистента пошагово (как в окне приложения): после каждого чтения
+ * вызываем onStep — бот обновляет «печатает…», которое Telegram гасит через 5 с.
+ */
+export async function callAssistant(
+  token: string,
+  body: Record<string, unknown>,
+  onStep?: () => Promise<unknown>,
+): Promise<AssistantReply> {
+  let req: Record<string, unknown> = { action: "chat", context: { module: "tasks" }, ...body, stepwise: true };
+  const steps: { title: string }[] = [];
+  for (let i = 0; i < 20; i++) {
+    const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/assistant-tools`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      },
+      body: JSON.stringify(req),
+    });
+    const data = (await res.json().catch(() => ({}))) as AssistantReply;
+    if (!res.ok) return { error: data?.error ?? `HTTP ${res.status}` };
+    steps.push(...(data.steps ?? []));
+    if (data.status !== "working") return { ...data, steps };
+    await onStep?.().catch(() => {});
+    req = { action: "chat", context: { module: "tasks" }, messages: data.messages, stepwise: true };
+  }
+  return { error: "too_many_steps" };
 }
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -105,8 +124,16 @@ export function renderPending(r: AssistantReply): string {
   for (const p of r.pending ?? []) {
     lines.push(`${p.destructive ? "⚠️" : "✎"} <b>${esc(p.title)}</b>`);
     for (const l of p.labels ?? []) lines.push(`   ${esc(l)}`);
+    // «Было → станет» — главное в карточке: что именно поменяется.
+    for (const c of p.changes ?? []) {
+      lines.push(c.from === c.to
+        ? `   ${esc(c.field)}: ${esc(c.to)} (без изменений)`
+        : `   ${esc(c.field)}: <s>${esc(c.from)}</s> → <b>${esc(c.to)}</b>`);
+    }
+    if (p.note) lines.push(`   <i>${esc(p.note)}</i>`);
+    const skip = new Set(p.changed_keys ?? []);
     for (const [k, v] of Object.entries(p.input)) {
-      if (v === null || v === undefined || v === "" || k.endsWith("_id") || k === "ids") continue;
+      if (skip.has(k) || v === null || v === undefined || v === "" || k.endsWith("_id") || k === "ids") continue;
       if (typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(v)) continue;
       lines.push(`   ${esc(ARG_LABELS[k] ?? k)}: ${esc(human(v))}`);
     }
@@ -119,33 +146,4 @@ export function renderSteps(r: AssistantReply): string {
   return titles.length ? `\n\n<i>🔍 ${esc(titles.join(" · "))}</i>` : "";
 }
 
-// ---------- Вопрос ассистенту или задача? (решение владельца 01.10.2026) ----------
-// В личке бота обычный текст — это задача: «написал — задача создана». Поэтому
-// ассистенту уходит только то, что явно похоже на вопрос или просьбу к нему.
-// Ошибку в любую сторону человек исправит: под ответом ассистента есть кнопка
-// «Создать задачей», а задачу из вопроса всегда можно удалить.
-//
-// Неопределённая форма глагола («Найти подрядчика», «Проверить счёт») — так
-// люди формулируют задачи, это задача. Повелительная, обращённая к помощнику
-// («найди», «покажи», «перенеси») — просьба к ассистенту.
-// Граница слова — (?![\p{L}\d]) с флагом u: \b в JS видит только латиницу.
-
-const QUESTION_START = /^(что|чем|как|какие|какой|какая|каких|каким|когда|сколько|где|кто|кому|почему|зачем|есть ли|можно ли|у кого|у меня|чья|чьи|чей)(?![\p{L}\d])/iu;
-const ASSISTANT_VERB = /^(покажи|расскажи|подскажи|найди|посмотри|проверь|перенеси|передвинь|сдвинь|назначь|переназначь|закрой|отметь|поставь статус|составь|собери|сделай сводку|дай сводку|напомни мне,? что|помоги|объясни|разбери|посчитай)(?![\p{L}\d])/iu;
-const ADDRESS = /^(ии|ai|ассистент|помощник|бот)\s*[,:!]/iu;
-
-export function looksLikeAssistantRequest(
-  text: string,
-  opts: { forwarded?: boolean; voice?: boolean } = {},
-): boolean {
-  if (opts.forwarded || opts.voice) return false;
-  const t = text.trim().replace(/^[«"'(]+/, "");
-  if (!t || t.startsWith("/") || t.startsWith("!")) return false;
-  if (t.length > 500) return false;
-  // Несколько строк — список задач, его разбирает бот.
-  if (t.split(/\n/).filter((l) => l.trim()).length > 1) return false;
-  if (ADDRESS.test(t)) return true;
-  if (t.endsWith("?")) return true;
-  const firstWords = t.replace(/^(а|и|ну|слушай|скажи|подскажи-ка)[,\s]+/i, "");
-  return QUESTION_START.test(firstWords) || ASSISTANT_VERB.test(firstWords);
-}
+export { looksLikeAssistantRequest } from "./assistantTgRouter.ts";

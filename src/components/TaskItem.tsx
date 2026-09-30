@@ -21,6 +21,7 @@ import AssigneePicker, { type AssigneeSelection } from "@/components/AssigneePic
 import AssigneeBadge from "@/components/AssigneeBadge";
 import { TaskClosureDialog, TaskApprovalActions } from "@/components/TaskApprovalDialog";
 import LazyMount from "@/components/LazyMount";
+import { setFocusedTask } from "@/lib/assistant/focusedTask";
 import { supabase } from "@/integrations/supabase/client";
 import { Sparkles, Loader2, ShieldCheck, BookOpen } from "lucide-react";
 import { toast } from "sonner";
@@ -576,6 +577,10 @@ function TaskItemInner({ task, sortable, initialOpen, onOpened, onTagClick, onPr
       });
     return () => { cancelled = true; };
   }, [detailsOpen, (task as any).follow_up_of]);
+  // Открытая карточка — «эта задача» для ИИ-ассистента (lib/assistant/focusedTask.ts).
+  useEffect(() => {
+    if (detailsOpen && !task.id.startsWith("temp-")) setFocusedTask({ id: task.id, title: task.title });
+  }, [detailsOpen, task.id, task.title]);
   // Lazy-load comments only when detail panel is open to avoid N queries
   const { data: chatComments = [] } = useTaskComments(detailsOpen ? task.id : null);
   // Cheap presence flag from bulk query in parent — used to highlight chat icon
