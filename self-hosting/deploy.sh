@@ -114,6 +114,13 @@ git checkout HEAD -- self-hosting/ 2>/dev/null || true
 # Если Lovable добавил зависимость в package.json и наш локфайл отстал,
 # npm ci падает; тогда откатываемся на npm install, чтобы деплой не встал,
 # и громко просим обновить локфайл (иначе прод молча уедет на другие версии).
+# Шаги сборки вызываются по отдельности, а не `npm run build -- --outDir …`.
+# С 30.09 сценарий build — «vite build && node scripts/build-assistant-function.mjs»,
+# и npm передавал --outDir ПОСЛЕДНЕЙ команде: vite собирал прямо в dist, который
+# отдаёт nginx (сайт пустел на время сборки), а деплой, не найдя
+# dist.new/index.html, останавливался — без миграций и без перезапуска
+# edge-функций (журнал, 30.09). Меняете сценарий build в package.json —
+# повторите шаги здесь.
 log "Сборка фронтенда (в dist.new)"
 ANON_KEY="$(grep -E '^ANON_KEY=' "$ENV_FILE" | cut -d= -f2-)"
 rm -rf "$REPO_DIR/dist.new"
@@ -128,7 +135,7 @@ if ! VITE_SUPABASE_URL="https://justtodoit.ru" \
      VITE_SUPABASE_PROXY_URL="https://justtodoit.ru/sb" \
      VITE_SUPABASE_ANON_KEY="$ANON_KEY" \
      VITE_SUPABASE_PUBLISHABLE_KEY="$ANON_KEY" \
-     bash -c 'install_deps && npm run build -- --outDir dist.new'; then
+     bash -c 'install_deps && npx vite build --outDir dist.new && node scripts/build-assistant-function.mjs'; then
   log "СБОРКА УПАЛА — dist/ не тронут, прод остаётся на прежней версии"
   rm -rf "$REPO_DIR/dist.new"
   # На всякий случай убеждаемся, что nginx отдаёт текущий (рабочий) dist/
