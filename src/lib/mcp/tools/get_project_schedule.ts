@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db, fail } from "./_shared";
 import { resolveNames } from "./_names";
 import { driftDays } from "../../drift";
+import { computeCriticalPath } from "../../criticalPath";
 
 /**
  * Расписание проекта одним вызовом: вехи, задачи с началом и концом,
@@ -16,6 +17,11 @@ import { driftDays } from "../../drift";
  *
  * Дрифт считается тем же помощником, что и в приложении (src/lib/drift.ts):
  * испорченная базовая дата не превращается в сдвиг на две тысячи лет.
+ *
+ * Запас и критический путь считаются здесь же (src/lib/criticalPath.ts): на
+ * вопрос «что держит дату проекта, а где неделя люфта» Гант отвечает
+ * картинкой, а в разговоре нужны числа. Без них переносят то, что заметнее, а
+ * не то, что держит.
  */
 
 const MAX_TASKS = 300;
@@ -24,7 +30,7 @@ export default defineTool({
   name: "get_project_schedule",
   title: "Расписание проекта",
   description:
-    "Расписание проекта для разговора о сроках: вехи с плановой и фактической датой, задачи с началом и концом, связи между ними (что за чем идёт) и отклонение от базового плана в днях. Нужен, чтобы ответить «что едет в проекте» и «что будет, если сдвинуть». Задач возвращается не больше 300 — при has_more сузьте через only_open.",
+    "Расписание проекта для разговора о сроках: вехи с плановой и фактической датой, задачи с началом и концом, связи между ними (что за чем идёт), отклонение от базового плана и запас по срокам. float_days — сколько дней можно сдвинуть, не сдвинув дату проекта; critical — запаса нет, элемент держит дату проекта; critical_path — цепочка, которая её держит. Нужен, чтобы ответить «что едет в проекте», «что держит дату» и «что будет, если сдвинуть». Задач возвращается не больше 300 — при has_more сузьте через only_open, иначе запас посчитан по неполному графу.",
   inputSchema: {
     project_id: z.string().uuid().describe("UUID проекта (task_groups.id)."),
     include_subprojects: z
@@ -134,6 +140,17 @@ export default defineTool({
         lag_days: d.lag_days,
       }));
 
+    // Запас считаем по тому же срезу, который отдаём: считать по одному, а
+    // показывать другое — способ разойтись молча.
+    const cpm = computeCriticalPath(
+      [
+        ...rows.map((t) => ({ id: t.id, start: t.start_at, end: t.deadline })),
+        ...(milestones ?? []).map((m) => ({ id: m.id, end: m.planned_date })),
+      ],
+      links.map((l) => ({ from: l.from, to: l.to, type: l.type, lag_days: l.lag_days })),
+    );
+    const slack = new Map(cpm.nodes.map((n) => [n.id, n]));
+
     return {
       content: [
         {
@@ -149,6 +166,8 @@ export default defineTool({
               gate_key: m.gate_key,
               // Веха «уехала», если факт позже плана либо план уже прошёл.
               late_days: m.actual_date ? driftDays(m.planned_date, m.actual_date) : null,
+              float_days: slack.get(m.id)?.float_days ?? null,
+              critical: slack.get(m.id)?.critical ?? null,
             })),
             tasks: rows.map((t) => ({
               id: t.id,
@@ -161,8 +180,21 @@ export default defineTool({
               // Отклонение от базового плана. null — либо не двигали, либо
               // базовая дата испорчена и числу верить нельзя.
               drift_days: driftDays(t.original_deadline, t.deadline),
+              // Запас: сколько дней можно сдвинуть, не сдвинув дату проекта.
+              // null — у задачи нет срока, и места на шкале у неё нет.
+              float_days: slack.get(t.id)?.float_days ?? null,
+              critical: slack.get(t.id)?.critical ?? null,
             })),
             dependencies: links,
+            critical_path: cpm.critical_path.map((id) => ({ id, name: label.get(id) ?? null })),
+            schedule: {
+              project_end: cpm.project_end,
+              // Связи не «финиш → старт» в расчёт запаса не вошли: считать их
+              // приблизительно и не сказать — тот же способ разойтись молча,
+              // каким разъехались дрифт и счётчики.
+              links_ignored_in_slack: cpm.ignored_links,
+              cycle: cpm.cycle ? cpm.cycle.map((id) => label.get(id) ?? id) : null,
+            },
             counts: {
               milestones: (milestones ?? []).length,
               tasks_returned: rows.length,

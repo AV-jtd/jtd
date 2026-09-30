@@ -645,12 +645,104 @@ function driftDays(originalDeadline, deadline) {
   return days;
 }
 
+// src/lib/criticalPath.ts
+import { differenceInCalendarDays, parseISO } from "npm:date-fns@^3.6.0";
+var DAY = 864e5;
+function computeCriticalPath(nodesIn, linksIn) {
+  const nodes = /* @__PURE__ */ new Map();
+  for (const n of nodesIn) {
+    if (!n.end) continue;
+    const end = parseISO(n.end).getTime();
+    if (Number.isNaN(end)) continue;
+    const startRaw = n.start ? parseISO(n.start).getTime() : NaN;
+    nodes.set(n.id, { id: n.id, start: Number.isNaN(startRaw) ? null : startRaw, end });
+  }
+  const links = linksIn.filter((l) => nodes.has(l.from) && nodes.has(l.to));
+  const fs = links.filter((l) => l.type === "FS");
+  const ignoredLinks = links.length - fs.length;
+  if (nodes.size === 0) {
+    return { nodes: [], critical_path: [], project_end: null, ignored_links: ignoredLinks, cycle: null };
+  }
+  const successors = /* @__PURE__ */ new Map();
+  for (const l of fs) {
+    if (!successors.has(l.from)) successors.set(l.from, []);
+    successors.get(l.from).push(l);
+  }
+  const projectEnd = Math.max(...[...nodes.values()].map((n) => n.end));
+  const lateFinish = /* @__PURE__ */ new Map();
+  const state = /* @__PURE__ */ new Map();
+  let cycle = null;
+  const visit = (id, stack) => {
+    const known = lateFinish.get(id);
+    if (known !== void 0 && state.get(id) === "done") return known;
+    if (state.get(id) === "visiting") {
+      if (!cycle) cycle = [...stack.slice(stack.indexOf(id)), id];
+      return projectEnd;
+    }
+    state.set(id, "visiting");
+    const succ = successors.get(id) ?? [];
+    let lf = projectEnd;
+    for (const l of succ) {
+      const s = nodes.get(l.to);
+      const sLateFinish = visit(l.to, [...stack, id]);
+      const sDuration = s.start !== null ? Math.max(0, Math.round((s.end - s.start) / DAY)) : 0;
+      const sLateStart = sLateFinish - sDuration * DAY;
+      lf = Math.min(lf, sLateStart - (l.lag_days || 0) * DAY);
+    }
+    lateFinish.set(id, lf);
+    state.set(id, "done");
+    return lf;
+  };
+  for (const id of nodes.keys()) visit(id, []);
+  const results = [];
+  for (const [id, n] of nodes) {
+    const lf = lateFinish.get(id);
+    const floatDays = differenceInCalendarDays(new Date(lf), new Date(n.end));
+    results.push({ id, float_days: floatDays, critical: floatDays <= 0, late_finish: new Date(lf).toISOString() });
+  }
+  return {
+    nodes: results,
+    critical_path: longestCriticalChain(nodes, successors, results),
+    project_end: new Date(projectEnd).toISOString(),
+    ignored_links: ignoredLinks,
+    cycle
+  };
+}
+function longestCriticalChain(nodes, successors, results) {
+  const critical = new Set(results.filter((r) => r.critical).map((r) => r.id));
+  if (critical.size === 0) return [];
+  const memo = /* @__PURE__ */ new Map();
+  const walking = /* @__PURE__ */ new Set();
+  const chainFrom = (id) => {
+    const cached = memo.get(id);
+    if (cached) return cached;
+    if (walking.has(id)) return [id];
+    walking.add(id);
+    let best = [];
+    for (const l of successors.get(id) ?? []) {
+      if (!critical.has(l.to)) continue;
+      const tail = chainFrom(l.to);
+      if (tail.length > best.length) best = tail;
+    }
+    walking.delete(id);
+    const chain = [id, ...best];
+    memo.set(id, chain);
+    return chain;
+  };
+  let longest = [];
+  for (const id of critical) {
+    const chain = chainFrom(id);
+    if (chain.length > longest.length) longest = chain;
+  }
+  return longest.length > 1 ? longest : [];
+}
+
 // src/lib/mcp/tools/get_project_schedule.ts
 var MAX_TASKS = 300;
 var get_project_schedule_default = defineTool9({
   name: "get_project_schedule",
   title: "\u0420\u0430\u0441\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043F\u0440\u043E\u0435\u043A\u0442\u0430",
-  description: "\u0420\u0430\u0441\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u0434\u043B\u044F \u0440\u0430\u0437\u0433\u043E\u0432\u043E\u0440\u0430 \u043E \u0441\u0440\u043E\u043A\u0430\u0445: \u0432\u0435\u0445\u0438 \u0441 \u043F\u043B\u0430\u043D\u043E\u0432\u043E\u0439 \u0438 \u0444\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u043E\u0439 \u0434\u0430\u0442\u043E\u0439, \u0437\u0430\u0434\u0430\u0447\u0438 \u0441 \u043D\u0430\u0447\u0430\u043B\u043E\u043C \u0438 \u043A\u043E\u043D\u0446\u043E\u043C, \u0441\u0432\u044F\u0437\u0438 \u043C\u0435\u0436\u0434\u0443 \u043D\u0438\u043C\u0438 (\u0447\u0442\u043E \u0437\u0430 \u0447\u0435\u043C \u0438\u0434\u0451\u0442) \u0438 \u043E\u0442\u043A\u043B\u043E\u043D\u0435\u043D\u0438\u0435 \u043E\u0442 \u0431\u0430\u0437\u043E\u0432\u043E\u0433\u043E \u043F\u043B\u0430\u043D\u0430 \u0432 \u0434\u043D\u044F\u0445. \u041D\u0443\u0436\u0435\u043D, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u0432\u0435\u0442\u0438\u0442\u044C \xAB\u0447\u0442\u043E \u0435\u0434\u0435\u0442 \u0432 \u043F\u0440\u043E\u0435\u043A\u0442\u0435\xBB \u0438 \xAB\u0447\u0442\u043E \u0431\u0443\u0434\u0435\u0442, \u0435\u0441\u043B\u0438 \u0441\u0434\u0432\u0438\u043D\u0443\u0442\u044C\xBB. \u0417\u0430\u0434\u0430\u0447 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0441\u044F \u043D\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 300 \u2014 \u043F\u0440\u0438 has_more \u0441\u0443\u0437\u044C\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 only_open.",
+  description: "\u0420\u0430\u0441\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u0434\u043B\u044F \u0440\u0430\u0437\u0433\u043E\u0432\u043E\u0440\u0430 \u043E \u0441\u0440\u043E\u043A\u0430\u0445: \u0432\u0435\u0445\u0438 \u0441 \u043F\u043B\u0430\u043D\u043E\u0432\u043E\u0439 \u0438 \u0444\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u043E\u0439 \u0434\u0430\u0442\u043E\u0439, \u0437\u0430\u0434\u0430\u0447\u0438 \u0441 \u043D\u0430\u0447\u0430\u043B\u043E\u043C \u0438 \u043A\u043E\u043D\u0446\u043E\u043C, \u0441\u0432\u044F\u0437\u0438 \u043C\u0435\u0436\u0434\u0443 \u043D\u0438\u043C\u0438 (\u0447\u0442\u043E \u0437\u0430 \u0447\u0435\u043C \u0438\u0434\u0451\u0442), \u043E\u0442\u043A\u043B\u043E\u043D\u0435\u043D\u0438\u0435 \u043E\u0442 \u0431\u0430\u0437\u043E\u0432\u043E\u0433\u043E \u043F\u043B\u0430\u043D\u0430 \u0438 \u0437\u0430\u043F\u0430\u0441 \u043F\u043E \u0441\u0440\u043E\u043A\u0430\u043C. float_days \u2014 \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0434\u043D\u0435\u0439 \u043C\u043E\u0436\u043D\u043E \u0441\u0434\u0432\u0438\u043D\u0443\u0442\u044C, \u043D\u0435 \u0441\u0434\u0432\u0438\u043D\u0443\u0432 \u0434\u0430\u0442\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430; critical \u2014 \u0437\u0430\u043F\u0430\u0441\u0430 \u043D\u0435\u0442, \u044D\u043B\u0435\u043C\u0435\u043D\u0442 \u0434\u0435\u0440\u0436\u0438\u0442 \u0434\u0430\u0442\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430; critical_path \u2014 \u0446\u0435\u043F\u043E\u0447\u043A\u0430, \u043A\u043E\u0442\u043E\u0440\u0430\u044F \u0435\u0451 \u0434\u0435\u0440\u0436\u0438\u0442. \u041D\u0443\u0436\u0435\u043D, \u0447\u0442\u043E\u0431\u044B \u043E\u0442\u0432\u0435\u0442\u0438\u0442\u044C \xAB\u0447\u0442\u043E \u0435\u0434\u0435\u0442 \u0432 \u043F\u0440\u043E\u0435\u043A\u0442\u0435\xBB, \xAB\u0447\u0442\u043E \u0434\u0435\u0440\u0436\u0438\u0442 \u0434\u0430\u0442\u0443\xBB \u0438 \xAB\u0447\u0442\u043E \u0431\u0443\u0434\u0435\u0442, \u0435\u0441\u043B\u0438 \u0441\u0434\u0432\u0438\u043D\u0443\u0442\u044C\xBB. \u0417\u0430\u0434\u0430\u0447 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0441\u044F \u043D\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 300 \u2014 \u043F\u0440\u0438 has_more \u0441\u0443\u0437\u044C\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 only_open, \u0438\u043D\u0430\u0447\u0435 \u0437\u0430\u043F\u0430\u0441 \u043F\u043E\u0441\u0447\u0438\u0442\u0430\u043D \u043F\u043E \u043D\u0435\u043F\u043E\u043B\u043D\u043E\u043C\u0443 \u0433\u0440\u0430\u0444\u0443.",
   inputSchema: {
     project_id: z9.string().uuid().describe("UUID \u043F\u0440\u043E\u0435\u043A\u0442\u0430 (task_groups.id)."),
     include_subprojects: z9.boolean().optional().describe("\u0412\u043A\u043B\u044E\u0447\u0430\u0442\u044C \u0437\u0430\u0434\u0430\u0447\u0438 \u043F\u043E\u0434\u043F\u0440\u043E\u0435\u043A\u0442\u043E\u0432. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u0434\u0430 \u2014 \u0432 \u0413\u0430\u043D\u0442\u0435 \u043E\u043D\u0438 \u0432\u0438\u0434\u043D\u044B \u0432\u043C\u0435\u0441\u0442\u0435."),
@@ -710,6 +802,14 @@ var get_project_schedule_default = defineTool9({
       type: d.dependency_type,
       lag_days: d.lag_days
     }));
+    const cpm = computeCriticalPath(
+      [
+        ...rows.map((t) => ({ id: t.id, start: t.start_at, end: t.deadline })),
+        ...(milestones ?? []).map((m) => ({ id: m.id, end: m.planned_date }))
+      ],
+      links.map((l) => ({ from: l.from, to: l.to, type: l.type, lag_days: l.lag_days }))
+    );
+    const slack = new Map(cpm.nodes.map((n) => [n.id, n]));
     return {
       content: [
         {
@@ -724,7 +824,9 @@ var get_project_schedule_default = defineTool9({
               status: m.status,
               gate_key: m.gate_key,
               // Веха «уехала», если факт позже плана либо план уже прошёл.
-              late_days: m.actual_date ? driftDays(m.planned_date, m.actual_date) : null
+              late_days: m.actual_date ? driftDays(m.planned_date, m.actual_date) : null,
+              float_days: slack.get(m.id)?.float_days ?? null,
+              critical: slack.get(m.id)?.critical ?? null
             })),
             tasks: rows.map((t) => ({
               id: t.id,
@@ -736,9 +838,22 @@ var get_project_schedule_default = defineTool9({
               project_name: t.group_id ? names.project.get(t.group_id) ?? null : null,
               // Отклонение от базового плана. null — либо не двигали, либо
               // базовая дата испорчена и числу верить нельзя.
-              drift_days: driftDays(t.original_deadline, t.deadline)
+              drift_days: driftDays(t.original_deadline, t.deadline),
+              // Запас: сколько дней можно сдвинуть, не сдвинув дату проекта.
+              // null — у задачи нет срока, и места на шкале у неё нет.
+              float_days: slack.get(t.id)?.float_days ?? null,
+              critical: slack.get(t.id)?.critical ?? null
             })),
             dependencies: links,
+            critical_path: cpm.critical_path.map((id) => ({ id, name: label.get(id) ?? null })),
+            schedule: {
+              project_end: cpm.project_end,
+              // Связи не «финиш → старт» в расчёт запаса не вошли: считать их
+              // приблизительно и не сказать — тот же способ разойтись молча,
+              // каким разъехались дрифт и счётчики.
+              links_ignored_in_slack: cpm.ignored_links,
+              cycle: cpm.cycle ? cpm.cycle.map((id) => label.get(id) ?? id) : null
+            },
             counts: {
               milestones: (milestones ?? []).length,
               tasks_returned: rows.length,
@@ -887,7 +1002,7 @@ import { defineTool as defineTool12 } from "npm:@lovable.dev/mcp-js@0.24.0";
 import { z as z12 } from "npm:zod@^4.4.3";
 
 // src/lib/dependencyGraph.ts
-import { parseISO, addDays, differenceInCalendarDays } from "npm:date-fns@^3.6.0";
+import { parseISO as parseISO2, addDays, differenceInCalendarDays as differenceInCalendarDays2 } from "npm:date-fns@^3.6.0";
 function wouldCreateCycle(predId, succId, existing) {
   if (predId === succId) return true;
   const adj = /* @__PURE__ */ new Map();
@@ -925,17 +1040,17 @@ function resolveAllViolations(dependencies, entities, options = {}) {
       if (!pred?.deadline || !succ) continue;
       const succAnchor = succ.start_at || succ.deadline;
       if (!succAnchor) continue;
-      const predEnd = addDays(parseISO(pred.deadline), d.lag_days || 0);
-      const succStart = parseISO(succAnchor);
+      const predEnd = addDays(parseISO2(pred.deadline), d.lag_days || 0);
+      const succStart = parseISO2(succAnchor);
       if (succStart >= predEnd) continue;
       let newStart = predEnd;
       let newDeadline;
       if (succ.start_at && succ.deadline) {
-        const duration = differenceInCalendarDays(parseISO(succ.deadline), parseISO(succ.start_at));
+        const duration = differenceInCalendarDays2(parseISO2(succ.deadline), parseISO2(succ.start_at));
         newDeadline = addDays(newStart, Math.max(duration, 0));
       } else if (succ.deadline) {
-        const gap = differenceInCalendarDays(predEnd, succStart);
-        newDeadline = addDays(parseISO(succ.deadline), gap);
+        const gap = differenceInCalendarDays2(predEnd, succStart);
+        newDeadline = addDays(parseISO2(succ.deadline), gap);
       } else {
         newDeadline = newStart;
       }
@@ -957,10 +1072,10 @@ function resolveAllViolations(dependencies, entities, options = {}) {
 }
 
 // src/lib/cascadeDependencies.ts
-import { addDays as addDays2, parseISO as parseISO2, differenceInCalendarDays as differenceInCalendarDays2 } from "npm:date-fns@^3.6.0";
+import { addDays as addDays2, parseISO as parseISO3, differenceInCalendarDays as differenceInCalendarDays3 } from "npm:date-fns@^3.6.0";
 function computeCascadeUpdates(changedEntityId, newDeadline, oldDeadline, dependencies, entities) {
   const updates = /* @__PURE__ */ new Map();
-  const daysDelta = differenceInCalendarDays2(newDeadline, oldDeadline);
+  const daysDelta = differenceInCalendarDays3(newDeadline, oldDeadline);
   if (daysDelta === 0) return updates;
   const successorMap = /* @__PURE__ */ new Map();
   dependencies.forEach((d) => {
@@ -986,12 +1101,12 @@ function computeCascadeUpdates(changedEntityId, newDeadline, oldDeadline, depend
       if (effectivePush === 0) continue;
       const update = {};
       if (entity.deadline) {
-        update.deadline = addDays2(parseISO2(entity.deadline), effectivePush).toISOString();
+        update.deadline = addDays2(parseISO3(entity.deadline), effectivePush).toISOString();
       }
       if (entity.start_at) {
-        update.start_at = addDays2(parseISO2(entity.start_at), effectivePush).toISOString();
+        update.start_at = addDays2(parseISO3(entity.start_at), effectivePush).toISOString();
       } else if (entity.deadline) {
-        const newDeadlineDate = addDays2(parseISO2(entity.deadline), effectivePush);
+        const newDeadlineDate = addDays2(parseISO3(entity.deadline), effectivePush);
         update.start_at = addDays2(newDeadlineDate, -1).toISOString();
       }
       if (update.deadline || update.start_at) {
@@ -1775,7 +1890,7 @@ var mcp_default = defineMcp({
   name: "justtodoit-mcp",
   title: "JustTODOit",
   version: "0.2.0",
-  instructions: "\u0418\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u044B JustTODOit: \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B, \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B \u0432\u0441\u0442\u0440\u0435\u0447, CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u044B. \u0412\u0441\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F \u2014 \u043E\u0442 \u0438\u043C\u0435\u043D\u0438 \u0437\u0430\u043B\u043E\u0433\u0438\u043D\u0435\u043D\u043D\u043E\u0433\u043E \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F, RLS \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F. \u0414\u0430\u0442\u044B \u0432 ISO 8601. \u0417\u0430\u0434\u0430\u0447\u0438 \u0438\u0437 \u043F\u0438\u0441\u0435\u043C \u0441\u043E\u0437\u0434\u0430\u0432\u0430\u0439 \u0441 source (\u0442\u0435\u043C\u0430, \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u044C, \u0434\u0430\u0442\u0430) \u2014 \u043F\u043E \u043D\u0435\u043C\u0443 \u043F\u043E\u0442\u043E\u043C \u0441\u0432\u0435\u0440\u044F\u044E\u0442\u0441\u044F \u043F\u0438\u0441\u044C\u043C\u0430 \u0441 \u0437\u0430\u0434\u0430\u0447\u0430\u043C\u0438 \u0447\u0435\u0440\u0435\u0437 search_tasks. \u041F\u0440\u043E \u0441\u0440\u043E\u043A\u0438 \u0438 \u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E\u0441\u0442\u0438 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0439 get_project_schedule \u2014 \u0432\u0435\u0445\u0438, \u0437\u0430\u0434\u0430\u0447\u0438 \u0441 \u043D\u0430\u0447\u0430\u043B\u043E\u043C \u0438 \u043A\u043E\u043D\u0446\u043E\u043C \u0438 \u0441\u0432\u044F\u0437\u0438 \u043C\u0435\u0436\u0434\u0443 \u043D\u0438\u043C\u0438 \u043F\u0440\u0438\u0445\u043E\u0434\u044F\u0442 \u043E\u0434\u043D\u0438\u043C \u0432\u044B\u0437\u043E\u0432\u043E\u043C. \u0412\u0435\u0445\u0438 \u0437\u0430\u0432\u043E\u0434\u044F\u0442\u0441\u044F \u0438 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u044F\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 create_milestone \u0438 update_milestone; \u043F\u043B\u0430\u043D\u043E\u0432\u0430\u044F \u0438 \u0444\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0430\u044F \u0434\u0430\u0442\u044B \u2014 \u0440\u0430\u0437\u043D\u044B\u0435 \u0432\u0435\u0449\u0438, \u043F\u0435\u0440\u0435\u043D\u043E\u0441 \u043F\u043B\u0430\u043D\u0430 \u043D\u0435 \u0437\u043D\u0430\u0447\u0438\u0442 \u0434\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u0435. \u0421\u0432\u044F\u0437\u0438 \xAB\u0447\u0442\u043E \u0437\u0430 \u0447\u0435\u043C \u0438\u0434\u0451\u0442\xBB \u0441\u043E\u0437\u0434\u0430\u044E\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 link_tasks \u0438 \u0441\u043D\u0438\u043C\u0430\u044E\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 unlink_tasks; \u043F\u043E\u0441\u043B\u0435 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u0441\u0432\u044F\u0437\u0438 \u043F\u0440\u0435\u0435\u043C\u043D\u0438\u043A\u0438 \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u0441\u0434\u0432\u0438\u0433\u0430\u044E\u0442\u0441\u044F \u0432\u043F\u0435\u0440\u0451\u0434 \u2014 \u0441\u0434\u0432\u0438\u043D\u0443\u0442\u043E\u0435 \u043F\u0440\u0438\u0445\u043E\u0434\u0438\u0442 \u0432 \u043E\u0442\u0432\u0435\u0442\u0435, \u043E \u043D\u0451\u043C \u0441\u0442\u043E\u0438\u0442 \u0441\u043A\u0430\u0437\u0430\u0442\u044C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443. \u041F\u0435\u0440\u0435\u043D\u043E\u0441 \u0441\u0440\u043E\u043A\u043E\u0432: preview_shift \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0447\u0442\u043E \u043F\u043E\u0442\u044F\u043D\u0435\u0442\u0441\u044F \u0437\u0430 \u0437\u0430\u0434\u0430\u0447\u0435\u0439, \u0431\u0435\u0437 \u0437\u0430\u043F\u0438\u0441\u0438; move_task \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442. \u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u043A\u0430\u0436\u0438 \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443 preview_shift \u0438 \u043F\u043E\u043B\u0443\u0447\u0438 \u0441\u043E\u0433\u043B\u0430\u0441\u0438\u0435 \u2014 \u0441\u0434\u0432\u0438\u0433 \u0437\u0430\u0434\u0435\u0432\u0430\u0435\u0442 \u0447\u0443\u0436\u0438\u0435 \u0441\u0440\u043E\u043A\u0438, \u043E \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0443\u0436\u0435 \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0438\u043B\u0438\u0441\u044C. \u041F\u0440\u0430\u0432\u043A\u0430 \u0441\u0440\u043E\u043A\u0430 \u043E\u0434\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438 \u0431\u0435\u0437 \u0445\u0432\u043E\u0441\u0442\u0430 \u2014 \u044D\u0442\u043E update_task. \u0414\u043D\u0438 \u0432\u0435\u0437\u0434\u0435 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0435. \u041A\u0430\u0436\u0434\u044B\u0439 \u0432\u044B\u0437\u043E\u0432 \u043F\u0438\u0448\u0435\u0442\u0441\u044F \u0432 \u0436\u0443\u0440\u043D\u0430\u043B \u043E\u0431\u0440\u0430\u0449\u0435\u043D\u0438\u0439.",
+  instructions: "\u0418\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u044B JustTODOit: \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B, \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B \u0432\u0441\u0442\u0440\u0435\u0447, CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u044B. \u0412\u0441\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F \u2014 \u043E\u0442 \u0438\u043C\u0435\u043D\u0438 \u0437\u0430\u043B\u043E\u0433\u0438\u043D\u0435\u043D\u043D\u043E\u0433\u043E \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F, RLS \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F. \u0414\u0430\u0442\u044B \u0432 ISO 8601. \u0417\u0430\u0434\u0430\u0447\u0438 \u0438\u0437 \u043F\u0438\u0441\u0435\u043C \u0441\u043E\u0437\u0434\u0430\u0432\u0430\u0439 \u0441 source (\u0442\u0435\u043C\u0430, \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u044C, \u0434\u0430\u0442\u0430) \u2014 \u043F\u043E \u043D\u0435\u043C\u0443 \u043F\u043E\u0442\u043E\u043C \u0441\u0432\u0435\u0440\u044F\u044E\u0442\u0441\u044F \u043F\u0438\u0441\u044C\u043C\u0430 \u0441 \u0437\u0430\u0434\u0430\u0447\u0430\u043C\u0438 \u0447\u0435\u0440\u0435\u0437 search_tasks. \u041F\u0440\u043E \u0441\u0440\u043E\u043A\u0438 \u0438 \u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E\u0441\u0442\u0438 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0439 get_project_schedule \u2014 \u0432\u0435\u0445\u0438, \u0437\u0430\u0434\u0430\u0447\u0438 \u0441 \u043D\u0430\u0447\u0430\u043B\u043E\u043C \u0438 \u043A\u043E\u043D\u0446\u043E\u043C, \u0441\u0432\u044F\u0437\u0438 \u043C\u0435\u0436\u0434\u0443 \u043D\u0438\u043C\u0438 \u0438 \u0437\u0430\u043F\u0430\u0441 \u043F\u043E \u0441\u0440\u043E\u043A\u0430\u043C \u043F\u0440\u0438\u0445\u043E\u0434\u044F\u0442 \u043E\u0434\u043D\u0438\u043C \u0432\u044B\u0437\u043E\u0432\u043E\u043C. \u041D\u0430 \u0432\u043E\u043F\u0440\u043E\u0441 \xAB\u0447\u0442\u043E \u0434\u0435\u0440\u0436\u0438\u0442 \u0434\u0430\u0442\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430\xBB \u043E\u0442\u0432\u0435\u0447\u0430\u0439 \u043F\u043E critical_path \u0438 \u043F\u043E\u043B\u044E critical, \u043D\u0430 \xAB\u0435\u0441\u0442\u044C \u043B\u0438 \u043B\u044E\u0444\u0442\xBB \u2014 \u043F\u043E float_days; \u043E\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u0437\u0430\u043F\u0430\u0441 \u0437\u043D\u0430\u0447\u0438\u0442, \u0447\u0442\u043E \u0441\u0432\u044F\u0437\u044C \u0443\u0436\u0435 \u043D\u0430\u0440\u0443\u0448\u0435\u043D\u0430. \u0412\u0435\u0445\u0438 \u0437\u0430\u0432\u043E\u0434\u044F\u0442\u0441\u044F \u0438 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u044F\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 create_milestone \u0438 update_milestone; \u043F\u043B\u0430\u043D\u043E\u0432\u0430\u044F \u0438 \u0444\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0430\u044F \u0434\u0430\u0442\u044B \u2014 \u0440\u0430\u0437\u043D\u044B\u0435 \u0432\u0435\u0449\u0438, \u043F\u0435\u0440\u0435\u043D\u043E\u0441 \u043F\u043B\u0430\u043D\u0430 \u043D\u0435 \u0437\u043D\u0430\u0447\u0438\u0442 \u0434\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u0435. \u0421\u0432\u044F\u0437\u0438 \xAB\u0447\u0442\u043E \u0437\u0430 \u0447\u0435\u043C \u0438\u0434\u0451\u0442\xBB \u0441\u043E\u0437\u0434\u0430\u044E\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 link_tasks \u0438 \u0441\u043D\u0438\u043C\u0430\u044E\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 unlink_tasks; \u043F\u043E\u0441\u043B\u0435 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u0441\u0432\u044F\u0437\u0438 \u043F\u0440\u0435\u0435\u043C\u043D\u0438\u043A\u0438 \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u0441\u0434\u0432\u0438\u0433\u0430\u044E\u0442\u0441\u044F \u0432\u043F\u0435\u0440\u0451\u0434 \u2014 \u0441\u0434\u0432\u0438\u043D\u0443\u0442\u043E\u0435 \u043F\u0440\u0438\u0445\u043E\u0434\u0438\u0442 \u0432 \u043E\u0442\u0432\u0435\u0442\u0435, \u043E \u043D\u0451\u043C \u0441\u0442\u043E\u0438\u0442 \u0441\u043A\u0430\u0437\u0430\u0442\u044C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443. \u041F\u0435\u0440\u0435\u043D\u043E\u0441 \u0441\u0440\u043E\u043A\u043E\u0432: preview_shift \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0447\u0442\u043E \u043F\u043E\u0442\u044F\u043D\u0435\u0442\u0441\u044F \u0437\u0430 \u0437\u0430\u0434\u0430\u0447\u0435\u0439, \u0431\u0435\u0437 \u0437\u0430\u043F\u0438\u0441\u0438; move_task \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442. \u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u043A\u0430\u0436\u0438 \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443 preview_shift \u0438 \u043F\u043E\u043B\u0443\u0447\u0438 \u0441\u043E\u0433\u043B\u0430\u0441\u0438\u0435 \u2014 \u0441\u0434\u0432\u0438\u0433 \u0437\u0430\u0434\u0435\u0432\u0430\u0435\u0442 \u0447\u0443\u0436\u0438\u0435 \u0441\u0440\u043E\u043A\u0438, \u043E \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0443\u0436\u0435 \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0438\u043B\u0438\u0441\u044C. \u041F\u0440\u0430\u0432\u043A\u0430 \u0441\u0440\u043E\u043A\u0430 \u043E\u0434\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438 \u0431\u0435\u0437 \u0445\u0432\u043E\u0441\u0442\u0430 \u2014 \u044D\u0442\u043E update_task. \u0414\u043D\u0438 \u0432\u0435\u0437\u0434\u0435 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0435. \u041A\u0430\u0436\u0434\u044B\u0439 \u0432\u044B\u0437\u043E\u0432 \u043F\u0438\u0448\u0435\u0442\u0441\u044F \u0432 \u0436\u0443\u0440\u043D\u0430\u043B \u043E\u0431\u0440\u0430\u0449\u0435\u043D\u0438\u0439.",
   auth: auth.oauth.issuer({
     issuer: `${AUTH_BASE}/auth/v1`,
     // resource закрепляем явно. Без него библиотека берёт адрес из заголовка
