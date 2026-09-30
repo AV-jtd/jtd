@@ -1,16 +1,13 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { isOverdue, startOfTodayMoscow } from "../_shared/time.ts";
-import { byDeadline, daysLate, delta, driftDays } from "../_shared/reportFormat.ts";
+import { byDeadline, driftDays } from "../_shared/reportFormat.ts";
+import { buildWeeklyGroupReport, type ReportPerson } from "../_shared/weeklyGroupReport.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 
 const APP_URL = "https://justtodoit.ru";
-
-const escapeHtml = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 Deno.serve(async (req) => {
   if (!BOT_TOKEN) {
@@ -46,15 +43,20 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, sent: 0, reason: "no root linked projects" }));
   }
 
-  // Profile names cache
-  const { data: allProfiles } = await supabase.from("profiles").select("id, display_name").limit(500);
-  const profileName: Record<string, string> = {};
-  (allProfiles || []).forEach((p: any) => { profileName[p.id] = p.display_name || "Без имени"; });
+  // Имена и ники Telegram: ник нужен для @-упоминания в блоке человека.
+  const { data: allProfiles } = await supabase
+    .from("profiles").select("id, display_name, telegram_username").limit(1000);
+  const people: Record<string, ReportPerson> = {};
+  (allProfiles || []).forEach((p: any) => {
+    people[p.id] = { name: p.display_name || "Без имени", telegram_username: p.telegram_username };
+  });
 
   const now = new Date();
   const dayStart = startOfTodayMoscow();
   const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
   const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() + 7);
+  // Срок заданий — конец пятницы следующей недели (отчёт уходит в пятницу).
+  const dueBy = new Date(dayStart.getTime() + 8 * 86400000 - 1);
 
   let sentCount = 0;
   const errors: string[] = [];
@@ -80,7 +82,7 @@ Deno.serve(async (req) => {
 
       const { data: tasks } = await supabase
         .from("tasks")
-        .select("id, title, is_completed, deadline, original_deadline, assigned_to, completed_at, created_at, group_id")
+        .select("id, title, is_completed, is_draft, deadline, original_deadline, assigned_to, completed_at, created_at, group_id")
         .in("group_id", allGroupIds);
 
       if (!tasks || tasks.length === 0) continue;
@@ -160,138 +162,19 @@ Deno.serve(async (req) => {
         pct,
       };
 
-      // Шапка: сначала то, что изменилось за неделю, потом состояние.
-      // Общий прогресс ушёл вниз — он считается по всем задачам за всю жизнь
-      // проекта, почти монотонен и не способен показать, что дела плохи.
-      const lines: string[] = [
-        `📊 <b>Еженедельный отчёт · ${escapeHtml(root.name)}</b>`,
-        `<i>${now.toLocaleDateString("ru-RU")}</i>`,
-        ``,
-        `<b>За неделю</b>`,
-        `✅ Закрыто: <b>${completedThisWeek.length}</b>${delta(completedThisWeek.length, prev?.completedThisWeek, "up")}`,
-        `🆕 Создано: <b>${createdThisWeek.length}</b>${delta(createdThisWeek.length, prev?.createdThisWeek, "neutral")}`,
-        ``,
-        `<b>Сейчас</b>`,
-        `⚠️ Просрочено: <b>${overdue.length}</b>${delta(overdue.length, prev?.overdue, "down")}${overdueSteps.length > 0 ? ` · шагов: <b>${overdueSteps.length}</b>${delta(overdueSteps.length, prev?.overdueSteps, "down")}` : ""}`,
-        `🔄 В работе: <b>${total - completed}</b>${delta(total - completed, prev?.open, "down")}`,
-        `📅 Дедлайнов на следующей неделе: <b>${weekTasks.length}</b>`,
-      ];
-      if (driftTasks.length > 0) {
-        lines.push(`↔ Сроки сдвигали: <b>${driftTasks.length}</b>${delta(driftTasks.length, prev?.drift, "down")}`);
-      }
-      if (!prev) {
-        lines.push(``, `<i>Первый отчёт по проекту — сравнивать пока не с чем, со следующей недели появится динамика.</i>`);
-      }
+      // Текст — задания по людям (решение владельца 30.09): см.
+      // _shared/weeklyGroupReport.ts. Цифры выше нужны для снимка недели.
+      const text = buildWeeklyGroupReport({
+        projectName: root.name,
+        projectUrl: `${APP_URL}/?group=${root.id}`,
+        tasks: tasks.filter(t => !t.is_draft),
+        people,
+        dayStart,
+        dueBy,
+        weekAgo,
+        prevOverdue: prev?.overdue,
+      });
 
-      // Top overdue
-      if (overdue.length > 0) {
-        lines.push(``, `<b>⚠️ Просроченные</b> <i>(самые давние сверху):</i>`);
-        overdue.slice(0, 5).forEach(t => {
-          const a = t.assigned_to ? profileName[t.assigned_to] : "не назначен";
-          const late = t.deadline ? daysLate(t.deadline, dayStart) : 0;
-          lines.push(`  • ${escapeHtml(t.title)} — <b>${late} дн.</b>, ${escapeHtml(a)}`);
-        });
-        if (overdue.length > 5) lines.push(`  … и ещё ${overdue.length - 5}`);
-      }
-
-      // Week ahead
-      if (weekTasks.length > 0) {
-        lines.push(``, `<b>📅 На следующей неделе</b> <i>(по датам):</i>`);
-        weekTasks.slice(0, 5).forEach(t => {
-          const dl = t.deadline ? new Date(t.deadline).toLocaleDateString("ru-RU") : "";
-          const a = t.assigned_to ? profileName[t.assigned_to] : "не назначен";
-          lines.push(`  • ${dl} — ${escapeHtml(t.title)}, ${escapeHtml(a)}`);
-        });
-        if (weekTasks.length > 5) lines.push(`  … и ещё ${weekTasks.length - 5}`);
-      }
-
-      // Drift поимённо: голый счётчик "↔ Drift: 12" вызывал тревогу, но не
-      // подсказывал ни одного действия. Показываем, что именно уехало.
-      if (driftTasks.length > 0) {
-        lines.push(``, `<b>↔ Сроки сдвигали:</b>`);
-        driftTasks.slice(0, 3).forEach(t => {
-          const a = t.assigned_to ? profileName[t.assigned_to] : "не назначен";
-          const sign = t.drift > 0 ? "+" : "−";
-          lines.push(`  • ${escapeHtml(t.title)} — <b>${sign}${Math.abs(t.drift)} дн.</b>, ${escapeHtml(a)}`);
-        });
-        if (driftTasks.length > 3) lines.push(`  … и ещё ${driftTasks.length - 3}`);
-      }
-
-      // By assignee
-      const assigneeRows = Object.entries(byAssignee)
-        .filter(([id]) => id !== "—")
-        .map(([id, s]) => ({ name: profileName[id] || "Без имени", ...s }))
-        .sort((a, b) => (b.open + b.overdue) - (a.open + a.overdue))
-        .slice(0, 8);
-      if (assigneeRows.length > 0) {
-        lines.push(``, `<b>👥 По участникам</b> <i>(✅ за неделю · 🔄 в работе · ⚠️ просрочено):</i>`);
-        assigneeRows.forEach(r => {
-          lines.push(`  • ${escapeHtml(r.name)}: ✅${r.done} · 🔄${r.open}${r.overdue > 0 ? ` · ⚠️${r.overdue}` : ""}`);
-        });
-      }
-
-      // Attention
-      if (stepsNoDeadline.length > 0 || stepsNoAssignee.length > 0) {
-        lines.push(``, `<b>💡 Требуют внимания:</b>`);
-        if (stepsNoDeadline.length > 0) lines.push(`  📌 ${stepsNoDeadline.length} шагов без срока`);
-        if (stepsNoAssignee.length > 0) lines.push(`  👤 ${stepsNoAssignee.length} шагов без ответственного`);
-      }
-
-      // Общий прогресс — внизу, справочно.
-      lines.push(``, `<i>Прогресс по проекту: ${pct}% (${completed}/${total})</i>`);
-
-      // AI summary
-      let aiSummary = "";
-      if (OPENROUTER_API_KEY) {
-        try {
-          const prompt = `Ты — ИИ-менеджер проектов. Составь короткий weekly review (3-5 строк) для команды проекта "${root.name}" на русском языке.
-
-Данные за неделю (в скобках — было неделю назад, если известно):
-- Закрыто за неделю: ${completedThisWeek.length}${prev ? ` (было ${prev.completedThisWeek})` : ""}
-- Создано за неделю: ${createdThisWeek.length}${prev ? ` (было ${prev.createdThisWeek})` : ""}
-- Просрочено задач: ${overdue.length}${prev ? ` (было ${prev.overdue})` : ""}, шагов: ${overdueSteps.length}
-- В работе: ${total - completed}${prev ? ` (было ${prev.open})` : ""}
-- Дедлайнов на след. неделе: ${weekTasks.length}
-- Задач со сдвинутым сроком: ${driftTasks.length}${prev ? ` (было ${prev.drift})` : ""}
-- Шагов без срока: ${stepsNoDeadline.length}, без ответственного: ${stepsNoAssignee.length}
-- Прогресс по проекту: ${pct}% (${completed}/${total})
-
-Топ просроченных: ${overdue.slice(0, 3).map(t => `"${t.title}" (${t.assigned_to ? profileName[t.assigned_to] : "не назначен"}, ${t.deadline ? daysLate(t.deadline, dayStart) : 0} дн. просрочки)`).join(", ") || "нет"}
-Сильнее всего сдвинули сроки: ${driftTasks.slice(0, 3).map(t => `"${t.title}" (${t.drift > 0 ? "+" : "−"}${Math.abs(t.drift)} дн.)`).join(", ") || "нет"}
-
-Главное: команда УЖЕ видит все эти цифры списком в том же сообщении. Не пересказывай их. Говори о том, чего в цифрах не видно: что изменилось к прошлой неделе и что это значит, какая динамика тревожит, что сделать в понедельник.
-${prev ? "" : "Прошлой недели для сравнения нет — это первый отчёт, о динамике не говори."}
-Формат: 1) оценка динамики одной строкой, 2) 1-2 главных риска, 3) 1-2 конкретные рекомендации команде. Без markdown, эмодзи в начале строк допустимы. Кратко, по делу.`;
-
-          const aiResp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "HTTP-Referer": "https://justtodoit.ru",
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash-lite",
-              messages: [{ role: "user", content: prompt }],
-              max_tokens: 400,
-            }),
-          });
-          if (aiResp.ok) {
-            const aiJson = await aiResp.json();
-            aiSummary = aiJson.choices?.[0]?.message?.content?.trim() || "";
-          }
-        } catch (e) {
-          console.warn(`AI summary failed for ${root.name}:`, e);
-        }
-      }
-
-      if (aiSummary) {
-        lines.push(``, `<b>🤖 ИИ-резюме:</b>`, escapeHtml(aiSummary));
-      }
-
-      // Ссылка на проект — чтобы из чата можно было сразу провалиться в задачи.
-      lines.push(``, `<a href="${APP_URL}/?group=${root.id}">Открыть проект в JTD →</a>`);
-
-      const text = lines.join("\n");
 
       // Telegram has 4096 char limit
       const chunks: string[] = [];
