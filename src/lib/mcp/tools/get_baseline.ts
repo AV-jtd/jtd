@@ -35,7 +35,7 @@ export default defineTool({
 
     const { data: project, error } = await supabase
       .from("task_groups")
-      .select("id,name,parent_id,baseline_status,baseline_locked_at,baseline_approver_id,baseline_auto_lock_hours,created_at")
+      .select("id,name,parent_id,work_mode,baseline_status,baseline_locked_at,baseline_approver_id,baseline_auto_lock_hours,created_at")
       .eq("id", input.project_id)
       .maybeSingle();
     if (error) return fail(error.message);
@@ -60,9 +60,11 @@ export default defineTool({
 
     // Автофиксация считается от создания проекта — так устроена функция
     // auto-baseline-lock, и это не то же самое, что «через 48 часов от сегодня».
+    // К операционным потокам она не применяется вовсе (решение владельца 30.09).
+    const isFlow = project.work_mode === "flow";
     const hours = project.baseline_auto_lock_hours ?? 48;
     let autoLock: { at: string; hours_left: number } | null = null;
-    if (planning && project.baseline_status === "planning" && !project.parent_id) {
+    if (!isFlow && planning && project.baseline_status === "planning" && !project.parent_id) {
       const at = new Date(new Date(project.created_at).getTime() + hours * 3600000);
       autoLock = { at: at.toISOString(), hours_left: Math.round((at.getTime() - Date.now()) / 3600000) };
     }
@@ -98,15 +100,18 @@ export default defineTool({
           text: JSON.stringify({
             project: { id: project.id, name: project.name },
             status: project.baseline_status,
+            work_mode: project.work_mode ?? null,
             counts_as_planning: planning,
-            meaning: planning
+            meaning: isFlow
+              ? "Это операционный поток: базовый план к нему не применяется, автофиксация его не трогает. Если он всё же зафиксирован — снимите фиксацию, иначе каждый перенос срока попадёт в портфель как отклонение."
+              : planning
               ? "План составляется: базовая дата идёт за сроком, правки сдвигом не записываются."
               : "План утверждён: каждая правка срока записывается как отклонение и попадает в портфель.",
             locked_at: project.baseline_locked_at,
             approver,
             parent: parent ? { id: parent.id, name: parent.name, status: parent.baseline_status } : null,
             auto_lock: autoLock,
-            auto_lock_hours: hours,
+            auto_lock_hours: isFlow ? null : hours,
             tasks: {
               with_deadline: (tasks ?? []).length,
               drifted,

@@ -16,11 +16,16 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     // Find projects in 'planning' status that have exceeded their auto_lock_hours
+    // Операционные потоки (work_mode = 'flow') автофиксация НЕ трогает: у потока
+    // поручений нет утверждённого плана, а зафиксированный базовый план
+    // превращает каждый перенос срока в отклонение и портит портфель. Решение
+    // владельца от 30.09; разбор — в журнале.
     const { data: projects, error: fetchError } = await supabase
       .from("task_groups")
-      .select("id, created_at, baseline_auto_lock_hours")
+      .select("id, created_at, baseline_auto_lock_hours, work_mode")
       .eq("baseline_status", "planning")
-      .is("parent_id", null);
+      .is("parent_id", null)
+      .or("work_mode.is.null,work_mode.neq.flow");
 
     if (fetchError) throw fetchError;
 
