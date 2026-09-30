@@ -8,7 +8,7 @@ import {
   formatRelayMessage,
   bulkAutoJoinTelegramChatMembers,
 } from "../_shared/messenger-core.ts";
-import { mintUserToken, callAssistant, mdToTelegramHtml, renderPending, renderSteps, type AssistantReply } from "../_shared/assistantTg.ts";
+import { mintUserToken, callAssistant, mdToTelegramHtml, renderPending, renderSteps, looksLikeAssistantRequest, type AssistantReply } from "../_shared/assistantTg.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -205,6 +205,10 @@ Deno.serve(async (req) => {
       }
 
       // Ассистент: «Выполнить / Отмена» по карточке подтверждения.
+      if (cbData.startsWith("asstask:")) {
+        await handleAssistantMakeTask(supabaseCb, BOT_TOKEN, callbackQuery.id, cbChatId, cbMessageId, cbProfile.id, cbData.slice(8));
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
       if (cbData.startsWith("asst:")) {
         await handleAssistantDecision(supabaseCb, BOT_TOKEN, callbackQuery.id, cbChatId, cbMessageId, cbProfile.id, cbData);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
@@ -2230,6 +2234,30 @@ Deno.serve(async (req) => {
         `📦 Создано ${results.length} задач${projectInfo}:\n\n${confirmLines.join("\n")}${isFromVoice ? "\n\n🎤 Из голосового сообщения" : ""}`
       );
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+    }
+
+    // === ИИ-ассистент без /ai (решение владельца 01.10.2026) ===
+    // 1) Ответ (reply) на сообщение ассистента продолжает разговор.
+    // 2) Похожее на вопрос или просьбу к помощнику уходит ассистенту — с кнопкой
+    //    «Создать задачей» на случай ошибки. Остальной текст, как и раньше, —
+    //    задача. _force_task — повторный прогон по этой кнопке.
+    if (!message._force_task && !message.text.startsWith("/")) {
+      const replyTo = message.reply_to_message;
+      if (replyTo?.from?.is_bot && replyTo.message_id) {
+        const { data: sess } = await supabase.from("assistant_tg_sessions").select("id")
+          .eq("chat_id", chatId).eq("user_id", userId)
+          .contains("bot_message_ids", [replyTo.message_id])
+          .order("updated_at", { ascending: false }).limit(1).maybeSingle();
+        if (sess && await handleAssistantTg(supabase, BOT_TOKEN, chatId, userId, message.text, { sessionId: sess.id })) {
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+      }
+      if (looksLikeAssistantRequest(message.text, { forwarded: !!message._forwarded, voice: isFromVoice })) {
+        const origin = { text: message.text, message_id: message.message_id, from: message.from };
+        if (await handleAssistantTg(supabase, BOT_TOKEN, chatId, userId, message.text, { autoRouted: true, origin })) {
+          return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+        }
+      }
     }
 
     // === Check pending /spisok context (for voice, forwarded, or bulk-like messages) ===
@@ -4308,9 +4336,16 @@ function historyForModel(history: { role: string; content: string }[]) {
   return out;
 }
 
+async function rememberBotMessage(supabase: any, sessionId: string, messageId: number | undefined) {
+  if (!messageId) return;
+  const { data } = await supabase.from("assistant_tg_sessions").select("bot_message_ids").eq("id", sessionId).maybeSingle();
+  const ids = [...((data?.bot_message_ids as number[]) ?? []), messageId].slice(-30);
+  await supabase.from("assistant_tg_sessions").update({ bot_message_ids: ids }).eq("id", sessionId);
+}
+
 async function sendAssistantResult(
   supabase: any, token: string, chatId: number, sessionId: string,
-  r: AssistantReply, history: { role: string; content: string }[],
+  r: AssistantReply, history: { role: string; content: string }[], offerTask = false,
 ) {
   if (r.status === "confirm" && r.pending?.length) {
     const sent = await tgCall(token, "sendMessage", {
@@ -4327,12 +4362,18 @@ async function sendAssistantResult(
       history, agent_messages: r.messages, pending: r.pending,
       card_message_id: sent?.result?.message_id ?? null, updated_at: new Date().toISOString(),
     }).eq("id", sessionId);
+    await rememberBotMessage(supabase, sessionId, sent?.result?.message_id);
     return;
   }
   const text = (r.reply ? mdToTelegramHtml(r.reply) : "Готово.") + renderSteps(r);
-  const sent = await tgCall(token, "sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true });
+  // Бот сам решил, что это вопрос, — даём исправить: «Создать задачей».
+  const markup = offerTask
+    ? { reply_markup: { inline_keyboard: [[{ text: "📝 Это была задача — создать", callback_data: `asstask:${sessionId}` }]] } }
+    : {};
+  let sent = await tgCall(token, "sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true, ...markup });
   // Если разметка не понравилась Telegram — отправляем без неё, но отправляем.
-  if (!sent?.ok) await tgCall(token, "sendMessage", { chat_id: chatId, text: r.reply || "Готово." });
+  if (!sent?.ok) sent = await tgCall(token, "sendMessage", { chat_id: chatId, text: r.reply || "Готово.", ...markup });
+  await rememberBotMessage(supabase, sessionId, sent?.result?.message_id);
   history.push({ role: "assistant", content: r.reply || "" });
   await supabase.from("assistant_tg_sessions").update({
     history, agent_messages: null, pending: null, card_message_id: null, updated_at: new Date().toISOString(),
@@ -4352,7 +4393,10 @@ async function assistantError(token: string, chatId: number, code: string | unde
 }
 
 /** /ai <вопрос>. false — не вышло, вызывающий идёт прежним путём. */
-async function handleAssistantTg(supabase: any, token: string, chatId: number, userId: string, question: string): Promise<boolean> {
+async function handleAssistantTg(
+  supabase: any, token: string, chatId: number, userId: string, question: string,
+  opts: { sessionId?: string; autoRouted?: boolean; origin?: Record<string, unknown> } = {},
+): Promise<boolean> {
   try {
     // Токен выпускаем только тому, к кому привязан именно этот чат.
     const { data: prof } = await supabase.from("profiles").select("telegram_chat_id").eq("id", userId).maybeSingle();
@@ -4365,9 +4409,13 @@ async function handleAssistantTg(supabase: any, token: string, chatId: number, u
 
     // Продолжение разговора — если прошлый был в последние 30 минут.
     const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-    const { data: prev } = await supabase.from("assistant_tg_sessions")
-      .select("id, history, card_message_id, pending").eq("chat_id", chatId).eq("user_id", userId)
-      .gte("updated_at", since).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+    // Ответ на сообщение ассистента — продолжение именно того разговора.
+    const { data: prev } = opts.sessionId
+      ? await supabase.from("assistant_tg_sessions").select("id, history, card_message_id, pending")
+        .eq("id", opts.sessionId).eq("user_id", userId).maybeSingle()
+      : await supabase.from("assistant_tg_sessions")
+        .select("id, history, card_message_id, pending").eq("chat_id", chatId).eq("user_id", userId)
+        .gte("updated_at", since).order("updated_at", { ascending: false }).limit(1).maybeSingle();
     // Новый вопрос при неотвеченной карточке — карточка больше не действует.
     if (prev?.pending && prev.card_message_id) {
       await tgCall(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: prev.card_message_id, reply_markup: { inline_keyboard: [] } });
@@ -4380,11 +4428,12 @@ async function handleAssistantTg(supabase: any, token: string, chatId: number, u
       sessionId = created?.id;
     }
     if (!sessionId) return false;
+    await supabase.from("assistant_tg_sessions").update({ origin: opts.autoRouted ? opts.origin ?? null : null }).eq("id", sessionId);
 
     const userToken = await mintUserToken(userId, au?.user?.email ?? null);
     const r = await callAssistant(userToken, { messages: historyForModel(history) });
     if (r.error) return await assistantError(token, chatId, r.error);
-    await sendAssistantResult(supabase, token, chatId, sessionId, r, history);
+    await sendAssistantResult(supabase, token, chatId, sessionId, r, history, !!opts.autoRouted);
     return true;
   } catch (e) {
     console.error("assistant tg failed:", (e as Error)?.stack ?? e);
@@ -4426,4 +4475,36 @@ async function handleAssistantDecision(
     console.error("assistant tg decision failed:", (e as Error)?.stack ?? e);
     await tgCall(token, "sendMessage", { chat_id: chatId, text: "❌ Ошибка. Попробуйте ещё раз: /ai" });
   }
+}
+
+/** «Это была задача — создать»: исходный текст — обычным путём создания задачи. */
+async function handleAssistantMakeTask(
+  supabase: any, token: string, callbackId: string, chatId: number, messageId: number, profileId: string, sessionId: string,
+) {
+  const { data: sess } = await supabase.from("assistant_tg_sessions")
+    .select("id, user_id, chat_id, origin").eq("id", sessionId).maybeSingle();
+  if (!sess || sess.user_id !== profileId || String(sess.chat_id) !== String(chatId) || !sess.origin?.text) {
+    await answerCallbackQuery(token, callbackId, "Не нашёл исходное сообщение");
+    return;
+  }
+  await answerCallbackQuery(token, callbackId, "Создаю задачу…");
+  await tgCall(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } });
+  await supabase.from("assistant_tg_sessions").update({ origin: null }).eq("id", sess.id);
+  // Тот же вебхук, тот же путь, что у обычного текста; _force_task — мимо ассистента.
+  await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/telegram-webhook`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      // Вызов от самого бота: тот же секрет, что Telegram присылает в вебхук.
+      "X-Telegram-Bot-Api-Secret-Token": Deno.env.get("TELEGRAM_WEBHOOK_SECRET_TOKEN") ?? "",
+    },
+    body: JSON.stringify({
+      update_id: 0,
+      message: {
+        message_id: sess.origin.message_id, date: Math.floor(Date.now() / 1000),
+        chat: { id: chatId, type: "private" }, from: sess.origin.from, text: sess.origin.text, _force_task: true,
+      },
+    }),
+  });
 }
