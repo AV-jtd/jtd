@@ -43,6 +43,10 @@ export default defineTool({
             move: result.moved,
             would_shift: result.shifted,
             would_shift_count: result.shifted.length,
+            recorded_as_drift: result.recorded_as_drift,
+            baseline_note: result.recorded_as_drift
+              ? "Базовый план проекта зафиксирован: перенос запишется как отклонение и попадёт в портфель. Скажите об этом человеку."
+              : "Проект ещё на этапе планирования: перенос сдвигом не запишется.",
             apply_with: "move_task",
           }),
         },
