@@ -9,6 +9,21 @@
 
 set -euo pipefail
 
+# ---------- 0. Работать с копии самого себя ----------
+# Bash читает скрипт по ходу исполнения, по смещению в файле. Ниже деплой
+# сливает свежий код и делает `git checkout HEAD -- self-hosting/`, то есть
+# может заменить этот самый файл под работающим интерпретатором — и тот
+# продолжит со старого смещения посреди чужой строки (бэклог P4, 27.09.2026).
+# Поэтому сразу уходим в копию во /tmp: текущий прогон идёт по версии, с
+# которой начался, а новая версия действует со следующего деплоя.
+if [ -z "${JTD_DEPLOY_COPY:-}" ]; then
+  JTD_DEPLOY_COPY="$(mktemp /tmp/jtd-deploy.XXXXXX.sh)"
+  cp "$0" "$JTD_DEPLOY_COPY"
+  export JTD_DEPLOY_COPY
+  exec bash "$JTD_DEPLOY_COPY" "$@"
+fi
+trap 'rm -f "$JTD_DEPLOY_COPY"' EXIT
+
 REPO_DIR="/opt/jtd"
 COMPOSE="$REPO_DIR/self-hosting/docker-compose.supabase.yml"
 ENV_FILE="$REPO_DIR/self-hosting/.env.supabase"
@@ -41,6 +56,22 @@ notify_admins() {
   return 0
 }
 cd "$REPO_DIR"
+
+# ---------- 0б. Рабочий каталог должен быть чистым ----------
+# Деплой собирает прод из /opt/jtd — того же каталога, где работает сессия
+# Claude на сервере. 30.09.2026 слияние PR пришлось на середину работы, и на
+# прод уехали незакоммиченные правки дашборда и неотслеживаемая миграция
+# (журнал, 30.09). Незаконченное не выкатываем: останавливаемся и сообщаем.
+# Исключения — файлы, которые меняет сам деплой: отметки миграций и артефакт
+# MCP, который сборка перегенерирует из src/lib/mcp.
+dirty="$(git status --porcelain --untracked-files=normal \
+  | grep -vE '^.. (self-hosting/\.applied-migrations|supabase/functions/mcp/index\.ts)$' || true)"
+if [ -n "$dirty" ]; then
+  log "В рабочем каталоге незакоммиченные изменения — деплой остановлен, прод не тронут:"
+  printf '%s\n' "$dirty" | head -20
+  notify_admins "⏸ Деплой JustTODOit отложен: на сервере есть незакоммиченная работа ($(printf '%s\n' "$dirty" | wc -l) файлов). Прод не тронут. Деплой пройдёт при следующем слиянии в main — или запустите его вручную, когда работа будет закоммичена."
+  exit 1
+fi
 
 # ---------- 1. Синхронизация кода ----------
 log "Синхронизация с origin/$BRANCH и origin/main"
