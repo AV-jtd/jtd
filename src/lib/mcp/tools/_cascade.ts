@@ -343,3 +343,39 @@ export async function entityKind(supabase: SupabaseClient, id: string): Promise<
   if (ms) return "milestone";
   return null;
 }
+
+/**
+ * Поиск кольца в произвольном наборе связей. Нужен плану: там связи ссылаются
+ * и на новые элементы, которых в базе ещё нет, поэтому `wouldCreateCycle`
+ * (он проверяет одно новое ребро против существующих) не подходит.
+ *
+ * Возвращает участников кольца или null. Проверять ДО записи обязательно:
+ * записанный и потом снятый цикл успеет утащить даты каскадом, а откатывать
+ * их нечем.
+ */
+export function findCycle(edges: Array<{ from: string; to: string }>): string[] | null {
+  const next = new Map<string, string[]>();
+  for (const e of edges) {
+    if (!next.has(e.from)) next.set(e.from, []);
+    next.get(e.from)!.push(e.to);
+  }
+  const state = new Map<string, "visiting" | "done">();
+
+  const walk = (id: string, stack: string[]): string[] | null => {
+    if (state.get(id) === "done") return null;
+    if (state.get(id) === "visiting") return [...stack.slice(stack.indexOf(id)), id];
+    state.set(id, "visiting");
+    for (const to of next.get(id) ?? []) {
+      const found = walk(to, [...stack, id]);
+      if (found) return found;
+    }
+    state.set(id, "done");
+    return null;
+  };
+
+  for (const id of next.keys()) {
+    const found = walk(id, []);
+    if (found) return found;
+  }
+  return null;
+}

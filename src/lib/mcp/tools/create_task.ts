@@ -1,6 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
-import { db, fail, notify, resolveUser } from "./_shared";
+import { db, fail, insertTask, resolveUser } from "./_shared";
 
 export default defineTool({
   name: "create_task",
@@ -53,40 +53,19 @@ export default defineTool({
       ...(input.source ? { source: { ...input.source, kind: input.source.kind ?? "email" } } : {}),
     };
 
-    const { data, error } = await supabase
-      .from("tasks")
-      .insert({
-        user_id: uid,
-        title: input.title,
-        description: input.description ?? null,
-        deadline: input.deadline ?? null,
-        group_id: input.project_id ?? null,
-        client_id: input.client_id ?? null,
-        assigned_to: assignee.id,
-        is_important: input.is_important ?? false,
-        priority: input.priority ?? null,
-        start_at: new Date().toISOString(),
-        status_meta,
-      })
-      .select("id,title,deadline,group_id,assigned_to")
-      .single();
-    if (error) return fail(error.message);
-
-    // Дальше — то же, что делает приложение после вставки (useTasks.addTask).
-    const warnings: string[] = [];
-    const { error: pErr } = await supabase.from("task_participants").insert({ task_id: data.id, user_id: uid, role: "creator" });
-    if (pErr) warnings.push(`участник-создатель не добавлен: ${pErr.message}`);
-
-    if (data.group_id) {
-      const { data: group } = await supabase.from("task_groups").select("linked_tag_id").eq("id", data.group_id).maybeSingle();
-      if (group?.linked_tag_id) {
-        const { error: tErr } = await supabase.from("task_tags").insert({ task_id: data.id, tag_id: group.linked_tag_id });
-        if (tErr) warnings.push(`тег проекта не поставлен: ${tErr.message}`);
-      }
-      const { data: members } = await supabase.from("group_members").select("user_id").eq("group_id", data.group_id);
-      await notify(supabase, "new_task_in_group", data.title, (members ?? []).map((m) => m.user_id).filter((id) => id !== uid), data.id);
-    }
-    if (assignee.id !== uid) await notify(supabase, "task_assigned", data.title, [assignee.id], data.id);
+    const created = await insertTask(supabase, uid, {
+      title: input.title,
+      description: input.description ?? null,
+      deadline: input.deadline ?? null,
+      group_id: input.project_id ?? null,
+      client_id: input.client_id ?? null,
+      assigned_to: assignee.id,
+      is_important: input.is_important ?? false,
+      priority: input.priority ?? null,
+      status_meta,
+    });
+    if ("error" in created) return fail(created.error);
+    const { task: data, warnings } = created;
 
     return {
       content: [{

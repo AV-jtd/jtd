@@ -155,3 +155,76 @@ export function nextRecurrence(from: Date, rule: string): Date {
   else if (rule === "yearly") d.setFullYear(d.getFullYear() + 1);
   return d;
 }
+
+/**
+ * Вставка задачи вместе со всем, что приложение делает после неё: участник-
+ * создатель, тег проекта, уведомления исполнителю и участникам проекта
+ * (useTasks.addTask).
+ *
+ * Вынесено, чтобы create_task и upsert_plan не разошлись. Задача, созданная
+ * планом, обязана быть такой же, как созданная по одной: иначе у половины
+ * задач не окажется тега проекта, и обнаружится это по пустым подборкам.
+ */
+export async function insertTask(
+  supabase: SupabaseClient,
+  uid: string,
+  fields: {
+    title: string;
+    description?: string | null;
+    deadline?: string | null;
+    start_at?: string | null;
+    group_id?: string | null;
+    client_id?: string | null;
+    assigned_to: string;
+    is_important?: boolean;
+    priority?: number | null;
+    status_meta: Record<string, unknown>;
+  },
+  opts: { notifyAssignee?: boolean } = {},
+): Promise<{ task: { id: string; title: string; deadline: string | null; group_id: string | null; assigned_to: string }; warnings: string[] } | { error: string }> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .insert({
+      user_id: uid,
+      title: fields.title,
+      description: fields.description ?? null,
+      deadline: fields.deadline ?? null,
+      group_id: fields.group_id ?? null,
+      client_id: fields.client_id ?? null,
+      assigned_to: fields.assigned_to,
+      is_important: fields.is_important ?? false,
+      priority: fields.priority ?? null,
+      // Начало по умолчанию «сейчас» — как в приложении. План передаёт своё.
+      start_at: fields.start_at ?? new Date().toISOString(),
+      status_meta: fields.status_meta,
+    })
+    .select("id,title,deadline,group_id,assigned_to")
+    .single();
+  if (error) return { error: error.message };
+
+  const warnings: string[] = [];
+  const { error: pErr } = await supabase
+    .from("task_participants")
+    .insert({ task_id: data.id, user_id: uid, role: "creator" });
+  if (pErr) warnings.push(`участник-создатель не добавлен: ${pErr.message}`);
+
+  if (data.group_id) {
+    const { data: group } = await supabase
+      .from("task_groups").select("linked_tag_id").eq("id", data.group_id).maybeSingle();
+    if (group?.linked_tag_id) {
+      const { error: tErr } = await supabase
+        .from("task_tags").insert({ task_id: data.id, tag_id: group.linked_tag_id });
+      if (tErr) warnings.push(`тег проекта не поставлен: ${tErr.message}`);
+    }
+    const { data: members } = await supabase.from("group_members").select("user_id").eq("group_id", data.group_id);
+    await notify(
+      supabase, "new_task_in_group", data.title,
+      (members ?? []).map((m) => m.user_id).filter((id) => id !== uid), data.id,
+    );
+  }
+  if (opts.notifyAssignee !== false && fields.assigned_to !== uid) {
+    await notify(supabase, "task_assigned", data.title, [fields.assigned_to], data.id);
+  }
+
+  return { task: data, warnings };
+}
