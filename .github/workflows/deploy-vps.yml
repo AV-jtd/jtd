@@ -27,9 +27,24 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          # С повторами: 30.09.2026 два деплоя упали на этом шаге, не дойдя до
+          # сервера (в журнале sshd — ни одного входа) — сеть от раннера до VPS
+          # иногда не пропускает подключение. Одна неудача не должна ронять деплой.
+          for i in 1 2 3 4 5; do
+            ssh-keyscan -T 15 -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null && [ -s ~/.ssh/known_hosts ] && break
+            echo "ssh-keyscan: попытка $i не удалась, жду"; sleep 15
+          done
+          [ -s ~/.ssh/known_hosts ] || { echo "Сервер недоступен по SSH после 5 попыток"; exit 1; }
 
       - name: Run deploy on VPS
         run: |
-          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} \
-            'bash /opt/jtd/self-hosting/deploy.sh'
+          # Подключение — тоже с повторами (см. шаг выше). Повтор только при
+          # коде 255 — это ошибка самого ssh; ошибка deploy.sh повтора не вызывает.
+          for i in 1 2 3; do
+            ssh -o ConnectTimeout=20 -o ServerAliveInterval=30 -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} \
+              'bash /opt/jtd/self-hosting/deploy.sh' && exit 0
+            code=$?
+            [ "$code" -ne 255 ] && exit "$code"
+            echo "ssh: попытка $i не удалась (код 255), жду"; sleep 20
+          done
+          exit 255
