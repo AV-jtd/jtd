@@ -16,6 +16,7 @@ import { addDays, format } from "date-fns";
 import { parseQuickTask } from "@/lib/quickTaskParse";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ParsedTask {
   title: string;
@@ -58,6 +59,39 @@ interface Message {
   parsedTask?: ParsedTask;
   projectPlan?: ProjectPlan;
   created?: boolean;
+  steps?: AgentStep[];
+  agent?: { pending: PendingAction[]; messages?: unknown[]; decided?: "approved" | "rejected" };
+}
+
+type AgentStep = { name: string; title: string; ok: boolean };
+type PendingAction = { id: string; name: string; title: string; input: Record<string, unknown>; destructive: boolean };
+type AgentResponse = {
+  status: "done" | "confirm";
+  reply: string;
+  steps: AgentStep[];
+  pending?: PendingAction[];
+  messages: unknown[];
+};
+
+// Подписи аргументов в карточке подтверждения. Идентификаторы не показываем:
+// что это за задача, модель пишет словами над карточкой.
+const ARG_LABELS: Record<string, string> = {
+  title: "название", description: "описание", deadline: "срок", new_deadline: "новый срок",
+  assignee: "исполнитель", assigned_to: "исполнитель", status: "статус", priority: "приоритет",
+  is_important: "важная", content: "текст", name: "название", planned_date: "дата",
+  start_date: "начало", end_date: "окончание", days: "дней", reason: "причина",
+};
+const UUID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
+
+function formatArgs(input: Record<string, unknown>): string[] {
+  return Object.entries(input)
+    .filter(([k, v]) => v !== null && v !== undefined && v !== "" && !k.endsWith("_id") && !(typeof v === "string" && UUID_LIKE.test(v)))
+    .map(([k, v]) => {
+      const val = typeof v === "boolean" ? (v ? "да" : "нет")
+        : typeof v === "object" ? (Array.isArray(v) ? `${v.length} шт.` : "…")
+        : String(v);
+      return `${ARG_LABELS[k] ?? k}: ${val.length > 80 ? val.slice(0, 80) + "…" : val}`;
+    });
 }
 
 export type ModuleContext = {
@@ -232,6 +266,11 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
         return;
       }
 
+      // Ассистент с инструментами — цикл вызовов на Claude через OpenRouter
+      // (30.09.2026): те же 33 инструмента, что у коннектора. Прежний «умный»
+      // режим ниже остаётся запасным, если модель недоступна.
+      if (await runAgentTurn(text)) return;
+
       // Smart action: LLM decides intent
       const ctx = await getContext();
 
@@ -328,6 +367,93 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
       }
     } catch (e: any) {
       console.error("AI assistant error:", e);
+      addMessage({ role: "assistant", content: "❌ Ошибка. Попробуйте ещё раз." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const qc = useQueryClient();
+
+  const agentContext = () => ({
+    module: currentModule,
+    project_id: moduleContext?.activeProjectId || undefined,
+    project_name: moduleContext?.activeProjectName || undefined,
+  });
+
+  const showAgentResult = (data: AgentResponse) => {
+    if (data.status === "confirm" && data.pending?.length) {
+      addMessage({
+        role: "assistant",
+        content: data.reply || "Нужно ваше подтверждение:",
+        steps: data.steps,
+        agent: { pending: data.pending, messages: data.messages },
+      });
+    } else {
+      addMessage({ role: "assistant", content: data.reply || "Готово.", steps: data.steps });
+    }
+  };
+
+  /** Ошибку функции — в понятное сообщение. true — показали, false — пробовать запасной путь. */
+  const agentFailed = (error: { status?: number; context?: { body?: string } } | null): boolean => {
+    let code: string | undefined;
+    try { code = JSON.parse(error?.context?.body ?? "{}")?.error; } catch { /* нет тела */ }
+    if (code === "rate_limited" || error?.status === 429) {
+      addMessage({ role: "assistant", content: "⏳ Слишком много запросов. Попробуйте через минуту." });
+      return true;
+    }
+    if (code === "payment_required" || error?.status === 402) {
+      addMessage({ role: "assistant", content: "⚠️ ИИ временно недоступен: закончился баланс. Сообщите администратору." });
+      return true;
+    }
+    return false;
+  };
+
+  /** Ход ассистента по новому сообщению. false — не получилось, идём запасным путём. */
+  const runAgentTurn = async (text: string): Promise<boolean> => {
+    // Переписка для модели: только текст прошлых сообщений, начинаем с
+    // пользователя и склеиваем подряд идущие реплики одной стороны —
+    // провайдер требует чередования.
+    const history: { role: "user" | "assistant"; content: string }[] = [];
+    for (const m of [...messages.slice(-12), { role: "user" as const, content: text }]) {
+      if (!m.content?.trim()) continue;
+      if (history.length === 0 && m.role !== "user") continue;
+      const last = history[history.length - 1];
+      if (last && last.role === m.role) last.content += "\n\n" + m.content;
+      else history.push({ role: m.role, content: m.content });
+    }
+    const { data, error } = await supabase.functions.invoke("assistant-tools", {
+      body: { action: "chat", messages: history, context: agentContext() },
+    });
+    if (error) return agentFailed(error);
+    if (!data?.status) return false;
+    showAgentResult(data as AgentResponse);
+    return true;
+  };
+
+  const handleAgentDecision = async (msgIndex: number, approve: boolean) => {
+    const msg = messages[msgIndex] as Message;
+    if (!msg?.agent?.messages || loading) return;
+    const convo = msg.agent.messages;
+    // Переписку с вызовами после решения не храним — история не раздувается.
+    updateMessage(msgIndex, { agent: { pending: msg.agent.pending, decided: approve ? "approved" : "rejected" } });
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("assistant-tools", {
+        body: { action: "chat", messages: convo, decision: { approve }, context: agentContext() },
+      });
+      if (error) {
+        if (!agentFailed(error)) addMessage({ role: "assistant", content: "❌ Не удалось выполнить. Попробуйте ещё раз." });
+        return;
+      }
+      showAgentResult(data as AgentResponse);
+      if (approve) {
+        for (const key of ["tasks", "task_groups", "task_comments", "project_milestones", "group_task_stats", "dashboard_counters"]) {
+          qc.invalidateQueries({ queryKey: [key] });
+        }
+      }
+    } catch (e) {
+      console.error("assistant decision error:", e);
       addMessage({ role: "assistant", content: "❌ Ошибка. Попробуйте ещё раз." });
     } finally {
       setLoading(false);
@@ -525,6 +651,45 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
                 ) : (
                   <div className="whitespace-pre-wrap text-xs leading-relaxed">
                     {msg.content}
+                  </div>
+                )}
+
+                {msg.steps && msg.steps.length > 0 && (
+                  <div className="mt-1.5 text-[10px] text-muted-foreground">
+                    🔍 {[...new Set(msg.steps.map(s => s.title))].join(" · ")}
+                  </div>
+                )}
+
+                {msg.agent && (
+                  <div className="mt-2 space-y-1.5">
+                    {msg.agent.pending.map(a => (
+                      <div key={a.id} className={cn(
+                        "rounded-lg border px-2.5 py-1.5 bg-background",
+                        a.destructive ? "border-destructive/50" : "border-border",
+                      )}>
+                        <div className={cn("text-[11px] font-medium", a.destructive && "text-destructive")}>
+                          {a.destructive ? "⚠️ " : "✎ "}{a.title}
+                        </div>
+                        {formatArgs(a.input).map(line => (
+                          <div key={line} className="text-[10px] text-muted-foreground">{line}</div>
+                        ))}
+                      </div>
+                    ))}
+                    {!msg.agent.decided ? (
+                      <div className="flex gap-2 pt-0.5">
+                        <Button size="sm" className="h-7 text-xs gap-1" disabled={loading} onClick={() => handleAgentDecision(i, true)}>
+                          <CheckCircle2 className="h-3 w-3" />
+                          Выполнить
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={loading} onClick={() => handleAgentDecision(i, false)}>
+                          Отмена
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className={cn("text-[10px] font-medium", msg.agent.decided === "approved" ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground")}>
+                        {msg.agent.decided === "approved" ? "✓ Выполнено по вашему подтверждению" : "Отменено"}
+                      </div>
+                    )}
                   </div>
                 )}
 

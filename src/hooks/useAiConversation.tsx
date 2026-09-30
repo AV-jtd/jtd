@@ -8,6 +8,10 @@ export interface AiMessage {
   parsedTask?: any;
   projectPlan?: any;
   created?: boolean;
+  /** Ассистент с инструментами: какие инструменты вызывались. */
+  steps?: { name: string; title: string; ok: boolean }[];
+  /** Ждёт подтверждения: действия и переписка для продолжения цикла. */
+  agent?: { pending: any[]; messages?: any[]; decided?: "approved" | "rejected" };
   ts?: number;
 }
 

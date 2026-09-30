@@ -386,7 +386,16 @@ export default function Index() {
       {aiOpen && (
         !isConsultant &&
         <Suspense fallback={null}>
-          <AiAssistant open={aiOpen} onOpenChange={setAiOpen} moduleContext={{ module: "tasks" }} />
+          <AiAssistant
+            open={aiOpen}
+            onOpenChange={setAiOpen}
+            // Открытый проект — в контекст ассистента: «этот проект» без уточнений.
+            moduleContext={{
+              module: "tasks",
+              activeProjectId: activeView === "group" ? activeGroupId : null,
+              activeProjectName: activeView === "group" ? groups.find(g => g.id === activeGroupId)?.name ?? null : null,
+            }}
+          />
         </Suspense>
       )}
     </div>

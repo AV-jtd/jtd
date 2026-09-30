@@ -3766,6 +3766,146 @@ async function runTool(name, rawInput, ctx) {
   }
 }
 
+// src/lib/assistant/agent.ts
+var MAX_STEPS = 8;
+var MAX_RESULT_CHARS = 15e3;
+var REJECTED = "\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u043E\u0442\u043A\u043B\u043E\u043D\u0438\u043B \u044D\u0442\u043E \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435. \u041D\u0435 \u043F\u043E\u0432\u0442\u043E\u0440\u044F\u0439 \u0435\u0433\u043E \u0431\u0435\u0437 \u043D\u043E\u0432\u043E\u0439 \u043F\u0440\u043E\u0441\u044C\u0431\u044B.";
+function parseArgs(raw) {
+  try {
+    const v = JSON.parse(raw || "{}");
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+  } catch {
+    return {};
+  }
+}
+function toolResultForModel(r) {
+  if (r.ok === false) return `\u041E\u0428\u0418\u0411\u041A\u0410: ${r.error}`;
+  let out = r.text;
+  if (r.structured !== void 0) out += `
+
+\u0414\u0430\u043D\u043D\u044B\u0435:
+${JSON.stringify(r.structured)}`;
+  if (out.length > MAX_RESULT_CHARS) {
+    out = out.slice(0, MAX_RESULT_CHARS) + `
+\u2026 [\u043E\u0431\u0440\u0435\u0437\u0430\u043D\u043E: ${out.length - MAX_RESULT_CHARS} \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432. \u0421\u0443\u0437\u044C \u0437\u0430\u043F\u0440\u043E\u0441 \u2014 \u0444\u0438\u043B\u044C\u0442\u0440, limit, offset]`;
+  }
+  return out;
+}
+function unanswered(messages) {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === "assistant") {
+      const answered = new Set(
+        messages.slice(i + 1).filter((x) => x.role === "tool").map((x) => x.tool_call_id)
+      );
+      return (m.tool_calls ?? []).filter((c) => !answered.has(c.id));
+    }
+  }
+  return [];
+}
+async function runAgent(opts) {
+  const { deps } = opts;
+  const messages = [...opts.messages];
+  const steps = [];
+  const meta = new Map(deps.catalog.map((t) => [t.name, t]));
+  const titleOf = (name) => meta.get(name)?.title ?? name;
+  const execute = async (call) => {
+    const r = await deps.runTool(call.function.name, parseArgs(call.function.arguments));
+    steps.push({ name: call.function.name, title: titleOf(call.function.name), ok: r.ok });
+    messages.push({ role: "tool", tool_call_id: call.id, content: toolResultForModel(r) });
+  };
+  if (opts.decision) {
+    for (const call of unanswered(messages)) {
+      if (opts.decision.approve) await execute(call);
+      else messages.push({ role: "tool", tool_call_id: call.id, content: REJECTED });
+    }
+  } else if (unanswered(messages).length > 0) {
+    for (const call of unanswered(messages)) messages.push({ role: "tool", tool_call_id: call.id, content: REJECTED });
+  }
+  const max = opts.maxSteps ?? MAX_STEPS;
+  let lastText = "";
+  for (let step = 0; step < max; step++) {
+    const turn = await deps.callModel(messages);
+    const calls = turn.tool_calls ?? [];
+    messages.push({ role: "assistant", content: turn.content ?? null, ...calls.length ? { tool_calls: calls } : {} });
+    if (turn.content) lastText = turn.content;
+    if (calls.length === 0) return { status: "done", reply: turn.content ?? "", messages, steps };
+    const pending = [];
+    for (const call of calls) {
+      const t = meta.get(call.function.name);
+      if (!t || t.read_only) await execute(call);
+      else pending.push({ id: call.id, name: call.function.name, title: titleOf(call.function.name), input: parseArgs(call.function.arguments), destructive: t.destructive });
+    }
+    if (pending.length > 0) {
+      return { status: "confirm", reply: turn.content ?? "", messages, steps, pending };
+    }
+  }
+  return {
+    status: "done",
+    reply: (lastText ? lastText + "\n\n" : "") + `_\u041E\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u043B\u0441\u044F \u043F\u043E\u0441\u043B\u0435 ${max} \u0448\u0430\u0433\u043E\u0432. \u0423\u0442\u043E\u0447\u043D\u0438\u0442\u0435 \u0437\u0430\u043F\u0440\u043E\u0441 \u0438\u043B\u0438 \u043F\u043E\u043F\u0440\u043E\u0441\u0438\u0442\u0435 \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C._`,
+    messages,
+    steps
+  };
+}
+
+// src/lib/assistant/openrouter.ts
+var DEFAULT_MODEL = "anthropic/claude-sonnet-5.5";
+var ModelError = class extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+};
+function buildRequest(opts) {
+  const tools = opts.tools.map((t, i) => ({
+    type: "function",
+    function: { name: t.name, description: t.description, parameters: t.input_schema },
+    // Точка кэша на последнем инструменте: кэшируется весь каталог.
+    ...i === opts.tools.length - 1 ? { cache_control: { type: "ephemeral" } } : {}
+  }));
+  return {
+    model: opts.model,
+    messages: [
+      {
+        role: "system",
+        content: [
+          { type: "text", text: opts.staticSystem, cache_control: { type: "ephemeral" } },
+          { type: "text", text: opts.dynamicSystem }
+        ]
+      },
+      ...opts.messages
+    ],
+    tools,
+    max_tokens: 2e3,
+    usage: { include: true }
+  };
+}
+async function callOpenRouter(opts) {
+  const f = opts.fetchImpl ?? fetch;
+  const res = await f("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${opts.apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://justtodoit.ru",
+      "X-Title": "JustTODOit"
+    },
+    body: JSON.stringify(buildRequest(opts))
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new ModelError(res.status, text.slice(0, 500) || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  const msg = data?.choices?.[0]?.message;
+  if (!msg) throw new ModelError(502, "\u041F\u0443\u0441\u0442\u043E\u0439 \u043E\u0442\u0432\u0435\u0442 \u043C\u043E\u0434\u0435\u043B\u0438");
+  return {
+    content: typeof msg.content === "string" && msg.content.trim() ? msg.content : null,
+    tool_calls: Array.isArray(msg.tool_calls) && msg.tool_calls.length ? msg.tool_calls : void 0,
+    cost: data?.usage?.cost
+  };
+}
+
 // src/lib/assistant/edge.ts
 var cors = {
   "Access-Control-Allow-Origin": "*",
@@ -3814,5 +3954,82 @@ serve?.(async (req) => {
     });
     return json(result);
   }
-  return json({ error: `\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u043E\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \xAB${body.action ?? ""}\xBB. \u0415\u0441\u0442\u044C catalog \u0438 call.` }, 400);
+  if (body.action === "chat") {
+    const apiKey = process11.env.OPENROUTER_API_KEY;
+    if (!apiKey) return json({ error: "OPENROUTER_API_KEY \u043D\u0435 \u0437\u0430\u0434\u0430\u043D" }, 500);
+    const messages = Array.isArray(body.messages) ? body.messages : [];
+    if (messages.length === 0 || messages.length > 80 || JSON.stringify(messages).length > 4e5) {
+      return json({ error: "\u041F\u0443\u0441\u0442\u0430\u044F \u0438\u043B\u0438 \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0434\u043B\u0438\u043D\u043D\u0430\u044F \u043F\u0435\u0440\u0435\u043F\u0438\u0441\u043A\u0430" }, 400);
+    }
+    const catalog = toolCatalog();
+    const ctx = { token, userId, clientId: "in-app-assistant" };
+    const { data: me } = await supabase.from("profiles").select("display_name").eq("id", userId).maybeSingle().then((r) => r, () => ({ data: null }));
+    const dynamicSystem = describeSituation(body.context, me?.display_name);
+    try {
+      const result = await runAgent({
+        messages,
+        decision: typeof body.decision?.approve === "boolean" ? { approve: body.decision.approve } : void 0,
+        deps: {
+          catalog,
+          runTool: (name, input) => runTool(name, input, ctx),
+          callModel: (msgs) => callOpenRouter({
+            apiKey,
+            model: process11.env.ASSISTANT_MODEL || DEFAULT_MODEL,
+            staticSystem: STATIC_SYSTEM,
+            dynamicSystem,
+            tools: catalog,
+            messages: msgs
+          })
+        }
+      });
+      return json(result);
+    } catch (e) {
+      if (e instanceof ModelError) {
+        console.error("assistant chat model error:", e.status, e.message);
+        const code = e.status === 402 ? "payment_required" : e.status === 429 ? "rate_limited" : "model_error";
+        return json({ error: code }, e.status === 402 || e.status === 429 ? e.status : 502);
+      }
+      console.error("assistant chat failed:", e?.stack ?? e);
+      return json({ error: "\u0421\u0431\u043E\u0439 \u0430\u0441\u0441\u0438\u0441\u0442\u0435\u043D\u0442\u0430" }, 500);
+    }
+  }
+  return json({ error: `\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u043E\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \xAB${body.action ?? ""}\xBB. \u0415\u0441\u0442\u044C catalog, call \u0438 chat.` }, 400);
 });
+var STATIC_SYSTEM = `\u0422\u044B \u2014 \u0430\u0441\u0441\u0438\u0441\u0442\u0435\u043D\u0442 \u0432\u043D\u0443\u0442\u0440\u0438 JustTODOit: \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B, \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B \u0432\u0441\u0442\u0440\u0435\u0447, CRM.
+\u0420\u0430\u0431\u043E\u0442\u0430\u0435\u0448\u044C \u043E\u0442 \u0438\u043C\u0435\u043D\u0438 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0438 \u0432\u0438\u0434\u0438\u0448\u044C \u0440\u043E\u0432\u043D\u043E \u0442\u043E, \u0447\u0442\u043E \u0432\u0438\u0434\u0438\u0442 \u043E\u043D.
+
+\u041A\u0430\u043A \u0440\u0430\u0431\u043E\u0442\u0430\u0442\u044C:
+- \u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u0441\u043E\u0431\u0435\u0440\u0438 \u0444\u0430\u043A\u0442\u044B \u0438\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u0430\u043C\u0438, \u043F\u043E\u0442\u043E\u043C \u043E\u0442\u0432\u0435\u0447\u0430\u0439. \u041D\u0435 \u0432\u044B\u0434\u0443\u043C\u044B\u0432\u0430\u0439 \u0437\u0430\u0434\u0430\u0447\u0438, \u043B\u044E\u0434\u0435\u0439, \u0441\u0440\u043E\u043A\u0438 \u0438 \u0446\u0438\u0444\u0440\u044B.
+- \u0418\u0449\u0438 \u043B\u044E\u0434\u0435\u0439 \u0438 \u043F\u0440\u043E\u0435\u043A\u0442\u044B \u043F\u043E \u0438\u043C\u0435\u043D\u0438 \u0441\u0430\u043C, \u043D\u0435 \u043F\u0440\u043E\u0441\u0438 \u0443 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F \u0438\u0434\u0435\u043D\u0442\u0438\u0444\u0438\u043A\u0430\u0442\u043E\u0440\u044B.
+- \u0418\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u044B \u0447\u0442\u0435\u043D\u0438\u044F \u0432\u044B\u0437\u044B\u0432\u0430\u0439 \u0441\u0432\u043E\u0431\u043E\u0434\u043D\u043E. \u041B\u044E\u0431\u043E\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u0435 (\u0441\u043E\u0437\u0434\u0430\u0442\u044C, \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C, \u043F\u0435\u0440\u0435\u043D\u0435\u0441\u0442\u0438, \u0437\u0430\u043A\u0440\u044B\u0442\u044C, \u0443\u0434\u0430\u043B\u0438\u0442\u044C, \u043D\u0430\u0437\u043D\u0430\u0447\u0438\u0442\u044C)
+  \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0430\u0435\u0442 \u043A\u043D\u043E\u043F\u043A\u043E\u0439 \u0432 \u0438\u043D\u0442\u0435\u0440\u0444\u0435\u0439\u0441\u0435: \u043F\u0435\u0440\u0435\u0434 \u0442\u0430\u043A\u0438\u043C \u0432\u044B\u0437\u043E\u0432\u043E\u043C \u043E\u0434\u043D\u043E\u0439-\u0434\u0432\u0443\u043C\u044F \u0444\u0440\u0430\u0437\u0430\u043C\u0438 \u0441\u043A\u0430\u0436\u0438, \u0447\u0442\u043E \u0438\u043C\u0435\u043D\u043D\u043E \u0441\u0434\u0435\u043B\u0430\u0435\u0448\u044C.
+  \u0415\u0441\u043B\u0438 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u043E\u0442\u043A\u043B\u043E\u043D\u0438\u043B\u0438 \u2014 \u043D\u0435 \u043F\u043E\u0432\u0442\u043E\u0440\u044F\u0439 \u0435\u0433\u043E \u0431\u0435\u0437 \u043D\u043E\u0432\u043E\u0439 \u043F\u0440\u043E\u0441\u044C\u0431\u044B.
+- \u041E\u0442\u0432\u0435\u0447\u0430\u0439 \u043F\u043E-\u0440\u0443\u0441\u0441\u043A\u0438, \u043A\u043E\u0440\u043E\u0442\u043A\u043E \u0438 \u043F\u043E \u0434\u0435\u043B\u0443. \u0421\u043F\u0438\u0441\u043A\u0438 \u2014 \u043C\u0430\u0440\u043A\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0435. \u041D\u0435 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0439 UUID: \u043D\u0430\u0437\u044B\u0432\u0430\u0439 \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B \u0438 \u043B\u044E\u0434\u0435\u0439 \u043F\u043E \u0438\u043C\u0435\u043D\u0430\u043C.
+- \u0415\u0441\u043B\u0438 \u0434\u0430\u043D\u043D\u044B\u0445 \u043C\u043D\u043E\u0433\u043E \u2014 \u0441\u0443\u0437\u044C \u0437\u0430\u043F\u0440\u043E\u0441 (\u0444\u0438\u043B\u044C\u0442\u0440\u044B, limit), \u0430 \u043D\u0435 \u043F\u0435\u0440\u0435\u0441\u043A\u0430\u0437\u044B\u0432\u0430\u0439 \u0432\u0441\u0451.
+
+${TOOL_INSTRUCTIONS}`;
+var UUID_RE2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function describeSituation(ctx, userName) {
+  const now = /* @__PURE__ */ new Date();
+  const date = now.toLocaleDateString("ru-RU", {
+    timeZone: "Europe/Moscow",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+  const time = now.toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" });
+  const lines = [`\u0421\u0435\u0439\u0447\u0430\u0441: ${date}, ${time} \u041C\u0421\u041A.`];
+  if (userName) lines.push(`\u041F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044C: ${userName}.`);
+  const where = [];
+  const modules = { tasks: "\u0437\u0430\u0434\u0430\u0447\u0438", pmo: "\u043F\u043E\u0440\u0442\u0444\u0435\u043B\u044C \u043F\u0440\u043E\u0435\u043A\u0442\u043E\u0432 (PMO)", npd: "\u041D\u0418\u041E\u041A\u0420", crm: "CRM" };
+  if (ctx?.module && modules[ctx.module]) where.push(`\u0440\u0430\u0437\u0434\u0435\u043B \xAB${modules[ctx.module]}\xBB`);
+  if (ctx?.project_id && UUID_RE2.test(ctx.project_id)) {
+    where.push(`\u043F\u0440\u043E\u0435\u043A\u0442 \xAB${(ctx.project_name ?? "").slice(0, 200)}\xBB (project_id ${ctx.project_id})`);
+  }
+  if (ctx?.task_id && UUID_RE2.test(ctx.task_id)) where.push(`\u0437\u0430\u0434\u0430\u0447\u0430 task_id ${ctx.task_id}`);
+  if (where.length) {
+    lines.push(`\u0421\u0435\u0439\u0447\u0430\u0441 \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435: ${where.join(", ")}. \xAB\u042D\u0442\u043E\u0442 \u043F\u0440\u043E\u0435\u043A\u0442\xBB, \xAB\u044D\u0442\u0430 \u0437\u0430\u0434\u0430\u0447\u0430\xBB, \xAB\u0437\u0434\u0435\u0441\u044C\xBB \u2014 \u043F\u0440\u043E \u043D\u0438\u0445.`);
+  }
+  return lines.join("\n");
+}

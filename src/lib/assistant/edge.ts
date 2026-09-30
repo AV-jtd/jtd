@@ -2,6 +2,8 @@
 import process from "node:process";
 import { createClient } from "@supabase/supabase-js";
 import { runTool, toolCatalog, TOOL_INSTRUCTIONS } from "./toolLayer";
+import { runAgent, type ChatMessage } from "./agent";
+import { callOpenRouter, DEFAULT_MODEL, ModelError } from "./openrouter";
 
 /**
  * Функция `assistant-tools` — вход для ассистента ВНУТРИ приложения.
@@ -53,7 +55,14 @@ serve?.(async (req: Request) => {
   const userId = userData?.user?.id;
   if (authError || !userId) return json({ error: "Токен не принят" }, 401);
 
-  let body: { action?: string; tool?: string; input?: unknown };
+  let body: {
+    action?: string;
+    tool?: string;
+    input?: unknown;
+    messages?: ChatMessage[];
+    context?: { module?: string; project_id?: string; project_name?: string; task_id?: string };
+    decision?: { approve?: boolean };
+  };
   try {
     body = await req.json();
   } catch {
@@ -85,5 +94,94 @@ serve?.(async (req: Request) => {
     return json(result);
   }
 
-  return json({ error: `Неизвестное действие «${body.action ?? ""}». Есть catalog и call.` }, 400);
+  if (body.action === "chat") {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) return json({ error: "OPENROUTER_API_KEY не задан" }, 500);
+    const messages = Array.isArray(body.messages) ? body.messages : [];
+    // Предохранитель от раздувания: история приходит от окна.
+    if (messages.length === 0 || messages.length > 80 || JSON.stringify(messages).length > 400_000) {
+      return json({ error: "Пустая или слишком длинная переписка" }, 400);
+    }
+
+    const catalog = toolCatalog();
+    const ctx = { token, userId, clientId: "in-app-assistant" };
+    const { data: me } = await supabase
+      .from("profiles").select("display_name")
+      .eq("id", userId).maybeSingle()
+      .then((r) => r, () => ({ data: null }));
+    const dynamicSystem = describeSituation(body.context, (me as { display_name?: string } | null)?.display_name);
+
+    try {
+      const result = await runAgent({
+        messages,
+        decision: typeof body.decision?.approve === "boolean" ? { approve: body.decision.approve } : undefined,
+        deps: {
+          catalog,
+          runTool: (name, input) => runTool(name, input, ctx),
+          callModel: (msgs) =>
+            callOpenRouter({
+              apiKey,
+              model: process.env.ASSISTANT_MODEL || DEFAULT_MODEL,
+              staticSystem: STATIC_SYSTEM,
+              dynamicSystem,
+              tools: catalog,
+              messages: msgs,
+            }),
+        },
+      });
+      return json(result);
+    } catch (e) {
+      if (e instanceof ModelError) {
+        console.error("assistant chat model error:", e.status, e.message);
+        const code = e.status === 402 ? "payment_required" : e.status === 429 ? "rate_limited" : "model_error";
+        return json({ error: code }, e.status === 402 || e.status === 429 ? e.status : 502);
+      }
+      console.error("assistant chat failed:", (e as Error)?.stack ?? e);
+      return json({ error: "Сбой ассистента" }, 500);
+    }
+  }
+
+  return json({ error: `Неизвестное действие «${body.action ?? ""}». Есть catalog, call и chat.` }, 400);
 });
+
+// Неизменная часть системного промпта — кэшируется вместе с каталогом.
+const STATIC_SYSTEM = `Ты — ассистент внутри JustTODOit: задачи, проекты, протоколы встреч, CRM.
+Работаешь от имени пользователя и видишь ровно то, что видит он.
+
+Как работать:
+- Сначала собери факты инструментами, потом отвечай. Не выдумывай задачи, людей, сроки и цифры.
+- Ищи людей и проекты по имени сам, не проси у пользователя идентификаторы.
+- Инструменты чтения вызывай свободно. Любое изменение (создать, изменить, перенести, закрыть, удалить, назначить)
+  пользователь подтверждает кнопкой в интерфейсе: перед таким вызовом одной-двумя фразами скажи, что именно сделаешь.
+  Если действие отклонили — не повторяй его без новой просьбы.
+- Отвечай по-русски, коротко и по делу. Списки — маркированные. Не показывай UUID: называй задачи, проекты и людей по именам.
+- Если данных много — сузь запрос (фильтры, limit), а не пересказывай всё.
+
+${TOOL_INSTRUCTIONS}`;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Меняющаяся часть: дата, кто спрашивает и что у него сейчас на экране. */
+function describeSituation(
+  ctx: { module?: string; project_id?: string; project_name?: string; task_id?: string } | undefined,
+  userName: string | undefined,
+): string {
+  const now = new Date();
+  const date = now.toLocaleDateString("ru-RU", {
+    timeZone: "Europe/Moscow", weekday: "long", day: "numeric", month: "long", year: "numeric",
+  });
+  const time = now.toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" });
+  const lines = [`Сейчас: ${date}, ${time} МСК.`];
+  if (userName) lines.push(`Пользователь: ${userName}.`);
+  const where: string[] = [];
+  const modules: Record<string, string> = { tasks: "задачи", pmo: "портфель проектов (PMO)", npd: "НИОКР", crm: "CRM" };
+  if (ctx?.module && modules[ctx.module]) where.push(`раздел «${modules[ctx.module]}»`);
+  if (ctx?.project_id && UUID_RE.test(ctx.project_id)) {
+    where.push(`проект «${(ctx.project_name ?? "").slice(0, 200)}» (project_id ${ctx.project_id})`);
+  }
+  if (ctx?.task_id && UUID_RE.test(ctx.task_id)) where.push(`задача task_id ${ctx.task_id}`);
+  if (where.length) {
+    lines.push(`Сейчас на экране: ${where.join(", ")}. «Этот проект», «эта задача», «здесь» — про них.`);
+  }
+  return lines.join("\n");
+}
