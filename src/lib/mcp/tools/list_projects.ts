@@ -14,7 +14,7 @@ function db(ctx: ToolContext) {
 export default defineTool({
   name: "list_projects",
   title: "Список проектов",
-  description: "Проекты (task_groups), доступные пользователю. Можно отфильтровать по типу и статусу архива. В ответе есть total и has_more: если has_more=true, показаны не все записи — не судите о количестве по длине списка.",
+  description: "Проекты (task_groups), доступные пользователю. work_mode: flow — операционный поток поручений (вехи и критический путь к нему не применяются, разбирать по висякам и людям), plan — проект с планом, null — признак не задан, не угадывай. Можно отфильтровать по типу и статусу архива. В ответе есть total и has_more: если has_more=true, показаны не все записи — не судите о количестве по длине списка.",
   inputSchema: {
     project_type: z.enum(["standard", "npd", "crm", "protocol"]).optional(),
     include_archived: z.boolean().optional(),
@@ -29,7 +29,7 @@ export default defineTool({
     const offset = input.offset ?? 0;
     let q = supabase
       .from("task_groups")
-      .select("id,name,project_type,client_id,parent_id,closed_at,description", { count: "exact" })
+      .select("id,name,project_type,work_mode,client_id,parent_id,closed_at,description", { count: "exact" })
       .order("name")
       .range(offset, offset + limit - 1);
     if (input.project_type) q = q.eq("project_type", input.project_type);

@@ -18,6 +18,8 @@ export type Task = Tables<"tasks"> & {
   deferred_until?: string | null;
 };
 export type TaskGroup = Tables<"task_groups"> & { linked_tag_id?: string | null; parent_id?: string | null; closed_at?: string | null; baseline_status?: string; baseline_approver_id?: string | null; baseline_locked_at?: string | null; baseline_auto_lock_hours?: number;
+  /** 'plan' — проект с планом, 'flow' — операционный поток поручений, null/undefined — не задано. Ставится вручную (WorkModeToggle), из данных не выводится. */
+  work_mode?: string | null;
   /** Resolved from the linked CRM client (task_groups.client_id → clients). Used so ProjectIcon shows the client's logo across the UI. */
   client_logo_url?: string | null;
   client_name?: string | null;

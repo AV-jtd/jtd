@@ -20,6 +20,7 @@ const SmartExportDialog = lazyWithRetry(() => import("@/components/SmartExportDi
 const SmartImportDialog = lazyWithRetry(() => import("@/components/SmartImportDialog"));
 const MigrateToNpdDialog = lazyWithRetry(() => import("@/components/MigrateToNpdDialog"));
 import LensSettingsSection, { LensToggleInline } from "@/components/LensSettingsSection";
+import { WorkModeToggleInline } from "@/components/WorkModeToggle";
 import DecisionsSection from "@/components/decisions/DecisionsSection";
 import ProjectProtocolsSection from "@/components/ProjectProtocolsSection";
 import ProjectClientPicker from "@/components/ProjectClientPicker";
@@ -327,6 +328,7 @@ export default function ProjectDetailPanel({ group }: ProjectDetailPanelProps) {
           )}
 
           <LensToggleInline group={group} />
+          <WorkModeToggleInline group={group} />
         </div>
       </div>
 
