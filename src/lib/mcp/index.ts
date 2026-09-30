@@ -20,6 +20,9 @@ import applyPlanTemplate from "./tools/apply_plan_template";
 import getBaseline from "./tools/get_baseline";
 import lockBaseline from "./tools/lock_baseline";
 import unlockBaseline from "./tools/unlock_baseline";
+import listMembers from "./tools/list_members";
+import getWorkload from "./tools/get_workload";
+import deletePlanItems from "./tools/delete_plan_items";
 import listProtocols from "./tools/list_protocols";
 import getProtocol from "./tools/get_protocol";
 import listClients from "./tools/list_clients";
@@ -53,6 +56,7 @@ export default defineMcp({
     "Разложить протокол или письмо в план целиком — upsert_plan: задачи, вехи и связи за один вызов. По умолчанию он ничего не пишет, а возвращает разложенный план; покажи его человеку и запиши с apply=true только после согласия. " +
     "«Сделай план по примеру проекта такого-то» — apply_plan_template: берёт форму проекта-образца (промежутки между задачами и связи) и раскладывает от новой даты; правки из сообщения («приёмку в апреле») передавай в overrides, они двигают и то, что стоит за элементом. Как и upsert_plan, без apply=true не пишет ничего. Новый проект под план — create_project. " +
     "Базовый план: get_baseline говорит, идёт ещё планирование (правки сроков сдвигом не считаются) или план утверждён (каждая правка — отклонение в портфеле). Спрашивай перед переносом сроков и говори человеку, запишется ли сдвиг. Фиксация — lock_baseline: она обнуляет накопленные отклонения безвозвратно, поэтому сначала покажи последствия (без apply=true он их только считает). Снять — unlock_baseline. " +
+    "Кого поставить исполнителем — list_members; кого перегрузили планом — get_workload (это число одновременных задач, а не часы: оценок трудоёмкости в системе нет, так и говори). Убрать задачи или вехи, чтобы переразложить план, — delete_plan_items: удаление настоящее, корзины нет, поэтому без apply=true он только перечисляет, что исчезнет. " +
     "Каждый вызов пишется в журнал обращений.",
   auth: auth.oauth.issuer({
     issuer: `${AUTH_BASE}/auth/v1`,
@@ -66,7 +70,7 @@ export default defineMcp({
   }),
   tools: [
     listTasks, searchTasks, getTask, createTask, updateTask, completeTask, updateTaskDeadline, addComment,
-    listProjects, getProject, getProjectSchedule, createMilestone, updateMilestone, linkTasks, unlinkTasks, previewShift, moveTask, upsertPlan, createProject, applyPlanTemplate, getBaseline, lockBaseline, unlockBaseline,
+    listProjects, getProject, getProjectSchedule, createMilestone, updateMilestone, linkTasks, unlinkTasks, previewShift, moveTask, upsertPlan, createProject, applyPlanTemplate, getBaseline, lockBaseline, unlockBaseline, listMembers, getWorkload, deletePlanItems,
     listProtocols, getProtocol,
     listClients, getClient,
   ].map(withAudit),
