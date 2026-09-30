@@ -9,8 +9,18 @@
 
 version: "3.8"
 
+# Журналы контейнеров: по 5 файлов по 50 МБ на службу. До 30.09.2026 драйвер
+# json-file стоял без ограничений, и журналы росли с июня (6,6 ГБ; nginx —
+# 1,5 ГБ). Для nginx это примерно 1–2 недели истории запросов.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
 services:
   db:
+    logging: *default-logging
     image: supabase/postgres:15.8.1.060
     restart: unless-stopped
     volumes:
@@ -34,6 +44,7 @@ services:
       retries: 5
 
   vector:
+    logging: *default-logging
     image: timberio/vector:0.28.1-alpine
     restart: unless-stopped
     volumes:
@@ -42,6 +53,7 @@ services:
       - db
 
   auth:
+    logging: *default-logging
     # Обновлено 27.09.2026 с v2.164.0. Зачем: до v2.179.0 в GoTrue не было
     # встроенного сервера авторизации OAuth, без которого не подключить
     # MCP-коннектор к claude.ai. Репетиция на копии базы пройдена (замеры и
@@ -103,6 +115,7 @@ services:
       GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/v1/verify
 
   rest:
+    logging: *default-logging
     image: postgrest/postgrest:v12.2.3
     restart: unless-stopped
     depends_on:
@@ -119,6 +132,7 @@ services:
       PGRST_APP_SETTINGS_JWT_EXP: 3600
 
   realtime:
+    logging: *default-logging
     image: supabase/realtime:v2.30.34
     restart: unless-stopped
     depends_on:
@@ -150,6 +164,7 @@ services:
         hard: 10000
 
   storage:
+    logging: *default-logging
     image: supabase/storage-api:v1.11.13
     restart: unless-stopped
     depends_on:
@@ -190,6 +205,7 @@ services:
       - storage_data:/var/lib/storage
 
   edge-runtime:
+    logging: *default-logging
     image: supabase/edge-runtime:v1.65.4
     restart: unless-stopped
     depends_on:
@@ -226,6 +242,7 @@ services:
       - /home/deno/functions/main
 
   meta:
+    logging: *default-logging
     image: supabase/postgres-meta:v0.84.2
     restart: unless-stopped
     depends_on:
@@ -240,6 +257,7 @@ services:
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
 
   kong:
+    logging: *default-logging
     image: kong:2.8.1
     restart: unless-stopped
     depends_on:
@@ -269,6 +287,7 @@ services:
 
   # nginx: фронтенд + проксирование /sb/ → kong
   nginx:
+    logging: *default-logging
     image: nginx:alpine
     restart: unless-stopped
     depends_on:
@@ -285,6 +304,7 @@ services:
   # Ежедневный бэкап PostgreSQL с автоматической ротацией.
   # Для включения раскомментируй и задай BACKUP_DIR в .env.supabase
   pg-backup:
+    logging: *default-logging
     image: postgres:15-alpine
     restart: unless-stopped
     depends_on:
