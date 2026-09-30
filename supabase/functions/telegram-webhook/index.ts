@@ -8,6 +8,7 @@ import {
   formatRelayMessage,
   bulkAutoJoinTelegramChatMembers,
 } from "../_shared/messenger-core.ts";
+import { mintUserToken, callAssistant, mdToTelegramHtml, renderPending, renderSteps, type AssistantReply } from "../_shared/assistantTg.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -200,6 +201,12 @@ Deno.serve(async (req) => {
 
       if (!cbProfile) {
         await answerCallbackQuery(BOT_TOKEN, callbackQuery.id, "❌ Вы не зарегистрированы");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
+
+      // Ассистент: «Выполнить / Отмена» по карточке подтверждения.
+      if (cbData.startsWith("asst:")) {
+        await handleAssistantDecision(supabaseCb, BOT_TOKEN, callbackQuery.id, cbChatId, cbMessageId, cbProfile.id, cbData);
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
@@ -1929,7 +1936,10 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
 
-      await handleAiChat(supabase, BOT_TOKEN, chatId, userId, aiQuestion, null, null);
+      // Новый ассистент (01.10.2026): тот же цикл, что в приложении, с
+      // инструментами и подтверждением кнопками. Прежний /ai — запасной путь.
+      const handled = await handleAssistantTg(supabase, BOT_TOKEN, chatId, userId, aiQuestion);
+      if (!handled) await handleAiChat(supabase, BOT_TOKEN, chatId, userId, aiQuestion, null, null);
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
@@ -4269,5 +4279,151 @@ async function flushProtocolBuffer(
       .eq("chat_id", chatId)
       .maybeSingle();
     await finalizeProtocolDraft(supabase, botToken, chatId, userId, freshCtx || protoCtx, parsed, collected);
+  }
+}
+
+
+// ======================= Ассистент в боте (01.10.2026) =======================
+// Подробности — _shared/assistantTg.ts. Здесь — разговор и кнопки.
+
+async function tgCall(token: string, method: string, body: Record<string, unknown>) {
+  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return await res.json().catch(() => ({}));
+}
+
+/** История для модели: только текст, начинаем с пользователя, одна сторона подряд — склеиваем. */
+function historyForModel(history: { role: string; content: string }[]) {
+  const out: { role: "user" | "assistant"; content: string }[] = [];
+  for (const m of history.slice(-12)) {
+    if (!m.content?.trim()) continue;
+    if (!out.length && m.role !== "user") continue;
+    const last = out[out.length - 1];
+    if (last && last.role === m.role) last.content += "\n\n" + m.content;
+    else out.push({ role: m.role as "user" | "assistant", content: m.content });
+  }
+  return out;
+}
+
+async function sendAssistantResult(
+  supabase: any, token: string, chatId: number, sessionId: string,
+  r: AssistantReply, history: { role: string; content: string }[],
+) {
+  if (r.status === "confirm" && r.pending?.length) {
+    const sent = await tgCall(token, "sendMessage", {
+      chat_id: chatId,
+      text: renderPending(r) + renderSteps(r),
+      parse_mode: "HTML",
+      reply_markup: { inline_keyboard: [[
+        { text: "✅ Выполнить", callback_data: `asst:y:${sessionId}` },
+        { text: "✖ Отмена", callback_data: `asst:n:${sessionId}` },
+      ]] },
+    });
+    if (r.reply) history.push({ role: "assistant", content: r.reply });
+    await supabase.from("assistant_tg_sessions").update({
+      history, agent_messages: r.messages, pending: r.pending,
+      card_message_id: sent?.result?.message_id ?? null, updated_at: new Date().toISOString(),
+    }).eq("id", sessionId);
+    return;
+  }
+  const text = (r.reply ? mdToTelegramHtml(r.reply) : "Готово.") + renderSteps(r);
+  const sent = await tgCall(token, "sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true });
+  // Если разметка не понравилась Telegram — отправляем без неё, но отправляем.
+  if (!sent?.ok) await tgCall(token, "sendMessage", { chat_id: chatId, text: r.reply || "Готово." });
+  history.push({ role: "assistant", content: r.reply || "" });
+  await supabase.from("assistant_tg_sessions").update({
+    history, agent_messages: null, pending: null, card_message_id: null, updated_at: new Date().toISOString(),
+  }).eq("id", sessionId);
+}
+
+async function assistantError(token: string, chatId: number, code: string | undefined): Promise<boolean> {
+  if (code === "payment_required") {
+    await tgCall(token, "sendMessage", { chat_id: chatId, text: "⚠️ ИИ временно недоступен: закончился баланс. Сообщите администратору." });
+    return true;
+  }
+  if (code === "rate_limited") {
+    await tgCall(token, "sendMessage", { chat_id: chatId, text: "⏳ Слишком много запросов. Попробуйте через минуту." });
+    return true;
+  }
+  return false;
+}
+
+/** /ai <вопрос>. false — не вышло, вызывающий идёт прежним путём. */
+async function handleAssistantTg(supabase: any, token: string, chatId: number, userId: string, question: string): Promise<boolean> {
+  try {
+    // Токен выпускаем только тому, к кому привязан именно этот чат.
+    const { data: prof } = await supabase.from("profiles").select("telegram_chat_id").eq("id", userId).maybeSingle();
+    const { data: au } = await supabase.auth.admin.getUserById(userId);
+    if (!prof || String(prof.telegram_chat_id) !== String(chatId)) {
+      await tgCall(token, "sendMessage", { chat_id: chatId, text: "Чтобы работать с ИИ-помощником, напишите мне любое сообщение — я привяжу этот чат к вашему профилю, — и повторите /ai." });
+      return true;
+    }
+    await tgCall(token, "sendChatAction", { chat_id: chatId, action: "typing" });
+
+    // Продолжение разговора — если прошлый был в последние 30 минут.
+    const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data: prev } = await supabase.from("assistant_tg_sessions")
+      .select("id, history, card_message_id, pending").eq("chat_id", chatId).eq("user_id", userId)
+      .gte("updated_at", since).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+    // Новый вопрос при неотвеченной карточке — карточка больше не действует.
+    if (prev?.pending && prev.card_message_id) {
+      await tgCall(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: prev.card_message_id, reply_markup: { inline_keyboard: [] } });
+    }
+    const history: { role: string; content: string }[] = [...((prev?.history as any[]) ?? []), { role: "user", content: question }];
+    let sessionId = prev?.id as string | undefined;
+    if (!sessionId) {
+      const { data: created } = await supabase.from("assistant_tg_sessions")
+        .insert({ chat_id: chatId, user_id: userId, history }).select("id").single();
+      sessionId = created?.id;
+    }
+    if (!sessionId) return false;
+
+    const userToken = await mintUserToken(userId, au?.user?.email ?? null);
+    const r = await callAssistant(userToken, { messages: historyForModel(history) });
+    if (r.error) return await assistantError(token, chatId, r.error);
+    await sendAssistantResult(supabase, token, chatId, sessionId, r, history);
+    return true;
+  } catch (e) {
+    console.error("assistant tg failed:", (e as Error)?.stack ?? e);
+    return false;
+  }
+}
+
+/** Нажатие «Выполнить» / «Отмена». */
+async function handleAssistantDecision(
+  supabase: any, token: string, callbackId: string, chatId: number, messageId: number, profileId: string, data: string,
+) {
+  const [, flag, sessionId] = data.split(":");
+  const approve = flag === "y";
+  const { data: sess } = await supabase.from("assistant_tg_sessions")
+    .select("id, chat_id, user_id, history, agent_messages, pending").eq("id", sessionId).maybeSingle();
+  // Нажимать может только хозяин разговора и только по живой карточке.
+  if (!sess || sess.user_id !== profileId || String(sess.chat_id) !== String(chatId) || !sess.pending || !sess.agent_messages) {
+    await answerCallbackQuery(token, callbackId, "Эта карточка уже не действует");
+    await tgCall(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } });
+    return;
+  }
+  await answerCallbackQuery(token, callbackId, approve ? "Выполняю…" : "Отменено");
+  await tgCall(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } });
+  // Снимаем ожидание сразу — повторное нажатие не выполнит действие дважды.
+  await supabase.from("assistant_tg_sessions").update({ pending: null, agent_messages: null }).eq("id", sess.id);
+  await tgCall(token, "sendChatAction", { chat_id: chatId, action: "typing" });
+  try {
+    const { data: au } = await supabase.auth.admin.getUserById(profileId);
+    const userToken = await mintUserToken(profileId, au?.user?.email ?? null);
+    const r = await callAssistant(userToken, { messages: sess.agent_messages, decision: { approve } });
+    if (r.error) {
+      if (!(await assistantError(token, chatId, r.error))) {
+        await tgCall(token, "sendMessage", { chat_id: chatId, text: "❌ Не удалось выполнить. Попробуйте ещё раз: /ai" });
+      }
+      return;
+    }
+    await sendAssistantResult(supabase, token, chatId, sess.id, r, (sess.history as any[]) ?? []);
+  } catch (e) {
+    console.error("assistant tg decision failed:", (e as Error)?.stack ?? e);
+    await tgCall(token, "sendMessage", { chat_id: chatId, text: "❌ Ошибка. Попробуйте ещё раз: /ai" });
   }
 }

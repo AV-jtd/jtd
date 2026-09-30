@@ -223,6 +223,10 @@ services:
       # То есть каждый вызов инструмента падал бы даже после починки входа.
       SUPABASE_PUBLISHABLE_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+      # Ассистент в Telegram-боте выпускает короткий (10 мин) токен от имени
+      # привязанного к чату пользователя — HS256 этим секретом (01.10.2026, см.
+      # _shared/assistantTg.ts). Полномочий не добавляет: служебный ключ выше.
+      JWT_SECRET: ${JWT_SECRET}
       SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/postgres
       # Секреты edge functions:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
