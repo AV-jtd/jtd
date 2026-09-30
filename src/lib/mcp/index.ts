@@ -17,6 +17,9 @@ import moveTask from "./tools/move_task";
 import upsertPlan from "./tools/upsert_plan";
 import createProject from "./tools/create_project";
 import applyPlanTemplate from "./tools/apply_plan_template";
+import getBaseline from "./tools/get_baseline";
+import lockBaseline from "./tools/lock_baseline";
+import unlockBaseline from "./tools/unlock_baseline";
 import listProtocols from "./tools/list_protocols";
 import getProtocol from "./tools/get_protocol";
 import listClients from "./tools/list_clients";
@@ -49,6 +52,7 @@ export default defineMcp({
     "Перенос сроков: preview_shift показывает, что потянется за задачей, без записи; move_task применяет. Сначала покажи человеку preview_shift и получи согласие — сдвиг задевает чужие сроки, о которых уже договорились. Правка срока одной задачи без хвоста — это update_task. Дни везде календарные. " +
     "Разложить протокол или письмо в план целиком — upsert_plan: задачи, вехи и связи за один вызов. По умолчанию он ничего не пишет, а возвращает разложенный план; покажи его человеку и запиши с apply=true только после согласия. " +
     "«Сделай план по примеру проекта такого-то» — apply_plan_template: берёт форму проекта-образца (промежутки между задачами и связи) и раскладывает от новой даты; правки из сообщения («приёмку в апреле») передавай в overrides, они двигают и то, что стоит за элементом. Как и upsert_plan, без apply=true не пишет ничего. Новый проект под план — create_project. " +
+    "Базовый план: get_baseline говорит, идёт ещё планирование (правки сроков сдвигом не считаются) или план утверждён (каждая правка — отклонение в портфеле). Спрашивай перед переносом сроков и говори человеку, запишется ли сдвиг. Фиксация — lock_baseline: она обнуляет накопленные отклонения безвозвратно, поэтому сначала покажи последствия (без apply=true он их только считает). Снять — unlock_baseline. " +
     "Каждый вызов пишется в журнал обращений.",
   auth: auth.oauth.issuer({
     issuer: `${AUTH_BASE}/auth/v1`,
@@ -62,7 +66,7 @@ export default defineMcp({
   }),
   tools: [
     listTasks, searchTasks, getTask, createTask, updateTask, completeTask, updateTaskDeadline, addComment,
-    listProjects, getProject, getProjectSchedule, createMilestone, updateMilestone, linkTasks, unlinkTasks, previewShift, moveTask, upsertPlan, createProject, applyPlanTemplate,
+    listProjects, getProject, getProjectSchedule, createMilestone, updateMilestone, linkTasks, unlinkTasks, previewShift, moveTask, upsertPlan, createProject, applyPlanTemplate, getBaseline, lockBaseline, unlockBaseline,
     listProtocols, getProtocol,
     listClients, getClient,
   ].map(withAudit),

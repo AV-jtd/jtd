@@ -48,6 +48,10 @@ export default defineTool({
             move: result.moved,
             shifted: result.shifted,
             shifted_count: result.shifted.length,
+            recorded_as_drift: result.recorded_as_drift,
+            baseline_note: result.recorded_as_drift
+              ? "Базовый план зафиксирован — перенос записан как отклонение от плана."
+              : "Проект на этапе планирования — сдвиг не записан.",
             note:
               result.shifted.length > 0
                 ? "Сдвинулись чужие сроки — о них стоит сказать людям."

@@ -214,6 +214,8 @@ async function applyUpdates(
 export type MoveResult = {
   moved: { id: string; kind: "task" | "milestone"; name: string; from: string | null; to: string; shift_days: number };
   shifted: CascadeResult["shifted"];
+  /** Запишется ли сдвиг как отклонение от утверждённого плана. */
+  recorded_as_drift: boolean;
 };
 
 /**
@@ -340,6 +342,9 @@ export async function moveWithCascade(
   }
   const shifted = [...byId.values()];
 
+  // Про это человека надо предупреждать до, а не узнавать из портфеля после.
+  const planning = await isPlanningPhase(supabase, scope.groupId.get(id));
+
   return {
     moved: {
       id,
@@ -350,6 +355,7 @@ export async function moveWithCascade(
       shift_days: shiftDays,
     },
     shifted,
+    recorded_as_drift: kind === "task" && !planning,
   };
 }
 
