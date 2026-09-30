@@ -1,6 +1,6 @@
 import { defineTool, type ToolContext } from "@lovable.dev/mcp-js";
 import { z } from "zod";
-import { db, fail, insertTask, resolveUser } from "./_shared";
+import { db, fail, insertTask, isPlanningPhase, resolveUser } from "./_shared";
 import { cascade, entityKind, fetchDependencies, findCycle } from "./_cascade";
 import { MILESTONE_STATUSES } from "./create_milestone";
 import { DEPENDENCY_TYPES } from "./link_tasks";
@@ -229,6 +229,7 @@ export default defineTool({
     // через PostgREST нет. Поэтому ведём список сделанного и, если что-то
     // сорвалось, отдаём его целиком: чинить вручную можно только то, про что
     // известно.
+    const planningCache = new Map<string, boolean>();
     const resolved = new Map<string, string>(); // key или id → настоящий UUID
     const done: string[] = [];
     const warnings: string[] = [];
@@ -246,6 +247,11 @@ export default defineTool({
         if (it.kind === "task") {
           if (it.start_at) patch.start_at = it.start_at;
           if (it.deadline) patch.deadline = it.deadline;
+          // Базовая дата идёт за сроком, пока план не зафиксирован — как в
+          // приложении и в остальных инструментах коннектора.
+          if (it.deadline && (await isPlanningPhase(supabase, input.project_id, planningCache))) {
+            patch.original_deadline = it.deadline;
+          }
           if (it.description !== undefined) patch.description = it.description;
           if (it.assignee) patch.assigned_to = assignees.get(it.assignee)!.id;
         } else {

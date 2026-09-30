@@ -1,6 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
-import { db, fail, notify, resolveUser, setStatus, STATUS_NAMES } from "./_shared";
+import { db, fail, isPlanningPhase, notify, resolveUser, setStatus, STATUS_NAMES } from "./_shared";
 
 export default defineTool({
   name: "update_task",
@@ -28,7 +28,7 @@ export default defineTool({
     const supabase = db(ctx);
 
     const { data: task, error: rErr } = await supabase
-      .from("tasks").select("id,title,assigned_to,is_completed").eq("id", input.task_id).maybeSingle();
+      .from("tasks").select("id,title,assigned_to,is_completed,group_id").eq("id", input.task_id).maybeSingle();
     if (rErr) return fail(rErr.message);
     if (!task) return fail("Задача не найдена или нет доступа");
 
@@ -71,6 +71,13 @@ export default defineTool({
     }
     if (input.is_important !== undefined) updates.is_important = input.is_important;
     if (input.priority !== undefined) updates.priority = input.priority;
+
+    // Пока базовый план проекта не зафиксирован, базовая дата идёт за сроком —
+    // как в приложении. Иначе срок, проставленный здесь на этапе планирования,
+    // показался бы в портфеле сдвигом, которого не было.
+    if (updates.deadline && (await isPlanningPhase(supabase, task.group_id))) {
+      updates.original_deadline = updates.deadline;
+    }
 
     const changed: string[] = [];
     if (Object.keys(updates).length) {
