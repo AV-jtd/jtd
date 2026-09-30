@@ -64,7 +64,7 @@ interface Message {
 }
 
 type AgentStep = { name: string; title: string; ok: boolean };
-type PendingAction = { id: string; name: string; title: string; input: Record<string, unknown>; destructive: boolean };
+type PendingAction = { id: string; name: string; title: string; input: Record<string, unknown>; destructive: boolean; labels?: string[] };
 type AgentResponse = {
   status: "done" | "confirm";
   reply: string;
@@ -82,12 +82,25 @@ const ARG_LABELS: Record<string, string> = {
   start_date: "начало", end_date: "окончание", days: "дней", reason: "причина",
 };
 const UUID_LIKE = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T[\d:.]+(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+/** «20.10.2026, 18:00» по Москве; без времени, если оно не задано. */
+function humanDate(v: string): string {
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return v;
+  const opts: Intl.DateTimeFormatOptions = { timeZone: "Europe/Moscow", day: "2-digit", month: "2-digit", year: "numeric" };
+  const date = d.toLocaleDateString("ru-RU", opts);
+  if (!v.includes("T")) return date;
+  const time = d.toLocaleTimeString("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" });
+  return `${date}, ${time}`;
+}
 
 function formatArgs(input: Record<string, unknown>): string[] {
   return Object.entries(input)
     .filter(([k, v]) => v !== null && v !== undefined && v !== "" && !k.endsWith("_id") && !(typeof v === "string" && UUID_LIKE.test(v)))
     .map(([k, v]) => {
       const val = typeof v === "boolean" ? (v ? "да" : "нет")
+        : typeof v === "string" && ISO_DATE.test(v) ? humanDate(v)
         : typeof v === "object" ? (Array.isArray(v) ? `${v.length} шт.` : "…")
         : String(v);
       return `${ARG_LABELS[k] ?? k}: ${val.length > 80 ? val.slice(0, 80) + "…" : val}`;
@@ -670,7 +683,7 @@ const AiAssistantInner = forwardRef<HTMLDivElement, AiAssistantProps>(function A
                         <div className={cn("text-[11px] font-medium", a.destructive && "text-destructive")}>
                           {a.destructive ? "⚠️ " : "✎ "}{a.title}
                         </div>
-                        {formatArgs(a.input).map(line => (
+                        {[...(a.labels ?? []), ...formatArgs(a.input)].map(line => (
                           <div key={line} className="text-[10px] text-muted-foreground">{line}</div>
                         ))}
                       </div>

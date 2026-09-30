@@ -3982,6 +3982,10 @@ serve?.(async (req) => {
           })
         }
       });
+      if (result.status === "confirm") {
+        const labelled = await labelPending(token, result.pending);
+        return json({ ...result, pending: labelled });
+      }
       return json(result);
     } catch (e) {
       if (e instanceof ModelError) {
@@ -4006,6 +4010,7 @@ var STATIC_SYSTEM = `\u0422\u044B \u2014 \u0430\u0441\u0441\u0438\u0441\u0442\u0
   \u0415\u0441\u043B\u0438 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u043E\u0442\u043A\u043B\u043E\u043D\u0438\u043B\u0438 \u2014 \u043D\u0435 \u043F\u043E\u0432\u0442\u043E\u0440\u044F\u0439 \u0435\u0433\u043E \u0431\u0435\u0437 \u043D\u043E\u0432\u043E\u0439 \u043F\u0440\u043E\u0441\u044C\u0431\u044B.
 - \u041E\u0442\u0432\u0435\u0447\u0430\u0439 \u043F\u043E-\u0440\u0443\u0441\u0441\u043A\u0438, \u043A\u043E\u0440\u043E\u0442\u043A\u043E \u0438 \u043F\u043E \u0434\u0435\u043B\u0443. \u0421\u043F\u0438\u0441\u043A\u0438 \u2014 \u043C\u0430\u0440\u043A\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u044B\u0435. \u041D\u0435 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0439 UUID: \u043D\u0430\u0437\u044B\u0432\u0430\u0439 \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B \u0438 \u043B\u044E\u0434\u0435\u0439 \u043F\u043E \u0438\u043C\u0435\u043D\u0430\u043C.
 - \u0415\u0441\u043B\u0438 \u0434\u0430\u043D\u043D\u044B\u0445 \u043C\u043D\u043E\u0433\u043E \u2014 \u0441\u0443\u0437\u044C \u0437\u0430\u043F\u0440\u043E\u0441 (\u0444\u0438\u043B\u044C\u0442\u0440\u044B, limit), \u0430 \u043D\u0435 \u043F\u0435\u0440\u0435\u0441\u043A\u0430\u0437\u044B\u0432\u0430\u0439 \u0432\u0441\u0451.
+- \u0414\u0430\u0442\u044B \u0438 \u0432\u0440\u0435\u043C\u044F \u043D\u0430\u0437\u044B\u0432\u0430\u0439 \u043F\u043E \u041C\u043E\u0441\u043A\u0432\u0435 (\u041C\u0421\u041A) \u0438 \u043F\u043E-\u0447\u0435\u043B\u043E\u0432\u0435\u0447\u0435\u0441\u043A\u0438 (\xAB5 \u043E\u043A\u0442\u044F\u0431\u0440\u044F, 18:00\xBB), \u043D\u0438\u043A\u043E\u0433\u0434\u0430 \u043D\u0435 \u0432 UTC.
 
 ${TOOL_INSTRUCTIONS}`;
 var UUID_RE2 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -4032,4 +4037,52 @@ function describeSituation(ctx, userName) {
     lines.push(`\u0421\u0435\u0439\u0447\u0430\u0441 \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435: ${where.join(", ")}. \xAB\u042D\u0442\u043E\u0442 \u043F\u0440\u043E\u0435\u043A\u0442\xBB, \xAB\u044D\u0442\u0430 \u0437\u0430\u0434\u0430\u0447\u0430\xBB, \xAB\u0437\u0434\u0435\u0441\u044C\xBB \u2014 \u043F\u0440\u043E \u043D\u0438\u0445.`);
   }
   return lines.join("\n");
+}
+var ID_KIND = {
+  task_id: "task",
+  predecessor_id: "task",
+  successor_id: "task",
+  from_task_id: "task",
+  to_task_id: "task",
+  project_id: "project",
+  group_id: "project",
+  parent_id: "project",
+  assigned_to: "person",
+  assignee_id: "person",
+  user_id: "person"
+};
+async function labelPending(token, pending) {
+  const ids = { task: /* @__PURE__ */ new Set(), project: /* @__PURE__ */ new Set(), person: /* @__PURE__ */ new Set() };
+  for (const p of pending) {
+    for (const [k, v] of Object.entries(p.input)) {
+      const kind = ID_KIND[k];
+      if (kind && typeof v === "string" && UUID_RE2.test(v)) ids[kind].add(v);
+    }
+  }
+  const names = /* @__PURE__ */ new Map();
+  const auth = { global: { headers: { Authorization: `Bearer ${token}` } } };
+  const db11 = createClient11(
+    process11.env.SUPABASE_URL,
+    process11.env.SUPABASE_PUBLISHABLE_KEY || process11.env.SUPABASE_ANON_KEY,
+    { ...auth, auth: { persistSession: false, autoRefreshToken: false } }
+  );
+  const load = async (table, col, set) => {
+    if (!set.size) return;
+    const { data } = await db11.from(table).select(`id, ${col}`).in("id", [...set]);
+    for (const r of data ?? []) names.set(r.id, r[col]);
+  };
+  await Promise.all([
+    load("tasks", "title", ids.task),
+    load("task_groups", "name", ids.project),
+    load("profiles", "display_name", ids.person)
+  ]);
+  const KIND_LABEL = { task: "\u0437\u0430\u0434\u0430\u0447\u0430", project: "\u043F\u0440\u043E\u0435\u043A\u0442", person: "\u0447\u0435\u043B\u043E\u0432\u0435\u043A" };
+  return pending.map((p) => {
+    const labels = [];
+    for (const [k, v] of Object.entries(p.input)) {
+      const kind = ID_KIND[k];
+      if (kind && typeof v === "string" && names.has(v)) labels.push(`${KIND_LABEL[kind]}: \xAB${names.get(v)}\xBB`);
+    }
+    return { ...p, labels };
+  });
 }

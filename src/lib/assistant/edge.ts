@@ -129,6 +129,13 @@ serve?.(async (req: Request) => {
             }),
         },
       });
+      // Карточке нужны названия, а не идентификаторы: модель не всегда поясняет
+      // действие текстом (проверка 30.09: «перенос» пришёл без слов — человек не
+      // понял бы, какую задачу двигают). Подписи берутся токеном пользователя.
+      if (result.status === "confirm") {
+        const labelled = await labelPending(token, result.pending);
+        return json({ ...result, pending: labelled });
+      }
       return json(result);
     } catch (e) {
       if (e instanceof ModelError) {
@@ -156,6 +163,7 @@ const STATIC_SYSTEM = `Ты — ассистент внутри JustTODOit: за
   Если действие отклонили — не повторяй его без новой просьбы.
 - Отвечай по-русски, коротко и по делу. Списки — маркированные. Не показывай UUID: называй задачи, проекты и людей по именам.
 - Если данных много — сузь запрос (фильтры, limit), а не пересказывай всё.
+- Даты и время называй по Москве (МСК) и по-человечески («5 октября, 18:00»), никогда не в UTC.
 
 ${TOOL_INSTRUCTIONS}`;
 
@@ -184,4 +192,51 @@ function describeSituation(
     lines.push(`Сейчас на экране: ${where.join(", ")}. «Этот проект», «эта задача», «здесь» — про них.`);
   }
   return lines.join("\n");
+}
+
+type LabelKey = "task" | "project" | "person";
+const ID_KIND: Record<string, LabelKey> = {
+  task_id: "task", predecessor_id: "task", successor_id: "task", from_task_id: "task", to_task_id: "task",
+  project_id: "project", group_id: "project", parent_id: "project",
+  assigned_to: "person", assignee_id: "person", user_id: "person",
+};
+
+/** Подписать идентификаторы в действиях, ждущих подтверждения. */
+async function labelPending(
+  token: string,
+  pending: { id: string; name: string; title: string; input: Record<string, unknown>; destructive: boolean }[],
+) {
+  const ids: Record<LabelKey, Set<string>> = { task: new Set(), project: new Set(), person: new Set() };
+  for (const p of pending) {
+    for (const [k, v] of Object.entries(p.input)) {
+      const kind = ID_KIND[k];
+      if (kind && typeof v === "string" && UUID_RE.test(v)) ids[kind].add(v);
+    }
+  }
+  const names = new Map<string, string>();
+  const auth = { global: { headers: { Authorization: `Bearer ${token}` } } };
+  const db = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY!,
+    { ...auth, auth: { persistSession: false, autoRefreshToken: false } },
+  );
+  const load = async (table: string, col: string, set: Set<string>) => {
+    if (!set.size) return;
+    const { data } = await db.from(table).select(`id, ${col}`).in("id", [...set]);
+    for (const r of (data ?? []) as unknown as Record<string, string>[]) names.set(r.id, r[col]);
+  };
+  await Promise.all([
+    load("tasks", "title", ids.task),
+    load("task_groups", "name", ids.project),
+    load("profiles", "display_name", ids.person),
+  ]);
+  const KIND_LABEL: Record<LabelKey, string> = { task: "задача", project: "проект", person: "человек" };
+  return pending.map((p) => {
+    const labels: string[] = [];
+    for (const [k, v] of Object.entries(p.input)) {
+      const kind = ID_KIND[k];
+      if (kind && typeof v === "string" && names.has(v)) labels.push(`${KIND_LABEL[kind]}: «${names.get(v)}»`);
+    }
+    return { ...p, labels };
+  });
 }
