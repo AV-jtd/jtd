@@ -1876,28 +1876,465 @@ var upsert_plan_default = defineTool16({
   }
 });
 
+// src/lib/mcp/tools/create_project.ts
+import { defineTool as defineTool17 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z17 } from "npm:zod@^4.4.3";
+var create_project_default = defineTool17({
+  name: "create_project",
+  title: "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u043F\u0440\u043E\u0435\u043A\u0442",
+  description: "\u0421\u043E\u0437\u0434\u0430\u0451\u0442 \u043F\u0440\u043E\u0435\u043A\u0442 (task_groups) \u0441 \u0442\u0435\u0433\u043E\u043C-\u0437\u043E\u043D\u0442\u0438\u043A\u043E\u043C, \u043A\u0430\u043A \u0432 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438. parent_id \u2014 \u0441\u0434\u0435\u043B\u0430\u0442\u044C \u043F\u043E\u0434\u043F\u0440\u043E\u0435\u043A\u0442\u043E\u043C \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u044E\u0449\u0435\u0433\u043E: \u043C\u0435\u0442\u043A\u0438 \u043A\u043E\u043D\u0442\u0435\u043A\u0441\u0442\u0430 \u0440\u043E\u0434\u0438\u0442\u0435\u043B\u044F \u043D\u0430\u0441\u043B\u0435\u0434\u0443\u044E\u0442\u0441\u044F. \u041F\u0440\u043E\u0435\u043A\u0442 \u0441 \u0442\u0430\u043A\u0438\u043C \u0436\u0435 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435\u043C \u043E\u0442\u043A\u043B\u043E\u043D\u044F\u0435\u0442\u0441\u044F. \u0414\u0430\u043B\u044C\u0448\u0435 \u0432 \u043F\u0440\u043E\u0435\u043A\u0442 \u043C\u043E\u0436\u043D\u043E \u0440\u0430\u0437\u043B\u043E\u0436\u0438\u0442\u044C \u043F\u043B\u0430\u043D \u0447\u0435\u0440\u0435\u0437 upsert_plan \u0438\u043B\u0438 \u043F\u0435\u0440\u0435\u043D\u0435\u0441\u0442\u0438 \u0441\u0442\u0440\u0443\u043A\u0442\u0443\u0440\u0443 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u0447\u0435\u0440\u0435\u0437 apply_plan_template.",
+  inputSchema: {
+    name: z17.string().min(1).max(200).describe("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043F\u0440\u043E\u0435\u043A\u0442\u0430."),
+    parent_id: z17.string().uuid().optional().describe("UUID \u0440\u043E\u0434\u0438\u0442\u0435\u043B\u044C\u0441\u043A\u043E\u0433\u043E \u043F\u0440\u043E\u0435\u043A\u0442\u0430, \u0435\u0441\u043B\u0438 \u044D\u0442\u043E \u043F\u043E\u0434\u043F\u0440\u043E\u0435\u043A\u0442."),
+    description: z17.string().max(2e3).optional()
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return fail("\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D");
+    const uid = ctx.getUserId();
+    const supabase = db4(ctx);
+    const name = input.name.trim();
+    const normalized = name.toLowerCase();
+    const { data: groups, error: gErr } = await supabase.from("task_groups").select("id,name,linked_tag_id");
+    if (gErr) return fail(gErr.message);
+    const dup = (groups ?? []).find((g) => g.name.trim().toLowerCase() === normalized);
+    if (dup) return fail(`\u041F\u0440\u043E\u0435\u043A\u0442 \xAB${dup.name}\xBB \u0443\u0436\u0435 \u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u0435\u0442 (${dup.id})`);
+    if (input.parent_id && !(groups ?? []).some((g) => g.id === input.parent_id)) {
+      return fail("\u0420\u043E\u0434\u0438\u0442\u0435\u043B\u044C\u0441\u043A\u0438\u0439 \u043F\u0440\u043E\u0435\u043A\u0442 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0438\u043B\u0438 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D");
+    }
+    const { data: tags } = await supabase.from("tags").select("id,name,user_id").eq("user_id", uid);
+    const linkedTagIds = new Set((groups ?? []).map((g) => g.linked_tag_id).filter(Boolean));
+    const reusable = (tags ?? []).find(
+      (t) => t.name?.trim().toLowerCase() === normalized && !linkedTagIds.has(t.id)
+    );
+    let tagId = reusable?.id;
+    if (!tagId) {
+      const { data: tag, error: tErr } = await supabase.from("tags").insert({ name, user_id: uid, color: "#3b82f6" }).select("id").single();
+      if (tErr) return fail(`\u0422\u0435\u0433 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u043D\u0435 \u0441\u043E\u0437\u0434\u0430\u043D: ${tErr.message}`);
+      tagId = tag.id;
+    }
+    const { data: group, error } = await supabase.from("task_groups").insert({
+      name,
+      user_id: uid,
+      linked_tag_id: tagId,
+      parent_id: input.parent_id ?? null,
+      ...input.description ? { description: input.description } : {}
+    }).select("id,name,parent_id").single();
+    if (error) return fail(error.message);
+    const warnings = [];
+    const { error: mErr } = await supabase.from("group_members").insert({ group_id: group.id, user_id: uid, invited_by: uid, role: "owner" });
+    if (mErr) warnings.push(`\u0441\u043E\u0437\u0434\u0430\u0442\u0435\u043B\u044C \u043D\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D \u0432 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0438: ${mErr.message}`);
+    if (input.parent_id) {
+      const { data: parentTags } = await supabase.from("group_tags").select("tag_id").eq("group_id", input.parent_id);
+      const inherit = (parentTags ?? []).map((r) => r.tag_id).filter((id) => id && id !== tagId);
+      if (inherit.length) {
+        const { error: gtErr } = await supabase.from("group_tags").insert(inherit.map((tag_id) => ({ group_id: group.id, tag_id })));
+        if (gtErr) warnings.push(`\u043C\u0435\u0442\u043A\u0438 \u0440\u043E\u0434\u0438\u0442\u0435\u043B\u044F \u043D\u0435 \u0443\u043D\u0430\u0441\u043B\u0435\u0434\u043E\u0432\u0430\u043D\u044B: ${gtErr.message}`);
+      }
+    }
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            created: true,
+            project: group,
+            tag_reused: !!reusable,
+            ...warnings.length ? { warnings } : {}
+          })
+        }
+      ]
+    };
+  }
+});
+
+// src/lib/mcp/tools/apply_plan_template.ts
+import { defineTool as defineTool18 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z18 } from "npm:zod@^4.4.3";
+
+// src/lib/planTemplate.ts
+import { addDays as addDays3, differenceInCalendarDays as differenceInCalendarDays4, parseISO as parseISO4 } from "npm:date-fns@^3.6.0";
+var DAY2 = 864e5;
+var norm = (s) => s.trim().toLowerCase().replace(/\s+/g, " ");
+function layoutPlan(args) {
+  const problems = [];
+  const skipped = [];
+  const scale = args.scale ?? 1;
+  if (!(scale > 0) || scale > 10) problems.push(`\u041C\u0430\u0441\u0448\u0442\u0430\u0431 ${scale} \u0437\u0430 \u043F\u0440\u0435\u0434\u0435\u043B\u0430\u043C\u0438 \u0440\u0430\u0437\u0443\u043C\u043D\u043E\u0433\u043E (0 < scale \u2264 10)`);
+  const start = parseISO4(args.startDate);
+  if (Number.isNaN(start.getTime())) {
+    return { template_anchor: null, items: [], links: [], skipped, problems: [`\u041D\u0435 \u0440\u0430\u0437\u043E\u0431\u0440\u0430\u043B \u0434\u0430\u0442\u0443 \u043D\u0430\u0447\u0430\u043B\u0430 \xAB${args.startDate}\xBB`] };
+  }
+  const dated = args.items.filter((i) => {
+    if (i.end) return true;
+    skipped.push({ title: i.title, reason: "\u0432 \u043E\u0431\u0440\u0430\u0437\u0446\u0435 \u043D\u0435\u0442 \u0441\u0440\u043E\u043A\u0430 \u2014 \u0432 \u043F\u043B\u0430\u043D \u043D\u0435 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u0438\u0442\u0441\u044F" });
+    return false;
+  });
+  if (dated.length === 0) {
+    return { template_anchor: null, items: [], links: [], skipped, problems: ["\u0412 \u043E\u0431\u0440\u0430\u0437\u0446\u0435 \u043D\u0435\u0442 \u043D\u0438 \u043E\u0434\u043D\u043E\u0433\u043E \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430 \u0441\u043E \u0441\u0440\u043E\u043A\u043E\u043C"] };
+  }
+  const times = dated.flatMap((i) => [i.start, i.end].filter(Boolean).map((d) => parseISO4(d).getTime()));
+  const anchor = Math.min(...times);
+  const overrides = args.overrides ?? [];
+  const matched = /* @__PURE__ */ new Map();
+  for (const o of overrides) {
+    const hits = dated.filter((i) => norm(i.title) === norm(o.match));
+    const loose = hits.length ? hits : dated.filter((i) => norm(i.title).includes(norm(o.match)));
+    if (loose.length === 0) {
+      problems.push(`\u041F\u0440\u0430\u0432\u043A\u0430 \xAB${o.match}\xBB: \u0432 \u043E\u0431\u0440\u0430\u0437\u0446\u0435 \u043D\u0435\u0442 \u0442\u0430\u043A\u043E\u0433\u043E \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430`);
+      continue;
+    }
+    if (loose.length > 1) {
+      problems.push(`\u041F\u0440\u0430\u0432\u043A\u0430 \xAB${o.match}\xBB \u043F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u043A ${loose.length}: ${loose.map((i) => `\xAB${i.title}\xBB`).join(", ")}. \u0423\u0442\u043E\u0447\u043D\u0438\u0442\u0435 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435.`);
+      continue;
+    }
+    const target = loose[0];
+    if (matched.has(target.id)) {
+      problems.push(`\u041D\u0430 \xAB${target.title}\xBB \u043F\u0440\u0438\u0445\u043E\u0434\u0438\u0442\u0441\u044F \u0431\u043E\u043B\u044C\u0448\u0435 \u043E\u0434\u043D\u043E\u0439 \u043F\u0440\u0430\u0432\u043A\u0438`);
+      continue;
+    }
+    if (o.new_date !== void 0 && o.shift_days !== void 0) {
+      problems.push(`\u041F\u0440\u0430\u0432\u043A\u0430 \xAB${o.match}\xBB: \u043D\u0443\u0436\u043D\u043E \u043E\u0434\u043D\u043E \u0438\u0437 \u0434\u0432\u0443\u0445 \u2014 new_date \u0438\u043B\u0438 shift_days`);
+      continue;
+    }
+    if (o.new_date !== void 0) {
+      const d = parseISO4(o.new_date);
+      if (Number.isNaN(d.getTime())) {
+        problems.push(`\u041F\u0440\u0430\u0432\u043A\u0430 \xAB${o.match}\xBB: \u043D\u0435 \u0440\u0430\u0437\u043E\u0431\u0440\u0430\u043B \u0434\u0430\u0442\u0443 \xAB${o.new_date}\xBB`);
+        continue;
+      }
+      const y = d.getUTCFullYear();
+      if (y < 2e3 || y > 2100) {
+        problems.push(`\u041F\u0440\u0430\u0432\u043A\u0430 \xAB${o.match}\xBB: \u0434\u0430\u0442\u0430 ${o.new_date} \u0432\u043D\u0435 \u0440\u0430\u0437\u0443\u043C\u043D\u043E\u0433\u043E \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D\u0430 (2000\u20132100)`);
+        continue;
+      }
+    }
+    matched.set(target.id, o);
+  }
+  const laid = /* @__PURE__ */ new Map();
+  for (const it of dated) {
+    const o = matched.get(it.id);
+    if (o?.skip) {
+      skipped.push({ title: it.title, reason: "\u0438\u0441\u043A\u043B\u044E\u0447\u0451\u043D \u043F\u0440\u0430\u0432\u043A\u043E\u0439 \u0438\u0437 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F" });
+      continue;
+    }
+    const endOffset = Math.round((parseISO4(it.end).getTime() - anchor) / DAY2 * scale);
+    const startOffset = it.start ? Math.round((parseISO4(it.start).getTime() - anchor) / DAY2 * scale) : null;
+    let end = addDays3(start, endOffset);
+    let overridden = false;
+    if (o?.new_date !== void 0) {
+      end = parseISO4(o.new_date);
+      overridden = true;
+    } else if (o?.shift_days !== void 0) {
+      end = addDays3(end, o.shift_days);
+      overridden = true;
+    }
+    const duration = startOffset === null ? null : endOffset - startOffset;
+    const startDate = duration === null ? null : addDays3(end, -duration);
+    laid.set(it.id, {
+      source_id: it.id,
+      kind: it.kind,
+      title: o?.title ?? it.title,
+      start: startDate ? startDate.toISOString() : null,
+      end: end.toISOString(),
+      offset_start_days: startOffset,
+      offset_end_days: endOffset,
+      overridden,
+      moved_by_links: false
+    });
+  }
+  const links = args.links.filter((l) => laid.has(l.from) && laid.has(l.to));
+  const droppedLinks = args.links.length - links.length;
+  if (droppedLinks > 0) {
+    skipped.push({ title: `\u0441\u0432\u044F\u0437\u0435\u0439: ${droppedLinks}`, reason: "\u043E\u0434\u0438\u043D \u0438\u0437 \u043A\u043E\u043D\u0446\u043E\u0432 \u043D\u0435 \u043F\u043E\u043F\u0430\u043B \u0432 \u043F\u043B\u0430\u043D" });
+  }
+  const entities = /* @__PURE__ */ new Map();
+  laid.forEach((i, id) => entities.set(id, { id, start_at: i.start, deadline: i.end }));
+  const fixes = resolveAllViolations(
+    links.map((l, n) => ({
+      id: String(n),
+      predecessor_id: l.from,
+      successor_id: l.to,
+      dependency_type: l.type,
+      lag_days: l.lag_days,
+      created_by: "",
+      created_at: "",
+      predecessor_entity_type: "task",
+      successor_entity_type: "task"
+    })),
+    entities
+  );
+  for (const [id, fix] of fixes) {
+    const item = laid.get(id);
+    if (!item) continue;
+    if (fix.deadline) item.end = fix.deadline;
+    if (fix.start_at && item.kind === "task") item.start = fix.start_at;
+    item.moved_by_links = true;
+  }
+  const items = [...laid.values()].sort((a, b) => a.end.localeCompare(b.end));
+  for (const i of items) {
+    const y = new Date(i.end).getUTCFullYear();
+    if (y < 2e3 || y > 2100) problems.push(`\xAB${i.title}\xBB: \u0440\u0430\u0441\u0447\u0451\u0442\u043D\u0430\u044F \u0434\u0430\u0442\u0430 ${i.end} \u0432\u043D\u0435 \u0440\u0430\u0437\u0443\u043C\u043D\u043E\u0433\u043E \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D\u0430`);
+    if (i.start && new Date(i.start) > new Date(i.end)) {
+      problems.push(`\xAB${i.title}\xBB: \u043F\u043E\u0441\u043B\u0435 \u043F\u0440\u0430\u0432\u043E\u043A \u043D\u0430\u0447\u0430\u043B\u043E \u043E\u043A\u0430\u0437\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0437\u0436\u0435 \u0441\u0440\u043E\u043A\u0430`);
+    }
+  }
+  return {
+    template_anchor: new Date(anchor).toISOString(),
+    items,
+    links,
+    skipped,
+    problems
+  };
+}
+function planSpanDays(items) {
+  if (items.length === 0) return 0;
+  const times = items.flatMap((i) => [i.start, i.end].filter(Boolean).map((d) => parseISO4(d).getTime()));
+  return differenceInCalendarDays4(new Date(Math.max(...times)), new Date(Math.min(...times)));
+}
+
+// src/lib/mcp/tools/apply_plan_template.ts
+var MAX_ITEMS2 = 200;
+var apply_plan_template_default = defineTool18({
+  name: "apply_plan_template",
+  title: "\u041F\u043B\u0430\u043D \u043F\u043E \u043E\u0431\u0440\u0430\u0437\u0446\u0443 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u043F\u0440\u043E\u0435\u043A\u0442\u0430",
+  description: "\u041F\u0435\u0440\u0435\u043D\u043E\u0441\u0438\u0442 \u0444\u043E\u0440\u043C\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430-\u043E\u0431\u0440\u0430\u0437\u0446\u0430 \u0432 \u0434\u0440\u0443\u0433\u043E\u0439 \u043F\u0440\u043E\u0435\u043A\u0442: \u0437\u0430\u0434\u0430\u0447\u0438 \u0438 \u0432\u0435\u0445\u0438 \u0441 \u0442\u0435\u043C\u0438 \u0436\u0435 \u043F\u0440\u043E\u043C\u0435\u0436\u0443\u0442\u043A\u0430\u043C\u0438 \u043C\u0435\u0436\u0434\u0443 \u043D\u0438\u043C\u0438 \u0438 \u0442\u0435 \u0436\u0435 \u0441\u0432\u044F\u0437\u0438, \u043D\u043E \u043E\u0442 \u043D\u043E\u0432\u043E\u0439 \u0434\u0430\u0442\u044B. \u041E\u0442\u0432\u0435\u0447\u0430\u0435\u0442 \u043D\u0430 \xAB\u0441\u0434\u0435\u043B\u0430\u0439 \u043F\u043B\u0430\u043D \u043F\u043E \u043F\u0440\u0438\u043C\u0435\u0440\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u0442\u0430\u043A\u043E\u0433\u043E-\u0442\u043E\xBB. start_date \u2014 \u0441 \u043A\u0430\u043A\u043E\u0439 \u0434\u0430\u0442\u044B \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F \u043D\u043E\u0432\u044B\u0439 \u043F\u043B\u0430\u043D. scale \u0441\u0436\u0438\u043C\u0430\u0435\u0442 \u0438\u043B\u0438 \u0440\u0430\u0441\u0442\u044F\u0433\u0438\u0432\u0430\u0435\u0442 \u0432\u0435\u0441\u044C \u043F\u043B\u0430\u043D (0.5 \u2014 \u0432\u0434\u0432\u043E\u0435 \u0431\u044B\u0441\u0442\u0440\u0435\u0435). overrides \u2014 \u043F\u0440\u0430\u0432\u043A\u0438 \u0438\u0437 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F: match (\u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430 \u043E\u0431\u0440\u0430\u0437\u0446\u0430), \u0438 \u043B\u0438\u0431\u043E new_date, \u043B\u0438\u0431\u043E shift_days; \u0435\u0449\u0451 skip (\u043D\u0435 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u0438\u0442\u044C) \u0438 title (\u043F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u0442\u044C). \u041F\u0440\u0430\u0432\u043A\u0430 \u0434\u0432\u0438\u0433\u0430\u0435\u0442 \u0438 \u0442\u043E, \u0447\u0442\u043E \u0441\u0442\u043E\u0438\u0442 \u0437\u0430 \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u043C \u043F\u043E \u0441\u0432\u044F\u0437\u044F\u043C. \u041F\u041E \u0423\u041C\u041E\u041B\u0427\u0410\u041D\u0418\u042E \u041D\u0418\u0427\u0415\u0413\u041E \u041D\u0415 \u0417\u0410\u041F\u0418\u0421\u042B\u0412\u0410\u0415\u0422: \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u0440\u0430\u0437\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0439 \u043F\u043B\u0430\u043D \u043D\u0430 \u043F\u0440\u043E\u0432\u0435\u0440\u043A\u0443, \u0437\u0430\u043F\u0438\u0441\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u043F\u0440\u0438 apply=true. \u041D\u0435 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u044F\u0442\u0441\u044F \u043E\u0442\u043C\u0435\u0442\u043A\u0438 \u043E \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u0438, \u0444\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u0434\u0430\u0442\u044B, \u0441\u0442\u0430\u0442\u0443\u0441\u044B \u0438 \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u0438.",
+  inputSchema: {
+    template_project_id: z18.string().uuid().describe("UUID \u043F\u0440\u043E\u0435\u043A\u0442\u0430-\u043E\u0431\u0440\u0430\u0437\u0446\u0430 (task_groups.id)."),
+    target_project_id: z18.string().uuid().describe("UUID \u043F\u0440\u043E\u0435\u043A\u0442\u0430, \u043A\u0443\u0434\u0430 \u0440\u0430\u0441\u043A\u043B\u0430\u0434\u044B\u0432\u0430\u0442\u044C. \u041D\u043E\u0432\u044B\u0439 \u043F\u0440\u043E\u0435\u043A\u0442 \u2014 create_project."),
+    start_date: z18.string().describe("\u0414\u0430\u0442\u0430 \u043D\u0430\u0447\u0430\u043B\u0430 \u043D\u043E\u0432\u043E\u0433\u043E \u043F\u043B\u0430\u043D\u0430, ISO datetime."),
+    scale: z18.number().min(0.05).max(10).optional().describe("\u0421\u0436\u0430\u0442\u044C \u0438\u043B\u0438 \u0440\u0430\u0441\u0442\u044F\u043D\u0443\u0442\u044C \u043F\u043B\u0430\u043D. 1 \u2014 \u043A\u0430\u043A \u0432 \u043E\u0431\u0440\u0430\u0437\u0446\u0435."),
+    assignee_for_all: z18.string().optional().describe("\u0418\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u0437\u0430\u0434\u0430\u0447 \u043F\u043B\u0430\u043D\u0430: id, \u043F\u043E\u0447\u0442\u0430 \u0438\u043B\u0438 \u0438\u043C\u044F. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u2014 \u0432\u044B."),
+    overrides: z18.array(
+      z18.object({
+        match: z18.string().min(1).describe("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430 \u043E\u0431\u0440\u0430\u0437\u0446\u0430."),
+        new_date: z18.string().optional().describe("\u041F\u043E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u043D\u0430 \u044D\u0442\u0443 \u0434\u0430\u0442\u0443."),
+        shift_days: z18.number().int().min(-3650).max(3650).optional().describe("\u0421\u0434\u0432\u0438\u043D\u0443\u0442\u044C \u043E\u0442 \u0440\u0430\u0437\u043B\u043E\u0436\u0435\u043D\u043D\u043E\u0439 \u0434\u0430\u0442\u044B."),
+        skip: z18.boolean().optional().describe("\u041D\u0435 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u0438\u0442\u044C \u0432 \u043D\u043E\u0432\u044B\u0439 \u043F\u043B\u0430\u043D."),
+        title: z18.string().min(1).max(500).optional().describe("\u041F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u0442\u044C.")
+      })
+    ).optional(),
+    apply: z18.boolean().optional().describe("true \u2014 \u0437\u0430\u043F\u0438\u0441\u0430\u0442\u044C. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E false: \u0442\u043E\u043B\u044C\u043A\u043E \u043F\u043E\u043A\u0430\u0437\u0430\u0442\u044C.")
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return fail("\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D");
+    const uid = ctx.getUserId();
+    const supabase = db4(ctx);
+    if (input.template_project_id === input.target_project_id) {
+      return fail("\u041E\u0431\u0440\u0430\u0437\u0435\u0446 \u0438 \u0446\u0435\u043B\u044C \u2014 \u043E\u0434\u0438\u043D \u0438 \u0442\u043E\u0442 \u0436\u0435 \u043F\u0440\u043E\u0435\u043A\u0442: \u043F\u043B\u0430\u043D \u0443\u0434\u0432\u043E\u0438\u043B\u0441\u044F \u0431\u044B \u0441\u0430\u043C \u0432 \u0441\u0435\u0431\u0435");
+    }
+    const { data: projects, error: pErr } = await supabase.from("task_groups").select("id,name").in("id", [input.template_project_id, input.target_project_id]);
+    if (pErr) return fail(pErr.message);
+    const template = (projects ?? []).find((p) => p.id === input.template_project_id);
+    const target = (projects ?? []).find((p) => p.id === input.target_project_id);
+    if (!template) return fail("\u041F\u0440\u043E\u0435\u043A\u0442-\u043E\u0431\u0440\u0430\u0437\u0435\u0446 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0438\u043B\u0438 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D");
+    if (!target) return fail("\u041F\u0440\u043E\u0435\u043A\u0442-\u0446\u0435\u043B\u044C \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D \u0438\u043B\u0438 \u043D\u0435\u0434\u043E\u0441\u0442\u0443\u043F\u0435\u043D");
+    let assignee = { id: uid, name: "\u0432\u044B" };
+    if (input.assignee_for_all) {
+      const r = await resolveUser(supabase, input.assignee_for_all);
+      if ("error" in r) return fail(r.error);
+      assignee = r;
+    }
+    const { data: tasks, error: tErr } = await supabase.from("tasks").select("id,title,start_at,deadline", { count: "exact" }).eq("group_id", input.template_project_id).or("task_type.is.null,and(task_type.neq.stm_stage,task_type.neq.km_stage)").limit(MAX_ITEMS2);
+    if (tErr) return fail(tErr.message);
+    const { data: milestones, error: mErr } = await supabase.from("project_milestones").select("id,name,planned_date").eq("group_id", input.template_project_id);
+    if (mErr) return fail(mErr.message);
+    const items = [
+      ...(tasks ?? []).map((t) => ({
+        id: t.id,
+        kind: "task",
+        title: t.title,
+        start: t.start_at,
+        end: t.deadline
+      })),
+      ...(milestones ?? []).map((m) => ({
+        id: m.id,
+        kind: "milestone",
+        title: m.name,
+        start: null,
+        end: m.planned_date
+      }))
+    ];
+    if (items.length === 0) return fail(`\u0412 \u043F\u0440\u043E\u0435\u043A\u0442\u0435 \xAB${template.name}\xBB \u043D\u0435\u0442 \u043D\u0438 \u0437\u0430\u0434\u0430\u0447, \u043D\u0438 \u0432\u0435\u0445 \u2014 \u043E\u0431\u0440\u0430\u0437\u0446\u0430 \u043D\u0435 \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u0441\u044F`);
+    if (items.length >= MAX_ITEMS2) {
+      return fail(`\u0412 \u043E\u0431\u0440\u0430\u0437\u0446\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 ${MAX_ITEMS2} \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432 \u2014 \u0441\u0442\u043E\u043B\u044C\u043A\u043E \u0437\u0430 \u043E\u0434\u0438\u043D \u0432\u044B\u0437\u043E\u0432 \u043D\u0435 \u0440\u0430\u0437\u043B\u043E\u0436\u0438\u0442\u044C. \u0412\u043E\u0437\u044C\u043C\u0438\u0442\u0435 \u043F\u0440\u043E\u0435\u043A\u0442 \u043F\u043E\u043C\u0435\u043D\u044C\u0448\u0435 \u0438\u043B\u0438 \u0440\u0430\u0437\u043B\u043E\u0436\u0438\u0442\u0435 \u043F\u043B\u0430\u043D \u0432\u0440\u0443\u0447\u043D\u0443\u044E \u0447\u0435\u0440\u0435\u0437 upsert_plan.`);
+    }
+    const ids = items.map((i) => i.id);
+    const inScope = new Set(ids);
+    const seen = /* @__PURE__ */ new Set();
+    const links = [];
+    for (let i = 0; i < ids.length; i += 50) {
+      const chunk = ids.slice(i, i + 50);
+      for (const column of ["predecessor_id", "successor_id"]) {
+        const { data, error } = await supabase.from("task_dependencies").select("predecessor_id,successor_id,dependency_type,lag_days").in(column, chunk);
+        if (error) return fail(error.message);
+        for (const d of data ?? []) {
+          const key = `${d.predecessor_id}>${d.successor_id}`;
+          if (seen.has(key) || !inScope.has(d.predecessor_id) || !inScope.has(d.successor_id)) continue;
+          seen.add(key);
+          links.push({ from: d.predecessor_id, to: d.successor_id, type: d.dependency_type, lag_days: d.lag_days });
+        }
+      }
+    }
+    const plan = layoutPlan({
+      items,
+      links,
+      startDate: input.start_date,
+      scale: input.scale,
+      overrides: input.overrides
+    });
+    if (plan.problems.length) {
+      return fail(
+        `\u041F\u043B\u0430\u043D \u043D\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D, ${plan.problems.length === 1 ? "\u043C\u0435\u0448\u0430\u0435\u0442" : "\u043C\u0435\u0448\u0430\u044E\u0442"}:
+\u2014 ${plan.problems.join("\n\u2014 ")}`
+      );
+    }
+    const shown = {
+      template: { id: template.id, name: template.name, anchor: plan.template_anchor },
+      target: { id: target.id, name: target.name },
+      assignee: assignee.name,
+      span_days: planSpanDays(plan.items),
+      items: plan.items.map((i) => ({
+        kind: i.kind,
+        title: i.title,
+        start: i.start,
+        end: i.end,
+        overridden: i.overridden,
+        moved_by_links: i.moved_by_links
+      })),
+      links: plan.links.length,
+      skipped: plan.skipped
+    };
+    if (!input.apply) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              written: false,
+              checked: true,
+              plan: shown,
+              counts: {
+                tasks: plan.items.filter((i) => i.kind === "task").length,
+                milestones: plan.items.filter((i) => i.kind === "milestone").length,
+                links: plan.links.length
+              },
+              apply_with: "\u0442\u043E\u0442 \u0436\u0435 \u0432\u044B\u0437\u043E\u0432 \u0441 apply=true, \u043F\u043E\u0441\u043B\u0435 \u0442\u043E\u0433\u043E \u043A\u0430\u043A \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u043B \u0434\u0430\u0442\u044B",
+              not_copied: "\u043E\u0442\u043C\u0435\u0442\u043A\u0438 \u043E \u0432\u044B\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u0438, \u0444\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0435 \u0434\u0430\u0442\u044B, \u0441\u0442\u0430\u0442\u0443\u0441\u044B, \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u0438 \u043E\u0431\u0440\u0430\u0437\u0446\u0430"
+            })
+          }
+        ]
+      };
+    }
+    const newId = /* @__PURE__ */ new Map();
+    const done = [];
+    const warnings = [];
+    const stop = (msg) => fail(
+      `\u0417\u0430\u043F\u0438\u0441\u044C \u043F\u0440\u0435\u0440\u0432\u0430\u043D\u0430: ${msg}
+\u0423\u0441\u043F\u0435\u043B\u043E \u0437\u0430\u043F\u0438\u0441\u0430\u0442\u044C\u0441\u044F: ${done.length ? done.join("; ") : "\u043D\u0438\u0447\u0435\u0433\u043E"}.
+\u041F\u043E\u0432\u0442\u043E\u0440\u043D\u044B\u0439 \u0432\u044B\u0437\u043E\u0432 \u0441\u043E\u0437\u0434\u0430\u0441\u0442 \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u044B \u0437\u0430\u043D\u043E\u0432\u043E \u2014 \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435 \u0440\u0430\u0441\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u043F\u0440\u043E\u0435\u043A\u0442\u0430.`
+    );
+    const { data: lastMs } = await supabase.from("project_milestones").select("position").eq("group_id", input.target_project_id).order("position", { ascending: false }).limit(1).maybeSingle();
+    let position = (lastMs?.position ?? 0) + 1;
+    for (const it of plan.items) {
+      if (it.kind === "task") {
+        const created = await insertTask(
+          supabase,
+          uid,
+          {
+            title: it.title,
+            deadline: it.end,
+            start_at: it.start,
+            group_id: input.target_project_id,
+            assigned_to: assignee.id,
+            status_meta: {
+              created_by: "claude",
+              created_via: "mcp",
+              // По какому проекту сделан план — видно потом без догадок.
+              source: { kind: "plan", template_project_id: template.id, template_task_id: it.source_id }
+            }
+          },
+          // Одно уведомление на весь план, а не на каждую задачу: двадцать
+          // писем подряд человек просто отключит.
+          { notifyAssignee: false }
+        );
+        if ("error" in created) return stop(`\u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0437\u0430\u0434\u0430\u0447\u0443 \xAB${it.title}\xBB: ${created.error}`);
+        warnings.push(...created.warnings);
+        newId.set(it.source_id, created.task.id);
+        done.push(`\u0437\u0430\u0434\u0430\u0447\u0430 \xAB${it.title}\xBB`);
+      } else {
+        const { data: ms, error } = await supabase.from("project_milestones").insert({
+          group_id: input.target_project_id,
+          name: it.title,
+          planned_date: it.end,
+          status: "pending",
+          color: "#3b82f6",
+          created_by: uid,
+          position: position++
+        }).select("id").single();
+        if (error) return stop(`\u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0432\u0435\u0445\u0443 \xAB${it.title}\xBB: ${error.message}`);
+        newId.set(it.source_id, ms.id);
+        done.push(`\u0432\u0435\u0445\u0430 \xAB${it.title}\xBB`);
+      }
+    }
+    const kindOf = new Map(plan.items.map((i) => [i.source_id, i.kind]));
+    let linked = 0;
+    for (const l of plan.links) {
+      const from = newId.get(l.from);
+      const to = newId.get(l.to);
+      if (!from || !to) continue;
+      const { error } = await supabase.from("task_dependencies").insert({
+        predecessor_id: from,
+        successor_id: to,
+        dependency_type: l.type,
+        lag_days: l.lag_days,
+        predecessor_entity_type: kindOf.get(l.from) ?? "task",
+        successor_entity_type: kindOf.get(l.to) ?? "task",
+        created_by: uid
+      });
+      if (error) return stop(`\u043D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u0432\u044F\u0437\u044C: ${error.message}`);
+      linked++;
+    }
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            written: true,
+            plan: shown,
+            created: { tasks: plan.items.filter((i) => i.kind === "task").length, milestones: plan.items.filter((i) => i.kind === "milestone").length, links: linked },
+            assignee: assignee.name,
+            ...warnings.length ? { warnings } : {}
+          })
+        }
+      ]
+    };
+  }
+});
+
 // src/lib/mcp/tools/list_protocols.ts
 import process8 from "node:process";
 import { createClient as createClient8 } from "npm:@supabase/supabase-js@^2.95.3";
-import { defineTool as defineTool17 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z17 } from "npm:zod@^4.4.3";
+import { defineTool as defineTool19 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z19 } from "npm:zod@^4.4.3";
 function db8(ctx) {
   return createClient8(process8.env.SUPABASE_URL, process8.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var list_protocols_default = defineTool17({
+var list_protocols_default = defineTool19({
   name: "list_protocols",
   title: "\u0421\u043F\u0438\u0441\u043E\u043A \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u043E\u0432 \u0432\u0441\u0442\u0440\u0435\u0447",
   description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B (task_groups \u0441 project_type='protocol'). \u0424\u0438\u043B\u044C\u0442\u0440\u044B: \u043A\u043B\u0438\u0435\u043D\u0442, \u0441\u0442\u0430\u0442\u0443\u0441 (draft/published), \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D \u0434\u0430\u0442. \u0412 \u043E\u0442\u0432\u0435\u0442\u0435 \u0435\u0441\u0442\u044C total \u0438 has_more: \u0435\u0441\u043B\u0438 has_more=true, \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u044B \u043D\u0435 \u0432\u0441\u0435 \u0437\u0430\u043F\u0438\u0441\u0438 \u2014 \u043D\u0435 \u0441\u0443\u0434\u0438\u0442\u0435 \u043E \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u0435 \u043F\u043E \u0434\u043B\u0438\u043D\u0435 \u0441\u043F\u0438\u0441\u043A\u0430.",
   inputSchema: {
-    client_id: z17.string().uuid().optional(),
-    status: z17.enum(["draft", "published"]).optional(),
-    date_from: z17.string().optional().describe("ISO date, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E"),
-    date_to: z17.string().optional().describe("ISO date, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E"),
-    limit: z17.number().int().min(1).max(100).optional(),
-    offset: z17.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
+    client_id: z19.string().uuid().optional(),
+    status: z19.enum(["draft", "published"]).optional(),
+    date_from: z19.string().optional().describe("ISO date, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E"),
+    date_to: z19.string().optional().describe("ISO date, \u0432\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u043B\u044C\u043D\u043E"),
+    limit: z19.number().int().min(1).max(100).optional(),
+    offset: z19.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
@@ -1925,19 +2362,19 @@ var list_protocols_default = defineTool17({
 // src/lib/mcp/tools/get_protocol.ts
 import process9 from "node:process";
 import { createClient as createClient9 } from "npm:@supabase/supabase-js@^2.95.3";
-import { defineTool as defineTool18 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z18 } from "npm:zod@^4.4.3";
+import { defineTool as defineTool20 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z20 } from "npm:zod@^4.4.3";
 function db9(ctx) {
   return createClient9(process9.env.SUPABASE_URL, process9.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var get_protocol_default = defineTool18({
+var get_protocol_default = defineTool20({
   name: "get_protocol",
   title: "\u041F\u0440\u043E\u0442\u043E\u043A\u043E\u043B \u2014 \u0441\u043E\u0434\u0435\u0440\u0436\u0438\u043C\u043E\u0435 \u0438 \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0435 \u0437\u0430\u0434\u0430\u0447\u0438",
   description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B, \u0437\u0430\u0434\u0430\u0447\u0438 \u043F\u043E\u0432\u0435\u0441\u0442\u043A\u0438 \u0438 \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u043E\u0440\u043E\u0436\u0434\u0451\u043D\u043D\u044B\u0435 \u0438\u0437 \u0432\u0441\u0442\u0440\u0435\u0447\u0438 (source_protocol_id).",
-  inputSchema: { protocol_id: z18.string().uuid() },
+  inputSchema: { protocol_id: z20.string().uuid() },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async ({ protocol_id }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
@@ -1959,25 +2396,25 @@ var get_protocol_default = defineTool18({
 // src/lib/mcp/tools/list_clients.ts
 import process10 from "node:process";
 import { createClient as createClient10 } from "npm:@supabase/supabase-js@^2.95.3";
-import { defineTool as defineTool19 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z19 } from "npm:zod@^4.4.3";
+import { defineTool as defineTool21 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z21 } from "npm:zod@^4.4.3";
 function db10(ctx) {
   return createClient10(process10.env.SUPABASE_URL, process10.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var list_clients_default = defineTool19({
+var list_clients_default = defineTool21({
   name: "list_clients",
   title: "\u0421\u043F\u0438\u0441\u043E\u043A CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u043E\u0432",
   description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u043E\u0432. \u041C\u043E\u0436\u043D\u043E \u0438\u0441\u043A\u0430\u0442\u044C \u043F\u043E \u0438\u043C\u0435\u043D\u0438 \u0438 \u0444\u0438\u043B\u044C\u0442\u0440\u043E\u0432\u0430\u0442\u044C \u043F\u043E \u0442\u0435\u0440\u0440\u0438\u0442\u043E\u0440\u0438\u0438/\u0440\u0430\u043D\u0433\u0443/\u043C\u0435\u043D\u0435\u0434\u0436\u0435\u0440\u0443. \u0412 \u043E\u0442\u0432\u0435\u0442\u0435 \u0435\u0441\u0442\u044C total \u0438 has_more: \u0435\u0441\u043B\u0438 has_more=true, \u043F\u043E\u043A\u0430\u0437\u0430\u043D\u044B \u043D\u0435 \u0432\u0441\u0435 \u0437\u0430\u043F\u0438\u0441\u0438 \u2014 \u043D\u0435 \u0441\u0443\u0434\u0438\u0442\u0435 \u043E \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u0435 \u043F\u043E \u0434\u043B\u0438\u043D\u0435 \u0441\u043F\u0438\u0441\u043A\u0430.",
   inputSchema: {
-    search: z19.string().optional().describe("\u041F\u043E\u0434\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0438\u043C\u0435\u043D\u0438 \u043A\u043B\u0438\u0435\u043D\u0442\u0430"),
-    territory: z19.string().optional().describe("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u0435\u0440\u0440\u0438\u0442\u043E\u0440\u0438\u0438 (\u0442\u0435\u0433), \u0431\u0435\u0437 \u0443\u0447\u0451\u0442\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430"),
-    rank: z19.string().optional().describe("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0440\u0430\u043D\u0433\u0430 (\u0442\u0435\u0433), \u0431\u0435\u0437 \u0443\u0447\u0451\u0442\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430"),
-    manager_id: z19.string().uuid().optional(),
-    limit: z19.number().int().min(1).max(200).optional(),
-    offset: z19.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
+    search: z21.string().optional().describe("\u041F\u043E\u0434\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0438\u043C\u0435\u043D\u0438 \u043A\u043B\u0438\u0435\u043D\u0442\u0430"),
+    territory: z21.string().optional().describe("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u0435\u0440\u0440\u0438\u0442\u043E\u0440\u0438\u0438 (\u0442\u0435\u0433), \u0431\u0435\u0437 \u0443\u0447\u0451\u0442\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430"),
+    rank: z21.string().optional().describe("\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0440\u0430\u043D\u0433\u0430 (\u0442\u0435\u0433), \u0431\u0435\u0437 \u0443\u0447\u0451\u0442\u0430 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430"),
+    manager_id: z21.string().uuid().optional(),
+    limit: z21.number().int().min(1).max(200).optional(),
+    offset: z21.number().int().min(0).optional().describe("\u0421\u043A\u043E\u043B\u044C\u043A\u043E \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C. \u0414\u043B\u044F \u043F\u043E\u0441\u0442\u0440\u0430\u043D\u0438\u0447\u043D\u043E\u0433\u043E \u043E\u0431\u0445\u043E\u0434\u0430, \u043A\u043E\u0433\u0434\u0430 has_more=true.")
   },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
@@ -2017,19 +2454,19 @@ var list_clients_default = defineTool19({
 // src/lib/mcp/tools/get_client.ts
 import process11 from "node:process";
 import { createClient as createClient11 } from "npm:@supabase/supabase-js@^2.95.3";
-import { defineTool as defineTool20 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z20 } from "npm:zod@^4.4.3";
+import { defineTool as defineTool22 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z22 } from "npm:zod@^4.4.3";
 function db11(ctx) {
   return createClient11(process11.env.SUPABASE_URL, process11.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var get_client_default = defineTool20({
+var get_client_default = defineTool22({
   name: "get_client",
   title: "\u041A\u043B\u0438\u0435\u043D\u0442 \u2014 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430 \u0438 \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0441\u0442\u044C",
   description: "\u0412\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u0430, \u043F\u0440\u0438\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0435 \u043E\u0442\u043A\u0440\u044B\u0442\u044B\u0435 \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B \u0438 \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B \u0437\u0430 90 \u0434\u043D\u0435\u0439.",
-  inputSchema: { client_id: z20.string().uuid() },
+  inputSchema: { client_id: z22.string().uuid() },
   annotations: { readOnlyHint: true, openWorldHint: false },
   handler: async ({ client_id }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "\u041D\u0435 \u0430\u0443\u0442\u0435\u043D\u0442\u0438\u0444\u0438\u0446\u0438\u0440\u043E\u0432\u0430\u043D" }], isError: true };
@@ -2052,20 +2489,20 @@ var get_client_default = defineTool20({
 });
 
 // src/lib/mcp/tools/update_task.ts
-import { defineTool as defineTool21 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z21 } from "npm:zod@^4.4.3";
-var update_task_default = defineTool21({
+import { defineTool as defineTool23 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z23 } from "npm:zod@^4.4.3";
+var update_task_default = defineTool23({
   name: "update_task",
   title: "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0437\u0430\u0434\u0430\u0447\u0443",
   description: "\u041C\u0435\u043D\u044F\u0435\u0442 \u0437\u0430\u0434\u0430\u0447\u0443: \u0441\u0442\u0430\u0442\u0443\u0441, \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044F, \u0441\u0440\u043E\u043A, \u0432\u0430\u0436\u043D\u043E\u0441\u0442\u044C, \u043F\u0440\u0438\u043E\u0440\u0438\u0442\u0435\u0442. \u041F\u0435\u0440\u0435\u0434\u0430\u0432\u0430\u0439 \u0442\u043E\u043B\u044C\u043A\u043E \u0442\u043E, \u0447\u0442\u043E \u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F. status \u2014 \u0442\u0435 \u0436\u0435 \u0441\u0442\u0430\u0442\u0443\u0441\u044B, \u0447\u0442\u043E \u0432 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438: \xAB\u0432 \u0440\u0430\u0431\u043E\u0442\u0435\xBB, \xAB\u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E\xBB, \xAB\u0436\u0434\u0451\u043C \u043E\u0442\u0432\u0435\u0442\xBB, \xAB\u043F\u043E\u043B\u0443\u0447\u0435\u043D \u043E\u0442\u0432\u0435\u0442\xBB, \xAB\u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u043E\xBB, \xAB\u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E\xBB; \xABnone\xBB \u0441\u043D\u0438\u043C\u0430\u0435\u0442 \u0441\u0442\u0430\u0442\u0443\u0441. \u0421\u0442\u0430\u0442\u0443\u0441 \u2014 \u044D\u0442\u043E \u043F\u043E\u043C\u0435\u0442\u043A\u0430 \u0445\u043E\u0434\u0430 \u0440\u0430\u0431\u043E\u0442\u044B, \u043E\u043D \u041D\u0415 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u0437\u0430\u0434\u0430\u0447\u0443: \u0434\u043B\u044F \u0437\u0430\u043A\u0440\u044B\u0442\u0438\u044F \u2014 complete_task. assignee \u2014 id, \u043F\u043E\u0447\u0442\u0430 \u0438\u043B\u0438 \u0438\u043C\u044F; \u043D\u043E\u0432\u044B\u0439 \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C \u043F\u043E\u043B\u0443\u0447\u0438\u0442 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435. deadline: null \u0441\u043D\u0438\u043C\u0430\u0435\u0442 \u0441\u0440\u043E\u043A. start_at \u2014 \u0434\u0430\u0442\u0430 \u043D\u0430\u0447\u0430\u043B\u0430: \u0441 \u043D\u0435\u0439 \u0437\u0430\u0434\u0430\u0447\u0430 \u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u0441\u044F \u043E\u0442\u0440\u0435\u0437\u043A\u043E\u043C \u043D\u0430 \u0413\u0430\u043D\u0442\u0435, \u0430 \u043D\u0435 \u0442\u043E\u0447\u043A\u043E\u0439; \u0434\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C \u043D\u0438\u0433\u0434\u0435 \u043D\u0435 \u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F, \u043E\u043D\u0430 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u0438\u0437 \u043D\u0430\u0447\u0430\u043B\u0430 \u0438 \u0441\u0440\u043E\u043A\u0430. \u0412\u043D\u0438\u043C\u0430\u043D\u0438\u0435: \u0437\u0434\u0435\u0441\u044C \u0441\u0440\u043E\u043A \u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F \u0411\u0415\u0417 \u043F\u0435\u0440\u0435\u0441\u0447\u0451\u0442\u0430 \u0441\u0432\u044F\u0437\u0430\u043D\u043D\u044B\u0445 \u0437\u0430\u0434\u0430\u0447 \u2014 \u044D\u0442\u043E \u043F\u0440\u0430\u0432\u043A\u0430 \u0437\u0430\u0434\u0430\u0447\u0438, \u043A\u0430\u043A \u0432 \u0435\u0451 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0435. \u0427\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u043D\u0435\u0441\u0442\u0438 \u0437\u0430\u0434\u0430\u0447\u0443 \u0432\u043C\u0435\u0441\u0442\u0435 \u0441\u043E \u0432\u0441\u0435\u043C, \u0447\u0442\u043E \u0437\u0430 \u043D\u0435\u0439 \u0441\u0442\u043E\u0438\u0442, \u0435\u0441\u0442\u044C move_task (\u0438 preview_shift, \u0447\u0442\u043E\u0431\u044B \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C).",
   inputSchema: {
-    task_id: z21.string().uuid(),
-    status: z21.enum([...STATUS_NAMES, "none"]).optional(),
-    assignee: z21.string().optional().describe("\u041D\u043E\u0432\u044B\u0439 \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C: id, \u043F\u043E\u0447\u0442\u0430 \u0438\u043B\u0438 \u0438\u043C\u044F"),
-    deadline: z21.string().nullable().optional().describe("ISO datetime; null \u2014 \u0441\u043D\u044F\u0442\u044C \u0441\u0440\u043E\u043A"),
-    start_at: z21.string().nullable().optional().describe("\u0414\u0430\u0442\u0430 \u043D\u0430\u0447\u0430\u043B\u0430, ISO datetime; null \u2014 \u0441\u043D\u044F\u0442\u044C \u043D\u0430\u0447\u0430\u043B\u043E"),
-    is_important: z21.boolean().optional(),
-    priority: z21.number().int().min(1).max(4).nullable().optional()
+    task_id: z23.string().uuid(),
+    status: z23.enum([...STATUS_NAMES, "none"]).optional(),
+    assignee: z23.string().optional().describe("\u041D\u043E\u0432\u044B\u0439 \u0438\u0441\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C: id, \u043F\u043E\u0447\u0442\u0430 \u0438\u043B\u0438 \u0438\u043C\u044F"),
+    deadline: z23.string().nullable().optional().describe("ISO datetime; null \u2014 \u0441\u043D\u044F\u0442\u044C \u0441\u0440\u043E\u043A"),
+    start_at: z23.string().nullable().optional().describe("\u0414\u0430\u0442\u0430 \u043D\u0430\u0447\u0430\u043B\u0430, ISO datetime; null \u2014 \u0441\u043D\u044F\u0442\u044C \u043D\u0430\u0447\u0430\u043B\u043E"),
+    is_important: z23.boolean().optional(),
+    priority: z23.number().int().min(1).max(4).nullable().optional()
   },
   annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
@@ -2136,16 +2573,16 @@ var update_task_default = defineTool21({
 });
 
 // src/lib/mcp/tools/add_comment.ts
-import { defineTool as defineTool22 } from "npm:@lovable.dev/mcp-js@0.24.0";
-import { z as z22 } from "npm:zod@^4.4.3";
-var add_comment_default = defineTool22({
+import { defineTool as defineTool24 } from "npm:@lovable.dev/mcp-js@0.24.0";
+import { z as z24 } from "npm:zod@^4.4.3";
+var add_comment_default = defineTool24({
   name: "add_comment",
   title: "\u041D\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u0432 \u0447\u0430\u0442 \u0437\u0430\u0434\u0430\u0447\u0438",
   description: "\u0414\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u0432 \u0447\u0430\u0442 \u0437\u0430\u0434\u0430\u0447\u0438 \u043E\u0442 \u0438\u043C\u0435\u043D\u0438 \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F, \u0441 \u043F\u043E\u043C\u0435\u0442\u043A\u043E\u0439, \u0447\u0442\u043E \u0435\u0433\u043E \u043D\u0430\u043F\u0438\u0441\u0430\u043B Claude. \u041F\u043E\u0434\u0445\u043E\u0434\u0438\u0442, \u0447\u0442\u043E\u0431\u044B \u0437\u0430\u0444\u0438\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0432 \u0437\u0430\u0434\u0430\u0447\u0435 \u0441\u0443\u0442\u044C \u043F\u0438\u0441\u044C\u043C\u0430 \u0438\u043B\u0438 \u043E\u0442\u0432\u0435\u0442\u0430. reply_to \u2014 id \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u043E\u0435 \u044D\u0442\u043E \u043E\u0442\u0432\u0435\u0442; \u0430\u0432\u0442\u043E\u0440 \u0442\u043E\u0433\u043E \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u043F\u043E\u043B\u0443\u0447\u0438\u0442 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435, \u043A\u0430\u043A \u0432 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438.",
   inputSchema: {
-    task_id: z22.string().uuid(),
-    content: z22.string().min(1).max(4e3),
-    reply_to: z22.string().uuid().optional()
+    task_id: z24.string().uuid(),
+    content: z24.string().min(1).max(4e3),
+    reply_to: z24.string().uuid().optional()
   },
   annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
   handler: async (input, ctx) => {
@@ -2226,7 +2663,7 @@ var mcp_default = defineMcp({
   name: "justtodoit-mcp",
   title: "JustTODOit",
   version: "0.2.0",
-  instructions: "\u0418\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u044B JustTODOit: \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B, \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B \u0432\u0441\u0442\u0440\u0435\u0447, CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u044B. \u0412\u0441\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F \u2014 \u043E\u0442 \u0438\u043C\u0435\u043D\u0438 \u0437\u0430\u043B\u043E\u0433\u0438\u043D\u0435\u043D\u043D\u043E\u0433\u043E \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F, RLS \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F. \u0414\u0430\u0442\u044B \u0432 ISO 8601. \u0417\u0430\u0434\u0430\u0447\u0438 \u0438\u0437 \u043F\u0438\u0441\u0435\u043C \u0441\u043E\u0437\u0434\u0430\u0432\u0430\u0439 \u0441 source (\u0442\u0435\u043C\u0430, \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u044C, \u0434\u0430\u0442\u0430) \u2014 \u043F\u043E \u043D\u0435\u043C\u0443 \u043F\u043E\u0442\u043E\u043C \u0441\u0432\u0435\u0440\u044F\u044E\u0442\u0441\u044F \u043F\u0438\u0441\u044C\u043C\u0430 \u0441 \u0437\u0430\u0434\u0430\u0447\u0430\u043C\u0438 \u0447\u0435\u0440\u0435\u0437 search_tasks. \u041F\u0440\u043E \u0441\u0440\u043E\u043A\u0438 \u0438 \u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E\u0441\u0442\u0438 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0439 get_project_schedule \u2014 \u0432\u0435\u0445\u0438, \u0437\u0430\u0434\u0430\u0447\u0438 \u0441 \u043D\u0430\u0447\u0430\u043B\u043E\u043C \u0438 \u043A\u043E\u043D\u0446\u043E\u043C, \u0441\u0432\u044F\u0437\u0438 \u043C\u0435\u0436\u0434\u0443 \u043D\u0438\u043C\u0438 \u0438 \u0437\u0430\u043F\u0430\u0441 \u043F\u043E \u0441\u0440\u043E\u043A\u0430\u043C \u043F\u0440\u0438\u0445\u043E\u0434\u044F\u0442 \u043E\u0434\u043D\u0438\u043C \u0432\u044B\u0437\u043E\u0432\u043E\u043C. \u041D\u0430 \u0432\u043E\u043F\u0440\u043E\u0441 \xAB\u0447\u0442\u043E \u0434\u0435\u0440\u0436\u0438\u0442 \u0434\u0430\u0442\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430\xBB \u043E\u0442\u0432\u0435\u0447\u0430\u0439 \u043F\u043E critical_path \u0438 \u043F\u043E\u043B\u044E critical, \u043D\u0430 \xAB\u0435\u0441\u0442\u044C \u043B\u0438 \u043B\u044E\u0444\u0442\xBB \u2014 \u043F\u043E float_days; \u043E\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u0437\u0430\u043F\u0430\u0441 \u0437\u043D\u0430\u0447\u0438\u0442, \u0447\u0442\u043E \u0441\u0432\u044F\u0437\u044C \u0443\u0436\u0435 \u043D\u0430\u0440\u0443\u0448\u0435\u043D\u0430. \u0412\u0435\u0445\u0438 \u0437\u0430\u0432\u043E\u0434\u044F\u0442\u0441\u044F \u0438 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u044F\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 create_milestone \u0438 update_milestone; \u043F\u043B\u0430\u043D\u043E\u0432\u0430\u044F \u0438 \u0444\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0430\u044F \u0434\u0430\u0442\u044B \u2014 \u0440\u0430\u0437\u043D\u044B\u0435 \u0432\u0435\u0449\u0438, \u043F\u0435\u0440\u0435\u043D\u043E\u0441 \u043F\u043B\u0430\u043D\u0430 \u043D\u0435 \u0437\u043D\u0430\u0447\u0438\u0442 \u0434\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u0435. \u0421\u0432\u044F\u0437\u0438 \xAB\u0447\u0442\u043E \u0437\u0430 \u0447\u0435\u043C \u0438\u0434\u0451\u0442\xBB \u0441\u043E\u0437\u0434\u0430\u044E\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 link_tasks \u0438 \u0441\u043D\u0438\u043C\u0430\u044E\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 unlink_tasks; \u043F\u043E\u0441\u043B\u0435 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u0441\u0432\u044F\u0437\u0438 \u043F\u0440\u0435\u0435\u043C\u043D\u0438\u043A\u0438 \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u0441\u0434\u0432\u0438\u0433\u0430\u044E\u0442\u0441\u044F \u0432\u043F\u0435\u0440\u0451\u0434 \u2014 \u0441\u0434\u0432\u0438\u043D\u0443\u0442\u043E\u0435 \u043F\u0440\u0438\u0445\u043E\u0434\u0438\u0442 \u0432 \u043E\u0442\u0432\u0435\u0442\u0435, \u043E \u043D\u0451\u043C \u0441\u0442\u043E\u0438\u0442 \u0441\u043A\u0430\u0437\u0430\u0442\u044C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443. \u041F\u0435\u0440\u0435\u043D\u043E\u0441 \u0441\u0440\u043E\u043A\u043E\u0432: preview_shift \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0447\u0442\u043E \u043F\u043E\u0442\u044F\u043D\u0435\u0442\u0441\u044F \u0437\u0430 \u0437\u0430\u0434\u0430\u0447\u0435\u0439, \u0431\u0435\u0437 \u0437\u0430\u043F\u0438\u0441\u0438; move_task \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442. \u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u043A\u0430\u0436\u0438 \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443 preview_shift \u0438 \u043F\u043E\u043B\u0443\u0447\u0438 \u0441\u043E\u0433\u043B\u0430\u0441\u0438\u0435 \u2014 \u0441\u0434\u0432\u0438\u0433 \u0437\u0430\u0434\u0435\u0432\u0430\u0435\u0442 \u0447\u0443\u0436\u0438\u0435 \u0441\u0440\u043E\u043A\u0438, \u043E \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0443\u0436\u0435 \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0438\u043B\u0438\u0441\u044C. \u041F\u0440\u0430\u0432\u043A\u0430 \u0441\u0440\u043E\u043A\u0430 \u043E\u0434\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438 \u0431\u0435\u0437 \u0445\u0432\u043E\u0441\u0442\u0430 \u2014 \u044D\u0442\u043E update_task. \u0414\u043D\u0438 \u0432\u0435\u0437\u0434\u0435 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0435. \u0420\u0430\u0437\u043B\u043E\u0436\u0438\u0442\u044C \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B \u0438\u043B\u0438 \u043F\u0438\u0441\u044C\u043C\u043E \u0432 \u043F\u043B\u0430\u043D \u0446\u0435\u043B\u0438\u043A\u043E\u043C \u2014 upsert_plan: \u0437\u0430\u0434\u0430\u0447\u0438, \u0432\u0435\u0445\u0438 \u0438 \u0441\u0432\u044F\u0437\u0438 \u0437\u0430 \u043E\u0434\u0438\u043D \u0432\u044B\u0437\u043E\u0432. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u043E\u043D \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043F\u0438\u0448\u0435\u0442, \u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u0440\u0430\u0437\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0439 \u043F\u043B\u0430\u043D; \u043F\u043E\u043A\u0430\u0436\u0438 \u0435\u0433\u043E \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443 \u0438 \u0437\u0430\u043F\u0438\u0448\u0438 \u0441 apply=true \u0442\u043E\u043B\u044C\u043A\u043E \u043F\u043E\u0441\u043B\u0435 \u0441\u043E\u0433\u043B\u0430\u0441\u0438\u044F. \u041A\u0430\u0436\u0434\u044B\u0439 \u0432\u044B\u0437\u043E\u0432 \u043F\u0438\u0448\u0435\u0442\u0441\u044F \u0432 \u0436\u0443\u0440\u043D\u0430\u043B \u043E\u0431\u0440\u0430\u0449\u0435\u043D\u0438\u0439.",
+  instructions: "\u0418\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u044B JustTODOit: \u0437\u0430\u0434\u0430\u0447\u0438, \u043F\u0440\u043E\u0435\u043A\u0442\u044B, \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B\u044B \u0432\u0441\u0442\u0440\u0435\u0447, CRM-\u043A\u043B\u0438\u0435\u043D\u0442\u044B. \u0412\u0441\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u044F \u2014 \u043E\u0442 \u0438\u043C\u0435\u043D\u0438 \u0437\u0430\u043B\u043E\u0433\u0438\u043D\u0435\u043D\u043D\u043E\u0433\u043E \u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u0435\u043B\u044F, RLS \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442\u0441\u044F. \u0414\u0430\u0442\u044B \u0432 ISO 8601. \u0417\u0430\u0434\u0430\u0447\u0438 \u0438\u0437 \u043F\u0438\u0441\u0435\u043C \u0441\u043E\u0437\u0434\u0430\u0432\u0430\u0439 \u0441 source (\u0442\u0435\u043C\u0430, \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u044C, \u0434\u0430\u0442\u0430) \u2014 \u043F\u043E \u043D\u0435\u043C\u0443 \u043F\u043E\u0442\u043E\u043C \u0441\u0432\u0435\u0440\u044F\u044E\u0442\u0441\u044F \u043F\u0438\u0441\u044C\u043C\u0430 \u0441 \u0437\u0430\u0434\u0430\u0447\u0430\u043C\u0438 \u0447\u0435\u0440\u0435\u0437 search_tasks. \u041F\u0440\u043E \u0441\u0440\u043E\u043A\u0438 \u0438 \u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E\u0441\u0442\u0438 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u0441\u043F\u0440\u0430\u0448\u0438\u0432\u0430\u0439 get_project_schedule \u2014 \u0432\u0435\u0445\u0438, \u0437\u0430\u0434\u0430\u0447\u0438 \u0441 \u043D\u0430\u0447\u0430\u043B\u043E\u043C \u0438 \u043A\u043E\u043D\u0446\u043E\u043C, \u0441\u0432\u044F\u0437\u0438 \u043C\u0435\u0436\u0434\u0443 \u043D\u0438\u043C\u0438 \u0438 \u0437\u0430\u043F\u0430\u0441 \u043F\u043E \u0441\u0440\u043E\u043A\u0430\u043C \u043F\u0440\u0438\u0445\u043E\u0434\u044F\u0442 \u043E\u0434\u043D\u0438\u043C \u0432\u044B\u0437\u043E\u0432\u043E\u043C. \u041D\u0430 \u0432\u043E\u043F\u0440\u043E\u0441 \xAB\u0447\u0442\u043E \u0434\u0435\u0440\u0436\u0438\u0442 \u0434\u0430\u0442\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430\xBB \u043E\u0442\u0432\u0435\u0447\u0430\u0439 \u043F\u043E critical_path \u0438 \u043F\u043E\u043B\u044E critical, \u043D\u0430 \xAB\u0435\u0441\u0442\u044C \u043B\u0438 \u043B\u044E\u0444\u0442\xBB \u2014 \u043F\u043E float_days; \u043E\u0442\u0440\u0438\u0446\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u0437\u0430\u043F\u0430\u0441 \u0437\u043D\u0430\u0447\u0438\u0442, \u0447\u0442\u043E \u0441\u0432\u044F\u0437\u044C \u0443\u0436\u0435 \u043D\u0430\u0440\u0443\u0448\u0435\u043D\u0430. \u0412\u0435\u0445\u0438 \u0437\u0430\u0432\u043E\u0434\u044F\u0442\u0441\u044F \u0438 \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u044F\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 create_milestone \u0438 update_milestone; \u043F\u043B\u0430\u043D\u043E\u0432\u0430\u044F \u0438 \u0444\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0430\u044F \u0434\u0430\u0442\u044B \u2014 \u0440\u0430\u0437\u043D\u044B\u0435 \u0432\u0435\u0449\u0438, \u043F\u0435\u0440\u0435\u043D\u043E\u0441 \u043F\u043B\u0430\u043D\u0430 \u043D\u0435 \u0437\u043D\u0430\u0447\u0438\u0442 \u0434\u043E\u0441\u0442\u0438\u0436\u0435\u043D\u0438\u0435. \u0421\u0432\u044F\u0437\u0438 \xAB\u0447\u0442\u043E \u0437\u0430 \u0447\u0435\u043C \u0438\u0434\u0451\u0442\xBB \u0441\u043E\u0437\u0434\u0430\u044E\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 link_tasks \u0438 \u0441\u043D\u0438\u043C\u0430\u044E\u0442\u0441\u044F \u0447\u0435\u0440\u0435\u0437 unlink_tasks; \u043F\u043E\u0441\u043B\u0435 \u0441\u043E\u0437\u0434\u0430\u043D\u0438\u044F \u0441\u0432\u044F\u0437\u0438 \u043F\u0440\u0435\u0435\u043C\u043D\u0438\u043A\u0438 \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u0441\u0434\u0432\u0438\u0433\u0430\u044E\u0442\u0441\u044F \u0432\u043F\u0435\u0440\u0451\u0434 \u2014 \u0441\u0434\u0432\u0438\u043D\u0443\u0442\u043E\u0435 \u043F\u0440\u0438\u0445\u043E\u0434\u0438\u0442 \u0432 \u043E\u0442\u0432\u0435\u0442\u0435, \u043E \u043D\u0451\u043C \u0441\u0442\u043E\u0438\u0442 \u0441\u043A\u0430\u0437\u0430\u0442\u044C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443. \u041F\u0435\u0440\u0435\u043D\u043E\u0441 \u0441\u0440\u043E\u043A\u043E\u0432: preview_shift \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442, \u0447\u0442\u043E \u043F\u043E\u0442\u044F\u043D\u0435\u0442\u0441\u044F \u0437\u0430 \u0437\u0430\u0434\u0430\u0447\u0435\u0439, \u0431\u0435\u0437 \u0437\u0430\u043F\u0438\u0441\u0438; move_task \u043F\u0440\u0438\u043C\u0435\u043D\u044F\u0435\u0442. \u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u043A\u0430\u0436\u0438 \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443 preview_shift \u0438 \u043F\u043E\u043B\u0443\u0447\u0438 \u0441\u043E\u0433\u043B\u0430\u0441\u0438\u0435 \u2014 \u0441\u0434\u0432\u0438\u0433 \u0437\u0430\u0434\u0435\u0432\u0430\u0435\u0442 \u0447\u0443\u0436\u0438\u0435 \u0441\u0440\u043E\u043A\u0438, \u043E \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u0443\u0436\u0435 \u0434\u043E\u0433\u043E\u0432\u043E\u0440\u0438\u043B\u0438\u0441\u044C. \u041F\u0440\u0430\u0432\u043A\u0430 \u0441\u0440\u043E\u043A\u0430 \u043E\u0434\u043D\u043E\u0439 \u0437\u0430\u0434\u0430\u0447\u0438 \u0431\u0435\u0437 \u0445\u0432\u043E\u0441\u0442\u0430 \u2014 \u044D\u0442\u043E update_task. \u0414\u043D\u0438 \u0432\u0435\u0437\u0434\u0435 \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u043D\u044B\u0435. \u0420\u0430\u0437\u043B\u043E\u0436\u0438\u0442\u044C \u043F\u0440\u043E\u0442\u043E\u043A\u043E\u043B \u0438\u043B\u0438 \u043F\u0438\u0441\u044C\u043C\u043E \u0432 \u043F\u043B\u0430\u043D \u0446\u0435\u043B\u0438\u043A\u043E\u043C \u2014 upsert_plan: \u0437\u0430\u0434\u0430\u0447\u0438, \u0432\u0435\u0445\u0438 \u0438 \u0441\u0432\u044F\u0437\u0438 \u0437\u0430 \u043E\u0434\u0438\u043D \u0432\u044B\u0437\u043E\u0432. \u041F\u043E \u0443\u043C\u043E\u043B\u0447\u0430\u043D\u0438\u044E \u043E\u043D \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043F\u0438\u0448\u0435\u0442, \u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 \u0440\u0430\u0437\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0439 \u043F\u043B\u0430\u043D; \u043F\u043E\u043A\u0430\u0436\u0438 \u0435\u0433\u043E \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443 \u0438 \u0437\u0430\u043F\u0438\u0448\u0438 \u0441 apply=true \u0442\u043E\u043B\u044C\u043A\u043E \u043F\u043E\u0441\u043B\u0435 \u0441\u043E\u0433\u043B\u0430\u0441\u0438\u044F. \xAB\u0421\u0434\u0435\u043B\u0430\u0439 \u043F\u043B\u0430\u043D \u043F\u043E \u043F\u0440\u0438\u043C\u0435\u0440\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430 \u0442\u0430\u043A\u043E\u0433\u043E-\u0442\u043E\xBB \u2014 apply_plan_template: \u0431\u0435\u0440\u0451\u0442 \u0444\u043E\u0440\u043C\u0443 \u043F\u0440\u043E\u0435\u043A\u0442\u0430-\u043E\u0431\u0440\u0430\u0437\u0446\u0430 (\u043F\u0440\u043E\u043C\u0435\u0436\u0443\u0442\u043A\u0438 \u043C\u0435\u0436\u0434\u0443 \u0437\u0430\u0434\u0430\u0447\u0430\u043C\u0438 \u0438 \u0441\u0432\u044F\u0437\u0438) \u0438 \u0440\u0430\u0441\u043A\u043B\u0430\u0434\u044B\u0432\u0430\u0435\u0442 \u043E\u0442 \u043D\u043E\u0432\u043E\u0439 \u0434\u0430\u0442\u044B; \u043F\u0440\u0430\u0432\u043A\u0438 \u0438\u0437 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F (\xAB\u043F\u0440\u0438\u0451\u043C\u043A\u0443 \u0432 \u0430\u043F\u0440\u0435\u043B\u0435\xBB) \u043F\u0435\u0440\u0435\u0434\u0430\u0432\u0430\u0439 \u0432 overrides, \u043E\u043D\u0438 \u0434\u0432\u0438\u0433\u0430\u044E\u0442 \u0438 \u0442\u043E, \u0447\u0442\u043E \u0441\u0442\u043E\u0438\u0442 \u0437\u0430 \u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u043C. \u041A\u0430\u043A \u0438 upsert_plan, \u0431\u0435\u0437 apply=true \u043D\u0435 \u043F\u0438\u0448\u0435\u0442 \u043D\u0438\u0447\u0435\u0433\u043E. \u041D\u043E\u0432\u044B\u0439 \u043F\u0440\u043E\u0435\u043A\u0442 \u043F\u043E\u0434 \u043F\u043B\u0430\u043D \u2014 create_project. \u041A\u0430\u0436\u0434\u044B\u0439 \u0432\u044B\u0437\u043E\u0432 \u043F\u0438\u0448\u0435\u0442\u0441\u044F \u0432 \u0436\u0443\u0440\u043D\u0430\u043B \u043E\u0431\u0440\u0430\u0449\u0435\u043D\u0438\u0439.",
   auth: auth.oauth.issuer({
     issuer: `${AUTH_BASE}/auth/v1`,
     // resource закрепляем явно. Без него библиотека берёт адрес из заголовка
@@ -2256,6 +2693,8 @@ var mcp_default = defineMcp({
     preview_shift_default,
     move_task_default,
     upsert_plan_default,
+    create_project_default,
+    apply_plan_template_default,
     list_protocols_default,
     get_protocol_default,
     list_clients_default,
