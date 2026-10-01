@@ -146,6 +146,8 @@ export default function TaskChat({
   const { data: taskStatusMap } = useTaskStatuses(linkedTaskIds);
   const isCompleted = isCompletedProp ?? taskStatusMap?.get(taskId) ?? false;
   const bottomRef = useRef<HTMLDivElement>(null);
+  /** Список сообщений в компактном чате задачи — прокручиваем его, а не страницу. */
+  const listRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
   /**
@@ -218,6 +220,13 @@ export default function TaskChat({
   const [creatingTask, setCreatingTask] = useState(false);
 
   useEffect(() => {
+    // В компактном чате scrollIntoView прокрутил бы и страницу с карточкой
+    // задачи — двигаем только сам список.
+    const list = listRef.current;
+    if (variant !== "full" && list) {
+      list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
+      return;
+    }
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [comments.length, followUpFormOpen]);
 
@@ -837,7 +846,8 @@ export default function TaskChat({
         {tabsBar}
         {clientChip}
         {closeAction}
-        <ScrollArea className="flex-1 px-4 py-3">
+        {/* min-h-0: иначе элемент flex растёт под содержимое и не прокручивается. */}
+        <ScrollArea className="flex-1 min-h-0 px-4 py-3">
           {messagesContent}
         </ScrollArea>
         {inputForm}
@@ -859,9 +869,12 @@ export default function TaskChat({
         {tabsBar}
         {clientChip}
         {closeAction}
-        <ScrollArea className="max-h-64 px-3 py-2">
+        {/* Обычный блок с прокруткой, не ScrollArea: у Radix ограничение max-h
+            на корне не доходит до внутренней области — она растягивается под всё
+            содержимое, лишнее обрезается, и чат внутри задачи не прокручивался. */}
+        <div ref={listRef} className="max-h-64 overflow-y-auto overscroll-contain px-3 py-2 scrollbar-thin">
           {messagesContent}
-        </ScrollArea>
+        </div>
         {inputForm}
       </div>
     </div>
