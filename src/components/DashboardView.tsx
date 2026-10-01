@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Link, useNavigate } from "react-router-dom";
 import DashboardExportDialog from "@/components/DashboardExportDialog";
+import DashboardCreateTaskDialog from "@/components/DashboardCreateTaskDialog";
+import TaskDetailPanel from "@/components/chat/TaskDetailPanel";
 import QuickCreateForm from "@/components/QuickCreateForm";
 import type { QuickCreateResult } from "@/components/QuickCreateForm";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -1911,6 +1913,7 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
   const { data: users = [], isLoading: usersLoading } = useAvailableUsers();
   const { data: tags = [], isLoading: tagsLoading } = useVisibleTags();
   const [sheetTaskId, setSheetTaskId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const { addTask } = useTaskMutations();
   const [expandedKpi, setExpandedKpi] = useState<"overdue" | "drift" | "unassigned" | "no_deadline" | null>(null);
   const [aiSummaryText, setAiSummaryText] = useState("");
@@ -2246,6 +2249,18 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
             )}
           </div>
 
+          {/* Новая задача прямо с дашборда (просьба сотрудника 01.10) */}
+          {presentMode === "off" && (
+            <button
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-primary/30 bg-primary/10 text-[11px] sm:text-xs font-medium text-primary hover:bg-primary/15 transition-colors shrink-0"
+              title="Создать задачу"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Задача</span>
+            </button>
+          )}
+
           {/* Fullscreen split button */}
           {presentMode === "off" ? (
             <div className="inline-flex items-stretch rounded-md border border-border overflow-hidden shrink-0">
@@ -2522,7 +2537,8 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
         <SheetContent side="right" className="w-full sm:max-w-lg p-0 overflow-y-auto [&_.radix-popover-content]:z-[60]">
           {sheetTaskId && (() => {
             const task = tasks.find(t => t.id === sheetTaskId);
-            if (!task) return null;
+            // Только что созданной задачи в списке может ещё не быть — грузим её саму.
+            if (!task) return <TaskDetailPanel taskId={sheetTaskId} onClose={() => setSheetTaskId(null)} />;
             return (
               <div className="p-4">
                 <TaskItem task={task} initialOpen />
@@ -2531,6 +2547,14 @@ export default function DashboardView({ onNavigateToTask: onNavigateToTaskProp }
           })()}
         </SheetContent>
       </Sheet>
+
+      <DashboardCreateTaskDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        groups={groups}
+        users={users}
+        onCreated={(id) => setSheetTaskId(id)}
+      />
     </main>
   );
 }
