@@ -25,6 +25,11 @@ from datetime import datetime, timezone
 FEEDBACK_TASKS = [
     "e8f1a950-b6eb-427d-aee5-3c87195bbd57",  # «jtd Логи», заведена 01.10.2026
 ]
+# Проекты-бэклоги: новые задачи и сообщения во всех их задачах. Записи
+# администраторов не берём — это их собственные заметки, а не просьбы.
+FEEDBACK_PROJECTS = [
+    "c2404aa8-d7ee-4d4f-8caf-bac0f8c9bab7",  # проект «JTD»
+]
 ENV_FILE = "/opt/jtd/self-hosting/.env.supabase"
 STATE = "/var/lib/jtd/feedback-digest.state"
 APP = "https://justtodoit.ru"
@@ -46,6 +51,8 @@ def main() -> None:
         since = "2026-10-01T00:00:00+03:00"
     now = datetime.now(timezone.utc).isoformat()
     ids = ",".join(f"'{t}'" for t in FEEDBACK_TASKS)
+    projects = ",".join(f"'{p}'" for p in FEEDBACK_PROJECTS) or "null"
+    not_admin = "not exists (select 1 from user_roles r where r.user_id = {} and r.role = 'admin')"
     rows = sql(f"""
       select coalesce(json_agg(x order by x.created_at), '[]') from (
         select c.task_id, t.title, coalesce(p.display_name, '—') as who, c.content, c.created_at,
@@ -53,9 +60,18 @@ def main() -> None:
         from task_comments c
         join tasks t on t.id = c.task_id
         left join profiles p on p.id = c.user_id
-        where c.task_id in ({ids}) and c.created_at > '{since}'::timestamptz
+        where (c.task_id in ({ids}) or (t.group_id in ({projects}) and {not_admin.format('c.user_id')}))
+          and c.created_at > '{since}'::timestamptz
           and coalesce(c.kind, 'message') = 'message'
           and c.meta->>'via' is distinct from 'claude'
+        union all
+        -- Новая задача в проекте-бэклоге: её название и есть просьба.
+        select t.id, t.title, coalesce(p.display_name, '—'), '🆕 новая задача' ||
+               coalesce(': ' || nullif(t.description, ''), ''), t.created_at,
+               to_char(t.created_at at time zone 'Europe/Moscow', 'DD.MM HH24:MI')
+        from tasks t left join profiles p on p.id = t.user_id
+        where t.group_id in ({projects}) and t.created_at > '{since}'::timestamptz
+          and {not_admin.format('t.user_id')}
       ) x""")
     msgs = json.loads(rows or "[]")
     print(f"{datetime.now():%F %T} новых сообщений: {len(msgs)} (с {since})")

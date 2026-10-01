@@ -9,7 +9,8 @@ Telegram — скрипт отправляет ту же реплику его �
 
   assistant-reply.py <task_id> <файл с текстом> [--reply-to <comment_id>] [--dry-run]
 
-Без --reply-to отвечаем на последнее сообщение не от ассистента.
+Без --reply-to отвечаем на последнее сообщение не от ассистента; если сообщений
+нет — пишем в задачу без ответа, копия уходит автору задачи.
 """
 import argparse
 import base64
@@ -46,7 +47,10 @@ def main() -> None:
     reply_to = a.reply_to or sql(
         f"select id from task_comments where task_id='{a.task_id}' and coalesce(kind,'message')='message' "
         f"and meta->>'via' is distinct from 'claude' order by created_at desc limit 1")
-    author = sql(f"select user_id from task_comments where id='{reply_to}'") if reply_to else ""
+    # Копия в Telegram — автору сообщения, на которое отвечаем; если сообщений
+    # ещё нет (задача из одного названия) — автору задачи.
+    author = (sql(f"select user_id from task_comments where id='{reply_to}'") if reply_to
+              else sql(f"select user_id from tasks where id='{a.task_id}'"))
     title = sql(f"select title from tasks where id='{a.task_id}'")
     chat = sql(f"select telegram_chat_id from profiles where id='{author}'") if author else ""
     print(f"задача «{title}», ответ на {reply_to or '—'}, копия в Telegram: {'да' if chat else 'нет чата'}")
