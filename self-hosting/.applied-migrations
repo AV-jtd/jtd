@@ -242,3 +242,4 @@
 20260930210000_work_mode_plan_or_flow.sql
 20261001120000_assistant_tg_sessions.sql
 20261001130000_assistant_tg_sessions_routing.sql
+20261001150000_dependency_policies_milestones.sql
