@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { looksLikeAssistantRequest as ask } from "../../supabase/functions/_shared/assistantTgRouter";
+import { looksLikeAssistantRequest as ask, isAcknowledgement as ack } from "../../supabase/functions/_shared/assistantTgRouter";
 
 describe("бот: вопрос ассистенту или задача", () => {
   it.each([
@@ -18,6 +18,10 @@ describe("бот: вопрос ассистенту или задача", () => 
     "У кого больше всего просрочки",
     "а что по Бристолю?",
     "Позвонить в Магнит насчёт образцов?",
+    "Сможешь сделать каскадные связи в проекте оборудование",
+    "Можешь перенести мои задачи на завтра",
+    "Создай задачу",
+    "Создай задачу позвонить в Ленту в пятницу",
   ])("вопрос → ассистент: %s", (t) => expect(ask(t)).toBe(true));
 
   it.each([
@@ -45,4 +49,7 @@ describe("бот: вопрос ассистенту или задача", () => 
   it("длинный текст — не вопрос ассистенту", () => {
     expect(ask("Что " + "очень ".repeat(120) + "?")).toBe(false);
   });
+
+  it.each(["да", "Да!", "ок", "Спасибо", "спасибо!)", "понял", "👍"])("подтверждение — не задача: %s", (t) => expect(ack(t)).toBe(true));
+  it.each(["да, перенеси на пятницу", "Купить картриджи", "Ок задача на завтра"])("не подтверждение: %s", (t) => expect(ack(t)).toBe(false));
 });

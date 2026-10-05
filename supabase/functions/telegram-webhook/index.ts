@@ -9,6 +9,7 @@ import {
   bulkAutoJoinTelegramChatMembers,
 } from "../_shared/messenger-core.ts";
 import { mintUserToken, callAssistant, mdToTelegramHtml, renderPending, renderSteps, looksLikeAssistantRequest, type AssistantReply } from "../_shared/assistantTg.ts";
+import { isAcknowledgement } from "../_shared/assistantTgRouter.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -2251,6 +2252,11 @@ Deno.serve(async (req) => {
         if (sess && await handleAssistantTg(supabase, BOT_TOKEN, chatId, userId, message.text, { sessionId: sess.id })) {
           return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
         }
+      }
+      // «да», «ок», «спасибо» — ответ, а не задача.
+      if (!message._forwarded && !isFromVoice && isAcknowledgement(message.text)) {
+        await sendTelegramMessage(BOT_TOKEN, chatId, "👍 Принял. Задачу из этого не создаю — если нужна, напишите её текстом.");
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
       if (looksLikeAssistantRequest(message.text, { forwarded: !!message._forwarded, voice: isFromVoice })) {
         const origin = { text: message.text, message_id: message.message_id, from: message.from };
