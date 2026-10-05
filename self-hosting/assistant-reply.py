@@ -5,9 +5,11 @@
 Ответ уходит через assistant-tools → add_comment с правами владельца и
 пометкой meta.via = claude — так же, как пишет коннектор: с уведомлением автору
 сообщения, на которое отвечаем. Автор попросил дублировать ответы ему в
-Telegram — скрипт отправляет ту же реплику его личным чатом с ботом.
+Telegram — скрипт умеет отправить ту же реплику его личным чатом с ботом
+(--telegram). По умолчанию копии НЕТ: решение владельца 06.10.2026 — копии
+перегружают Telegram; люди видят ответ в чате задачи и уведомлении о нём.
 
-  assistant-reply.py <task_id> <файл с текстом> [--reply-to <comment_id>] [--dry-run]
+  assistant-reply.py <task_id> <файл с текстом> [--reply-to <comment_id>] [--telegram] [--dry-run]
 
 Без --reply-to отвечаем на последнее сообщение не от ассистента; если сообщений
 нет — пишем в задачу без ответа, копия уходит автору задачи.
@@ -37,6 +39,7 @@ def main() -> None:
     ap.add_argument("task_id")
     ap.add_argument("text_file")
     ap.add_argument("--reply-to")
+    ap.add_argument("--telegram", action="store_true", help="копия автору в Telegram (по умолчанию нет)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     env = {k: v.strip("'\"") for k, v in (l.split("=", 1) for l in open(ENV_FILE).read().splitlines() if "=" in l and not l.startswith("#"))}
@@ -56,7 +59,8 @@ def main() -> None:
               else sql(f"select user_id from tasks where id='{a.task_id}'"))
     title = sql(f"select title from tasks where id='{a.task_id}'")
     chat = sql(f"select telegram_chat_id from profiles where id='{author}'") if author else ""
-    print(f"задача «{title}», ответ на {reply_to or '—'}, копия в Telegram: {'да' if chat else 'нет чата'}")
+    print(f"задача «{title}», ответ на {reply_to or '—'}, копия в Telegram: "
+          f"{('да' if chat else 'нет чата') if a.telegram else 'нет (без --telegram)'}")
     if a.dry_run:
         print(text)
         return
@@ -73,7 +77,7 @@ def main() -> None:
     res = json.load(urllib.request.urlopen(req, timeout=60))
     print("в задаче:", res.get("ok"), res.get("text") or res.get("error"))
 
-    if chat and res.get("ok"):
+    if a.telegram and chat and res.get("ok"):
         msg = (f"💬 Ответ в задаче «<a href=\"{APP}/?task={a.task_id}\">{html.escape(title)}</a>»:\n\n"
                f"{html.escape(text)}")[:4000]
         tg = urllib.request.Request(f"https://api.telegram.org/bot{env['TELEGRAM_BOT_TOKEN']}/sendMessage",
