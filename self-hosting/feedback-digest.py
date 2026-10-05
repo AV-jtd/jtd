@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Сводка просьб по доработкам JTD владельцу в Telegram (решение владельца 01.10.2026).
+"""Сводка владельцу в Telegram: задачи Клавдия и просьбы по доработкам JTD.
+
+С 05.10.2026 — ежедневно в 09:00 и вместе с задачами, поставленными на
+пользователя-ассистента «Клавдий» (system_users.key = 'assistant'): новые
+назначения (по его автоответу «Принял задачу») и новые сообщения в них.
+Ниже — исходное описание сбора просьб (01.10.2026).
 
 Сотрудники пишут замечания и просьбы в отдельные задачи (список — FEEDBACK_TASKS
 ниже). Два раза в неделю, в понедельник и четверг в 09:00 МСК, скрипт присылает
@@ -11,7 +16,7 @@
 задаче, через add_comment (с пометкой «написал Claude»).
 
 Крон хоста:
-  0 9 * * 1,4 /opt/jtd/self-hosting/feedback-digest.py >> /var/log/jtd-feedback.log 2>&1
+  0 9 * * * /opt/jtd/self-hosting/feedback-digest.py >> /var/log/jtd-feedback.log 2>&1
 Проверка без отправки и без сдвига отметки: feedback-digest.py --dry-run
 """
 import html
@@ -65,6 +70,25 @@ def main() -> None:
           and coalesce(c.kind, 'message') = 'message'
           and c.meta->>'via' is distinct from 'claude'
         union all
+        -- Задачи Клавдия: сообщения людей в них ...
+        select c.task_id, t.title, coalesce(p.display_name, '—'), c.content, c.created_at,
+               to_char(c.created_at at time zone 'Europe/Moscow', 'DD.MM HH24:MI')
+        from task_comments c join tasks t on t.id = c.task_id
+        left join profiles p on p.id = c.user_id
+        where t.assigned_to = (select user_id from system_users where key = 'assistant')
+          and c.user_id is distinct from t.assigned_to
+          and c.task_id not in ({ids}) and (t.group_id is null or t.group_id not in ({projects}))
+          and c.created_at > '{since}'::timestamptz
+          and coalesce(c.kind, 'message') = 'message' and c.meta->>'via' is distinct from 'claude'
+        union all
+        -- ... и новые назначения: их отмечает автоответ «Принял задачу».
+        select t.id, t.title, coalesce(p.display_name, '—'),
+               '🆕 задача Клавдию' || coalesce(': ' || nullif(t.description, ''), ''), c.created_at,
+               to_char(c.created_at at time zone 'Europe/Moscow', 'DD.MM HH24:MI')
+        from task_comments c join tasks t on t.id = c.task_id
+        left join profiles p on p.id = t.user_id
+        where (c.meta->>'auto')::boolean is true and c.created_at > '{since}'::timestamptz
+        union all
         -- Новая задача в проекте-бэклоге: её название и есть просьба.
         select t.id, t.title, coalesce(p.display_name, '—'), '🆕 новая задача' ||
                coalesce(': ' || nullif(t.description, ''), ''), t.created_at,
@@ -80,7 +104,7 @@ def main() -> None:
             open(STATE, "w").write(now)
         return
 
-    lines = [f"🛠 <b>Просьбы по доработкам JTD</b> — новых: {len(msgs)}"]
+    lines = [f"🤖 <b>Задачи Клавдия и просьбы по JTD</b> — новых: {len(msgs)}"]
     by_task: dict[str, list] = {}
     for m in msgs:
         by_task.setdefault(m["task_id"], []).append(m)
@@ -89,7 +113,7 @@ def main() -> None:
         for m in ms:
             text = m["content"] if len(m["content"]) <= 600 else m["content"][:600] + "…"
             lines.append(f"• <i>{html.escape(m['who'])}, {m['at']}</i>\n{html.escape(text)}")
-    lines.append("\nРазобрать: напишите Claude «разбери просьбы по JTD».")
+    lines.append("\nРазобрать: напишите Claude «разбери задачи Клавдия».")
     text = "\n".join(lines)[:4000]
 
     chats = sql("""select distinct b.chat_id from user_roles r join profiles p on p.id = r.user_id

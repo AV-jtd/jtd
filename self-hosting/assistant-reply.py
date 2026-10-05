@@ -42,8 +42,11 @@ def main() -> None:
     env = {k: v.strip("'\"") for k, v in (l.split("=", 1) for l in open(ENV_FILE).read().splitlines() if "=" in l and not l.startswith("#"))}
     text = open(a.text_file, encoding="utf-8").read().strip()
 
-    # От чьего имени: администратор (владелец). Пометка via=claude видна в чате.
-    owner = sql("select r.user_id from user_roles r where r.role='admin' order by r.user_id limit 1")
+    # От чьего имени: Клавдий, если задача поставлена на него; иначе
+    # администратор (владелец) с пометкой via=claude — Клавдий чужих задач не видит.
+    owner = sql(f"select s.user_id from system_users s join tasks t on t.assigned_to = s.user_id "
+                f"where s.key='assistant' and t.id='{a.task_id}'") or \
+        sql("select r.user_id from user_roles r where r.role='admin' order by r.user_id limit 1")
     reply_to = a.reply_to or sql(
         f"select id from task_comments where task_id='{a.task_id}' and coalesce(kind,'message')='message' "
         f"and meta->>'via' is distinct from 'claude' order by created_at desc limit 1")
