@@ -2,7 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { toast } from "sonner";
-import { wouldCreateCycle, resolveAllViolations, type GraphEntity } from "@/lib/dependencyGraph";
+import { wouldCreateCycle } from "@/lib/dependencyGraph";
+import { cascade, fetchDependencies } from "@/lib/cascadeScope";
 
 export type TaskDependency = {
   id: string;
@@ -21,9 +22,11 @@ export function useDependencies() {
   return useQuery({
     queryKey: ["task_dependencies", user?.id],
     queryFn: async () => {
+      // Лимит явно: без него PostgREST молча отдаёт первую тысячу строк.
       const { data, error } = await supabase
         .from("task_dependencies")
-        .select("*");
+        .select("*")
+        .limit(5000);
       if (error) throw error;
       return data as TaskDependency[];
     },
@@ -32,41 +35,20 @@ export function useDependencies() {
 }
 
 /**
- * Fetch entities (tasks + milestones) needed for cascade calculation and apply
- * `resolveAllViolations` updates back to DB. Called after dep creation.
+ * Пересчёт сроков после создания или правки связи — по связной компоненте этой
+ * связи, тем же кодом, что в коннекторе (lib/cascadeScope.ts). Раньше здесь
+ * выгружались все задачи одним запросом (первая тысяча из 5720) и правились
+ * нарушения по всему графу компании.
  */
-async function autoResolveAfterDepChange() {
-  const [{ data: deps }, { data: tasks }, { data: milestones }] = await Promise.all([
-    supabase.from("task_dependencies").select("*"),
-    supabase.from("tasks").select("id,start_at,deadline"),
-    supabase.from("project_milestones").select("id,planned_date"),
-  ]);
-  if (!deps || !tasks || !milestones) return { taskUpdates: 0, msUpdates: 0 };
-
-  const entities = new Map<string, GraphEntity>();
-  tasks.forEach((t: any) => entities.set(t.id, { id: t.id, start_at: t.start_at, deadline: t.deadline }));
-  milestones.forEach((m: any) => entities.set(m.id, { id: m.id, deadline: m.planned_date }));
-
-  const taskIds = new Set(tasks.map((t: any) => t.id));
-  const msIds = new Set(milestones.map((m: any) => m.id));
-
-  const updates = resolveAllViolations(deps as TaskDependency[], entities);
-  let taskUpdates = 0, msUpdates = 0;
-  for (const [id, upd] of updates) {
-    if (taskIds.has(id)) {
-      const payload: any = {};
-      if (upd.deadline) payload.deadline = upd.deadline;
-      if (upd.start_at) payload.start_at = upd.start_at;
-      if (Object.keys(payload).length) {
-        await supabase.from("tasks").update(payload).eq("id", id);
-        taskUpdates++;
-      }
-    } else if (msIds.has(id) && upd.deadline) {
-      await supabase.from("project_milestones").update({ planned_date: upd.deadline }).eq("id", id);
-      msUpdates++;
-    }
-  }
-  return { taskUpdates, msUpdates };
+async function autoResolveAfterDepChange(seeds: string[]) {
+  const deps = await fetchDependencies(supabase as never);
+  if ("error" in deps) throw new Error(deps.error);
+  const r = await cascade(supabase as never, deps, seeds);
+  if ("error" in r) throw new Error(r.error);
+  return {
+    taskUpdates: r.shifted.filter((x) => x.kind === "task").length,
+    msUpdates: r.shifted.filter((x) => x.kind === "milestone").length,
+  };
 }
 
 export function useDependencyMutations() {
@@ -82,9 +64,10 @@ export function useDependencyMutations() {
       predecessor_entity_type?: string;
       successor_entity_type?: string;
     }) => {
-      // Cycle protection
-      const { data: existing } = await supabase.from("task_dependencies").select("*");
-      if (existing && wouldCreateCycle(dep.predecessor_id, dep.successor_id, existing as any)) {
+      // Cycle protection — по всем связям (с лимитом, а не первой тысячей).
+      const existing = await fetchDependencies(supabase as never);
+      if ("error" in existing) throw new Error(existing.error);
+      if (wouldCreateCycle(dep.predecessor_id, dep.successor_id, existing as never)) {
         throw new Error("Создание этой связи приведёт к циклу зависимостей");
       }
       const { error } = await supabase.from("task_dependencies").insert({
@@ -98,7 +81,7 @@ export function useDependencyMutations() {
       });
       if (error) throw error;
       // Auto-resolve violations introduced by this new edge
-      return await autoResolveAfterDepChange();
+      return await autoResolveAfterDepChange([dep.predecessor_id, dep.successor_id]);
     },
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ["task_dependencies"] });
@@ -120,9 +103,12 @@ export function useDependencyMutations() {
       const updates: Record<string, any> = {};
       if (dependency_type !== undefined) updates.dependency_type = dependency_type;
       if (lag_days !== undefined) updates.lag_days = lag_days;
-      const { error } = await supabase.from("task_dependencies").update(updates).eq("id", id);
+      const { data: edge, error } = await supabase
+        .from("task_dependencies").update(updates).eq("id", id)
+        .select("predecessor_id,successor_id").maybeSingle();
       if (error) throw error;
-      return await autoResolveAfterDepChange();
+      if (!edge) return { taskUpdates: 0, msUpdates: 0 };
+      return await autoResolveAfterDepChange([edge.predecessor_id, edge.successor_id]);
     },
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ["task_dependencies"] });

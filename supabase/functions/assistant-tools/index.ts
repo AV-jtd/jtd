@@ -235,6 +235,27 @@ import { z as z4 } from "npm:zod@^4.4.3";
 // src/lib/mcp/tools/_shared.ts
 import process4 from "node:process";
 import { createClient as createClient4 } from "npm:@supabase/supabase-js@^2.95.3";
+
+// src/lib/baselinePhase.ts
+function shouldKeepBaselineInStep(groupStatus, parentStatus) {
+  return groupStatus === "planning" || parentStatus === "planning";
+}
+async function isPlanningPhase(supabase, groupId, cache = /* @__PURE__ */ new Map()) {
+  if (!groupId) return false;
+  const known = cache.get(groupId);
+  if (known !== void 0) return known;
+  const { data: group } = await supabase.from("task_groups").select("baseline_status,parent_id").eq("id", groupId).maybeSingle();
+  let parentStatus = null;
+  if (group?.parent_id && group.baseline_status !== "planning") {
+    const { data: parent } = await supabase.from("task_groups").select("baseline_status").eq("id", group.parent_id).maybeSingle();
+    parentStatus = parent?.baseline_status ?? null;
+  }
+  const answer = shouldKeepBaselineInStep(group?.baseline_status, parentStatus);
+  cache.set(groupId, answer);
+  return answer;
+}
+
+// src/lib/mcp/tools/_shared.ts
 function db4(ctx) {
   return createClient4(process4.env.SUPABASE_URL, process4.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
@@ -366,23 +387,6 @@ async function insertTask(supabase, uid, fields, opts = {}) {
     await notify(supabase, "task_assigned", data.title, [fields.assigned_to], data.id);
   }
   return { task: data, warnings };
-}
-function shouldKeepBaselineInStep(groupStatus, parentStatus) {
-  return groupStatus === "planning" || parentStatus === "planning";
-}
-async function isPlanningPhase(supabase, groupId, cache = /* @__PURE__ */ new Map()) {
-  if (!groupId) return false;
-  const known = cache.get(groupId);
-  if (known !== void 0) return known;
-  const { data: group } = await supabase.from("task_groups").select("baseline_status,parent_id").eq("id", groupId).maybeSingle();
-  let parentStatus = null;
-  if (group?.parent_id && group.baseline_status !== "planning") {
-    const { data: parent } = await supabase.from("task_groups").select("baseline_status").eq("id", group.parent_id).maybeSingle();
-    parentStatus = parent?.baseline_status ?? null;
-  }
-  const answer = shouldKeepBaselineInStep(group?.baseline_status, parentStatus);
-  cache.set(groupId, answer);
-  return answer;
 }
 
 // src/lib/mcp/tools/create_task.ts
@@ -1194,7 +1198,7 @@ function computeCascadeUpdates(changedEntityId, newDeadline, oldDeadline, depend
   return updates;
 }
 
-// src/lib/mcp/tools/_cascade.ts
+// src/lib/cascadeScope.ts
 var CHUNK = 50;
 async function fetchDependencies(supabase) {
   const { data, error } = await supabase.from("task_dependencies").select("id,predecessor_id,successor_id,dependency_type,lag_days,predecessor_entity_type,successor_entity_type").limit(5e3);
@@ -1310,6 +1314,8 @@ async function applyUpdates(supabase, scope, updates, opts) {
   }
   return { shifted };
 }
+
+// src/lib/mcp/tools/_cascade.ts
 async function moveWithCascade(supabase, id, newDeadline, opts = {}) {
   const deps = await fetchDependencies(supabase);
   if ("error" in deps) return deps;
