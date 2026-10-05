@@ -19,6 +19,13 @@ type UnreadRow = {
   thread_id: string;
   last_message_at: string;
   unread_count: number;
+  /**
+   * Ветка «мне» (миграция 20261006120000): я автор, исполнитель или участник
+   * задачи, меня упомянули или ответили мне. Остальное — фон проекта: его
+   * показываем точкой, без числа (решение владельца 06.10.2026). undefined —
+   * старый сервер, считаем «мне», как раньше.
+   */
+  for_me?: boolean;
 };
 
 const UNREAD_QUERY_KEY = ["unread_threads"] as const;
@@ -81,9 +88,11 @@ export function useUnreadMessages() {
     [rows],
   );
 
-  // Total badge: number of distinct threads with unread messages (matches the
-  // historical behaviour of the old per-thread loop).
-  const unreadCount = rows.length;
+  // Значок — число веток «мне»; фон проекта — отдельным флагом (точка).
+  const isForMe = (r: UnreadRow) => r.for_me !== false;
+  const forMeSet = useMemo(() => new Set(rows.filter(isForMe).map((r) => r.thread_id)), [rows]);
+  const unreadCount = forMeSet.size;
+  const hasBackgroundUnread = rows.length > forMeSet.size;
 
   // Listen for the invalidation signal dispatched by the singleton realtime
   // channel in `useRealtimeSubscriptions`. A new message arrived — refetch.
@@ -157,10 +166,15 @@ export function useUnreadMessages() {
   const getUnreadCount = useCallback(
     (threadId: string, lastMessageUserId?: string | null) => {
       if (lastMessageUserId === user?.id) return 0;
+      // Фон проекта — без числа: строка покажет точку.
+      if (!forMeSet.has(threadId)) return 0;
       return unreadCountMap.get(threadId) ?? 0;
     },
-    [unreadCountMap, user],
+    [unreadCountMap, forMeSet, user],
   );
 
-  return { unreadCount, markThreadRead, isThreadUnread, getUnreadCount };
+  /** Непрочитанная ветка адресована мне (а не фон проекта). */
+  const isThreadForMe = useCallback((threadId: string) => forMeSet.has(threadId), [forMeSet]);
+
+  return { unreadCount, hasBackgroundUnread, markThreadRead, isThreadUnread, isThreadForMe, getUnreadCount };
 }

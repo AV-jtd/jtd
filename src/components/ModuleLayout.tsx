@@ -31,7 +31,7 @@ export default function ModuleLayout({
   const [aiOpen, setAiOpen] = useState(false);
   const [messengerOpen, setMessengerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const { unreadCount, markThreadRead, isThreadUnread } = useUnreadMessages();
+  const { unreadCount, hasBackgroundUnread, markThreadRead, isThreadUnread, isThreadForMe } = useUnreadMessages();
 
   // Cmd+K / Ctrl+K global shortcut
   useEffect(() => {
@@ -65,6 +65,7 @@ export default function ModuleLayout({
         onMessengerToggle={() => setMessengerOpen((prev) => !prev)}
         messengerOpen={messengerOpen}
         unreadCount={unreadCount}
+        hasBackgroundUnread={hasBackgroundUnread}
       >
         {headerChildren}
       </AppHeader>
@@ -77,6 +78,7 @@ export default function ModuleLayout({
               onClose={() => setMessengerOpen(false)}
               markThreadRead={markThreadRead}
               isThreadUnread={isThreadUnread}
+                isThreadForMe={isThreadForMe}
               onNavigateToProject={(groupId) => { setMessengerOpen(false); navigate(`/?group=${groupId}`); }}
               onNavigateToTask={(taskId) => { setMessengerOpen(false); navigate(`/?task=${taskId}`); }}
               moduleContext={{ module: moduleContext }}

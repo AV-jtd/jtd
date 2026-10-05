@@ -54,7 +54,7 @@ export default function Index() {
   // thread list. Cleared via the sheet's onOpenChange.
   const [messengerDetailGroupId, setMessengerDetailGroupId] = useState<string | null>(null);
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
-  const { unreadCount, markThreadRead, isThreadUnread } = useUnreadMessages();
+  const { unreadCount, hasBackgroundUnread, markThreadRead, isThreadUnread, isThreadForMe } = useUnreadMessages();
   const [searchOpen, setSearchOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -157,6 +157,7 @@ export default function Index() {
         onMessengerToggle={() => setMessengerOpen(prev => !prev)}
         messengerOpen={messengerOpen}
         unreadCount={unreadCount}
+        hasBackgroundUnread={hasBackgroundUnread}
       />
 
       <div className="flex flex-1 min-w-0 overflow-hidden">
@@ -292,6 +293,7 @@ export default function Index() {
                 }}
                 markThreadRead={markThreadRead}
                 isThreadUnread={isThreadUnread}
+                isThreadForMe={isThreadForMe}
                 initialActiveThreadId={lastMessengerThreadId}
                 onActiveThreadChange={setLastMessengerThreadId}
                 onNavigateToProject={(gId) => { setActiveGroupId(gId); setActiveView("group"); setProjectDetailOpen(true); setMessengerOpen(false); }}

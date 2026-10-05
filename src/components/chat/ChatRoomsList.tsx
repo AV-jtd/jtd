@@ -198,7 +198,7 @@ export default function ChatRoomsList({
   assistantActive?: boolean;
 }) {
   const { rooms, isLoading } = useChatRooms();
-  const { isThreadUnread, getUnreadCount } = useUnreadMessages();
+  const { isThreadUnread, isThreadForMe, getUnreadCount } = useUnreadMessages();
   const { data: myTasks } = useMyTasksDashboard();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "projects" | "clients" | "groups">("all");
@@ -322,14 +322,15 @@ export default function ChatRoomsList({
   const unreadCounts = useMemo(() => {
     const c = { all: 0, projects: 0, clients: 0, groups: 0 };
     for (const r of rooms) {
-      if (!isThreadUnread(r.threadId, r.lastMessageAt, r.lastMessageUserId)) continue;
+      // На вкладках — только «мне»; фон проекта виден точкой в строке.
+      if (!isThreadUnread(r.threadId, r.lastMessageAt, r.lastMessageUserId) || !isThreadForMe(r.threadId)) continue;
       c.all += 1;
       if (r.isTaskRoom) c.groups += 1;
       else if (r.isClientRoom) c.clients += 1;
       else c.projects += 1;
     }
     return c;
-  }, [rooms, isThreadUnread]);
+  }, [rooms, isThreadUnread, isThreadForMe]);
 
   return (
     <div className="flex h-full flex-col bg-card">

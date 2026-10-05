@@ -36,6 +36,8 @@ interface MessengerPanelProps {
   onMinimize?: () => void;
   markThreadRead?: (threadId: string) => void;
   isThreadUnread?: (threadId: string, lastMessageAt: string | null, lastMessageUserId?: string | null) => boolean;
+  /** Непрочитанная ветка «мне» (а не фон проекта) — useUnreadMessages. */
+  isThreadForMe?: (threadId: string) => boolean;
   onNavigateToProject?: (groupId: string) => void;
   onNavigateToTask?: (taskId: string) => void;
   /**
@@ -74,6 +76,7 @@ export default function MessengerPanel({
   onMinimize,
   markThreadRead,
   isThreadUnread,
+  isThreadForMe,
   onNavigateToProject,
   onNavigateToTask,
   onOpenProjectDetail,
@@ -317,11 +320,12 @@ export default function MessengerPanel({
   const unreadTotal = useMemo(() => {
     if (!isThreadUnread) return 0;
     let n = 0;
+    // Число — только ветки «мне»; фон проекта виден точкой в строке.
     for (const t of threads) {
-      if (isThreadUnread(t.id, t.lastMessageAt, t.lastMessageUserId)) n++;
+      if (isThreadUnread(t.id, t.lastMessageAt, t.lastMessageUserId) && (isThreadForMe?.(t.id) ?? true)) n++;
     }
     return n;
-  }, [threads, isThreadUnread]);
+  }, [threads, isThreadUnread, isThreadForMe]);
 
   const activeFilterCount = authorIds.length + projectIds.length + (unreadOnly ? 1 : 0);
   const clearAllFilters = () => { setAuthorIds([]); setProjectIds([]); setUnreadOnly(false); };
@@ -583,7 +587,11 @@ export default function MessengerPanel({
                         </div>
                       )}
                       {unread && (
-                        <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-card" />
+                        <span className={cn(
+                          "absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-card",
+                          // «Мне» — красная; фон проекта — приглушённая.
+                          (isThreadForMe?.(thread.id) ?? true) ? "bg-destructive" : "bg-muted-foreground/50",
+                        )} />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
