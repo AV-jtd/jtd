@@ -76,7 +76,29 @@ export default function MaxLinkCard() {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const botLink = botUsername ? `https://max.ru/${botUsername}` : null;
+  // Код — прямо в ссылке (?start=…): после «Начать» в MAX бот получает его в
+  // bot_started и привязывает сам, копировать и отправлять ничего не нужно
+  // (06.10.2026: из 8 попыток привязки летом не прошла ни одна).
+  const botLink = botUsername
+    ? `https://max.ru/${botUsername}${token ? `?start=${encodeURIComponent(token)}` : ""}`
+    : null;
+
+  // Пока код показан — ждём, когда бот его использует: страница сама увидит
+  // привязку, обновлять её не нужно. Бот удаляет код при привязке.
+  useEffect(() => {
+    if (!token) return;
+    const started = Date.now();
+    const timer = setInterval(async () => {
+      if (Date.now() - started > 60 * 60 * 1000) { clearInterval(timer); return; }
+      const { data, error } = await supabase.from("max_link_tokens").select("token").eq("token", token).maybeSingle();
+      if (error || data) return;
+      clearInterval(timer);
+      setToken(null);
+      await refreshStatus();
+      toast.success("MAX привязан", { description: "Уведомления будут приходить в MAX." });
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [token, refreshStatus]);
 
   return (
     <div className="space-y-4">
@@ -99,10 +121,10 @@ export default function MaxLinkCard() {
       {/* Instructions once a token is generated */}
       {token && (
         <div className="rounded-lg border border-border p-4 space-y-3">
-          <p className="text-sm font-medium">Как привязать (1 минута):</p>
+          <p className="text-sm font-medium">Как привязать:</p>
           <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
-            <li>Откройте бота JustTODOit в MAX.</li>
-            <li>Отправьте боту этот код привязки:</li>
+            <li>Нажмите «Открыть бота в MAX» и в MAX — «Начать». Привязка произойдёт сама.</li>
+            <li>Если не сработало — отправьте боту этот код сообщением:</li>
           </ol>
           <div className="flex items-center gap-2">
             <code className="flex-1 rounded bg-muted px-3 py-2 text-sm font-mono tracking-wider">{token}</code>
@@ -119,7 +141,7 @@ export default function MaxLinkCard() {
             </a>
           )}
           <p className="text-xs text-muted-foreground">
-            Код действует 1 час. После отправки бот подтвердит привязку — обновите эту страницу.
+            Код действует 1 час. Эта страница сама увидит привязку — обновлять её не нужно.
           </p>
         </div>
       )}
