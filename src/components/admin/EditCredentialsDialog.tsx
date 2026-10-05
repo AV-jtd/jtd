@@ -50,7 +50,7 @@ export function EditCredentialsDialog({ user, open, onOpenChange, onUpdated }: P
   };
 
   type Action =
-    | "send_recovery"
+    | "reset_via_telegram"
     | "sign_out_everywhere"
     | "confirm_email"
     | "impersonate"
@@ -60,10 +60,7 @@ export function EditCredentialsDialog({ user, open, onOpenChange, onUpdated }: P
   const runAction = async (action: Action) => {
     setActionBusy(action);
     const body: Record<string, unknown> = { target_user_id: user.id, action };
-    if (action === "send_recovery" || action === "impersonate") {
-      body.redirect_to = `${window.location.origin}/reset-password`;
-      if (action === "impersonate") body.redirect_to = `${window.location.origin}/`;
-    }
+    if (action === "impersonate") body.redirect_to = `${window.location.origin}/`;
     if (action === "bind_telegram_chat") {
       const cleaned = chatId.trim();
       if (!/^-?\d{4,20}$/.test(cleaned)) {
@@ -81,8 +78,8 @@ export function EditCredentialsDialog({ user, open, onOpenChange, onUpdated }: P
       return;
     }
     switch (action) {
-      case "send_recovery":
-        toast.success("Письмо со ссылкой для сброса отправлено");
+      case "reset_via_telegram":
+        toast.success("Новый пароль и логин отправлены пользователю в Telegram");
         break;
       case "sign_out_everywhere":
         toast.success("Все сессии пользователя завершены");
@@ -264,14 +261,14 @@ export function EditCredentialsDialog({ user, open, onOpenChange, onUpdated }: P
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => runAction("send_recovery")}
+                onClick={() => runAction("reset_via_telegram")}
                 disabled={!!actionBusy}
                 className="justify-start"
               >
-                {actionBusy === "send_recovery"
+                {actionBusy === "reset_via_telegram"
                   ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
                   : <Send className="h-3.5 w-3.5 mr-2" />}
-                Выслать письмо со ссылкой для сброса пароля
+                Сбросить пароль и прислать в Telegram
               </Button>
               <Button
                 type="button"

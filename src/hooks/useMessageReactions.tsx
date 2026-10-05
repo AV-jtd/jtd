@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { persistedIds } from "@/lib/persistedIds";
 import { useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { channelManager } from "@/lib/channelManager";
@@ -25,7 +26,7 @@ export type ReactionAgg = Record<string, string[]>;
 export function useMessageReactions(messageType: MessageType, messageIds: string[]) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const ids = useMemo(() => [...messageIds].sort(), [messageIds.join(",")]);
+  const ids = useMemo(() => persistedIds(messageIds).sort(), [messageIds.join(",")]);
   const idsKey = ids.join(",");
 
   const query = useQuery({

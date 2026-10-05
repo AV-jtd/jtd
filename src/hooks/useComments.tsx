@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { persistedIds } from "@/lib/persistedIds";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { channelManager } from "@/lib/channelManager";
@@ -136,7 +137,7 @@ export function useTasksWithComments(taskIds: string[]) {
   const { user } = useAuth();
   const qc = useQueryClient();
 
-  const sortedIds = [...taskIds].sort();
+  const sortedIds = persistedIds(taskIds).sort();
   const key = sortedIds.join(",");
 
   // Invalidate this aggregated query whenever ANY comment changes for the current user.

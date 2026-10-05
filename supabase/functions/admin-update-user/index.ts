@@ -47,24 +47,56 @@ Deno.serve(async (req) => {
     const newEmail: string | undefined = body.email;
     const newDisplayName: string | undefined = body.display_name;
     const action: string | undefined = body.action;
-    // 'send_recovery' | 'sign_out_everywhere' | 'confirm_email'
+    // 'reset_via_telegram' | 'sign_out_everywhere' | 'confirm_email'
     // | 'impersonate' | 'bind_telegram_chat' | 'unbind_telegram_chat'
+    // ('send_recovery' — отключено 06.10.2026: почта не уходит, см. ниже)
 
     if (!targetUserId) return json({ error: "missing_target" }, 400);
 
-    // Action: send password recovery email (uses Supabase Auth -> auth-email-hook)
+    // Письмо для сброса пароля не уходит: почта не работает (решение владельца
+    // 27.09 — не чиним, возврат доступа через Telegram). Прежде generateLink
+    // только создавал ссылку, а интерфейс сообщал «письмо отправлено». Действие
+    // оставлено, чтобы старая вкладка не получила «неизвестное действие», но
+    // честно отказывает.
     if (action === "send_recovery") {
+      return json({ error: "email_disabled", message: "Почта не отправляется. Используйте «Сбросить пароль и прислать в Telegram»." }, 400);
+    }
+
+    // Новый временный пароль — человеку в Telegram от бота, вместе с логином
+    // (06.10.2026). Без привязанного личного чата — отказ: тогда пароль задаёт
+    // администратор выше и передаёт сам.
+    if (action === "reset_via_telegram") {
       const { data: target, error: tErr } = await admin.auth.admin.getUserById(targetUserId);
-      if (tErr || !target?.user?.email) return json({ error: "user_not_found" }, 404);
-      const redirectTo = (body.redirect_to as string) || `${SUPABASE_URL.replace(/\/$/, "")}/reset-password`;
-      const { data: linkData, error: lErr } = await admin.auth.admin.generateLink({
-        type: "recovery",
-        email: target.user.email,
-        options: { redirectTo: body.redirect_to as string | undefined },
+      if (tErr || !target?.user?.email) return json({ error: "user_not_found", message: "Пользователь не найден" }, 404);
+      const { data: prof } = await admin.from("profiles").select("telegram_chat_id").eq("id", targetUserId).maybeSingle();
+      const chat = Number(prof?.telegram_chat_id ?? 0);
+      if (!(chat > 0)) {
+        return json({ error: "no_telegram", message: "У пользователя не привязан Telegram — задайте пароль выше и передайте его лично." }, 400);
+      }
+      const BOT = Deno.env.get("TELEGRAM_BOT_TOKEN");
+      if (!BOT) return json({ error: "no_bot", message: "Бот не настроен" }, 500);
+      // Без похожих символов (0/O, 1/l/I) — чтобы не ошибиться при наборе.
+      const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const rnd = new Uint32Array(10);
+      crypto.getRandomValues(rnd);
+      const pw = Array.from(rnd, (n) => alphabet[n % alphabet.length]).join("");
+      const { error: pErr } = await admin.auth.admin.updateUserById(targetUserId, { password: pw });
+      if (pErr) return json({ error: "reset_failed", message: pErr.message }, 400);
+      const text =
+        "🔑 Доступ в JustTODOit\n\n" +
+        "Сайт: https://justtodoit.ru\n" +
+        `Логин: ${target.user.email}\n` +
+        `Пароль: ${pw}\n\n` +
+        "Логин — это почта, вводите её целиком. После входа смените пароль в настройках профиля, а это сообщение удалите.";
+      const tg = await fetch(`https://api.telegram.org/bot${BOT}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chat, text }),
       });
-      if (lErr) return json({ error: "link_failed", message: lErr.message }, 400);
-      // generateLink already triggers the email hook in Supabase.
-      return json({ ok: true, action_link: (linkData as any)?.properties?.action_link ?? null });
+      if (!tg.ok) {
+        return json({ error: "telegram_failed", message: "Пароль сброшен, но Telegram не доставил сообщение (возможно, бот заблокирован). Задайте пароль выше и передайте лично." }, 502);
+      }
+      return json({ ok: true });
     }
 
     // Action: revoke all sessions

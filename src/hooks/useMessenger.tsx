@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { persistedIds } from "@/lib/persistedIds";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -232,7 +233,7 @@ export function useThreads(kindFilter: ThreadKindFilter = "chat") {
       // those so EVERY task chat linked to a client shows its mini-logo, not just
       // the ones that happen to have tasks.client_id populated.
       const taskTagClientMap = new Map<string, { name: string; logo_url: string | null }>();
-      const tasksWithoutClient = tasks.filter((t) => !t.client_id).map((t) => t.id);
+      const tasksWithoutClient = persistedIds(tasks.filter((t) => !t.client_id).map((t) => t.id));
       if (tasksWithoutClient.length > 0) {
         const { data: ttRows } = await supabase
           .from("task_tags")

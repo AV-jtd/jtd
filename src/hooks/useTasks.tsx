@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient, QueryClient } from "@tanstack/react-query";
+import { persistedIds } from "@/lib/persistedIds";
 import { useMemo, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
@@ -331,7 +332,7 @@ async function hydrateTaskRelationsInBackground(
   queryKey: readonly unknown[],
   tasks: Task[],
 ) {
-  const ids = [...new Set(tasks.map((t) => t.id))];
+  const ids = persistedIds([...new Set(tasks.map((t) => t.id))]);
   if (ids.length === 0) return;
 
   const hydrationKey = JSON.stringify(queryKey);
@@ -855,7 +856,7 @@ export function useTaskParticipants(taskId: string | null) {
 
 export function useTaskParticipantsBulk(taskIds: string[]) {
   const { user } = useAuth();
-  const sortedIds = useMemo(() => [...new Set(taskIds)].sort(), [taskIds]);
+  const sortedIds = useMemo(() => persistedIds([...new Set(taskIds)]).sort(), [taskIds]);
   const key = sortedIds.join(",");
 
   return useQuery({
