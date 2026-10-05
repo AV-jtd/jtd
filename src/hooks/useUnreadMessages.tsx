@@ -173,8 +173,48 @@ export function useUnreadMessages() {
     [unreadCountMap, forMeSet, user],
   );
 
+  /**
+   * Отметить прочитанными сразу несколько веток (06.10.2026): «Прочитать
+   * обсуждения проектов», «Прочитать всё», быстрое «прочитано» в строке.
+   * Как markThreadRead: локальная защита от мигания, оптимистично, время —
+   * серверное (mark_threads_read).
+   */
+  const markThreadsRead = useCallback(
+    async (threadIds: string[]) => {
+      if (!user || threadIds.length === 0) return 0;
+      const now = Date.now();
+      for (const id of threadIds) recentlyReadRef.current.set(id, now);
+      const drop = new Set(threadIds);
+      queryClient.setQueryData<UnreadRow[]>(
+        [...UNREAD_QUERY_KEY, user.id],
+        (prev) => (prev ?? []).filter((r) => !drop.has(r.thread_id)),
+      );
+      const { data, error } = await (supabase as any).rpc("mark_threads_read", { _thread_ids: threadIds });
+      if (error) {
+        for (const id of threadIds) recentlyReadRef.current.delete(id);
+        queryClient.invalidateQueries({ queryKey: [...UNREAD_QUERY_KEY, user.id] });
+        throw error;
+      }
+      queryClient.refetchQueries({ queryKey: [...UNREAD_QUERY_KEY, user.id] });
+      return (data as number) ?? threadIds.length;
+    },
+    [user, queryClient],
+  );
+
+  /** Непрочитанные ветки: все и только фон проекта (не «мне»). */
+  const unreadThreadIds = useMemo(
+    () => ({
+      all: rows.map((r) => r.thread_id),
+      background: rows.filter((r) => !forMeSet.has(r.thread_id)).map((r) => r.thread_id),
+    }),
+    [rows, forMeSet],
+  );
+
   /** Непрочитанная ветка адресована мне (а не фон проекта). */
   const isThreadForMe = useCallback((threadId: string) => forMeSet.has(threadId), [forMeSet]);
 
-  return { unreadCount, hasBackgroundUnread, markThreadRead, isThreadUnread, isThreadForMe, getUnreadCount };
+  return {
+    unreadCount, hasBackgroundUnread, markThreadRead, markThreadsRead, unreadThreadIds,
+    isThreadUnread, isThreadForMe, getUnreadCount,
+  };
 }

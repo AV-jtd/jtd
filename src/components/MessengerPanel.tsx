@@ -9,7 +9,13 @@ import ProjectRoomCenter from "./chat/ProjectRoomCenter";
 import TaskChat from "./TaskChat";
 import AiChatThread from "./AiChatThread";
 import type { ModuleContext } from "@/components/AiAssistant";
-import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles, Minimize2, Maximize2, User as UserIcon, MailWarning } from "lucide-react";
+import { X, MessageCircle, ArrowLeft, CheckSquare, FolderOpen, Search, Sparkles, Minimize2, Maximize2, User as UserIcon, MailWarning, Check, CheckCheck } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { format, isToday, isYesterday, parseISO, formatDistanceToNow } from "date-fns";
 import { ru } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -105,6 +111,17 @@ export default function MessengerPanel({
   const [projectIds, setProjectIds] = useState<string[]>([]);
   // Быстрый фильтр «только непрочитанные».
   const [unreadOnly, setUnreadOnly] = useState(false);
+  // «Прочитать обсуждения проектов / всё» и быстрое «прочитано» в строке (06.10.2026).
+  const { markThreadsRead, unreadThreadIds } = useUnreadMessages();
+  const [confirmReadAll, setConfirmReadAll] = useState(false);
+  const readThreads = async (ids: string[], label: string) => {
+    try {
+      const n = await markThreadsRead(ids);
+      if (ids.length > 1) toast.success(`${label}: ${n}`);
+    } catch {
+      toast.error("Не удалось отметить прочитанным");
+    }
+  };
 
   // In-memory scroll position cache per thread, keyed by "group:<id>" /
   // "task:<id>". Kept in a ref (not localStorage) so it survives messenger
@@ -444,6 +461,49 @@ export default function MessengerPanel({
                 </span>
               )}
             </button>
+            {unreadThreadIds.all.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    title="Отметить прочитанным"
+                    aria-label="Отметить прочитанным"
+                  >
+                    <CheckCheck className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  <DropdownMenuItem
+                    disabled={unreadThreadIds.background.length === 0}
+                    onClick={() => readThreads(unreadThreadIds.background, "Прочитано обсуждений")}
+                  >
+                    <span className="mr-2 inline-block h-2 w-2 rounded-full bg-muted-foreground/50" />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-medium">Прочитать обсуждения проектов ({unreadThreadIds.background.length})</span>
+                      <span className="text-[10px] text-muted-foreground">Серые точки — то, что не адресовано вам</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setConfirmReadAll(true)}>
+                    <CheckCheck className="mr-2 h-3.5 w-3.5" />
+                    <span className="text-xs font-medium">Прочитать всё ({unreadThreadIds.all.length})…</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            <AlertDialog open={confirmReadAll} onOpenChange={setConfirmReadAll}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Отметить всё прочитанным?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {unreadThreadIds.all.length} веток, в том числе {unreadThreadIds.all.length - unreadThreadIds.background.length} адресованных вам. Сообщения останутся в чатах, пропадут только отметки «непрочитано».
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Отмена</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => readThreads(unreadThreadIds.all, "Прочитано веток")}>Прочитать всё</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <FilterChip
               icon={<UserIcon className="h-3.5 w-3.5" />}
               label="Автор"
@@ -549,7 +609,7 @@ export default function MessengerPanel({
                     key={thread.id}
                     onClick={() => handleOpenThread(thread)}
                     className={cn(
-                      "relative w-full flex items-start gap-3 px-4 py-3 transition-colors text-left",
+                      "group relative w-full flex items-start gap-3 px-4 py-3 transition-colors text-left",
                       isProject
                         ? "bg-primary/[0.04] hover:bg-primary/10 pl-[15px]"
                         : "hover:bg-muted/50",
@@ -630,9 +690,31 @@ export default function MessengerPanel({
                         </p>
                       )}
                     </div>
+                    {unread && (
+                      // Быстрое «прочитано» без захода в чат: на компьютере — при
+                      // наведении, на телефоне видно всегда. span, а не button:
+                      // вся строка уже кнопка, вложенные кнопки в HTML нельзя.
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        title="Отметить прочитанным"
+                        aria-label="Отметить прочитанным"
+                        onClick={(e) => { e.stopPropagation(); void readThreads([thread.id], "Прочитано"); }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); void readThreads([thread.id], "Прочитано"); }
+                        }}
+                        className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </span>
+                    )}
                     <span className={cn(
                       "text-[10px] rounded-full px-1.5 py-0.5 shrink-0 mt-1",
-                      unread ? "bg-destructive text-destructive-foreground font-bold" : "text-muted-foreground bg-muted"
+                      !unread
+                        ? "text-muted-foreground bg-muted"
+                        : (isThreadForMe?.(thread.id) ?? true)
+                          ? "bg-destructive text-destructive-foreground font-bold"
+                          : "bg-muted-foreground/25 text-foreground font-semibold",
                     )}>
                       {thread.messageCount}
                     </span>

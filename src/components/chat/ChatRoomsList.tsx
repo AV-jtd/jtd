@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Search, CheckSquare, Sparkles, ChevronRight } from "lucide-react";
+import { Search, CheckSquare, Sparkles, ChevronRight, Check } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -67,18 +67,21 @@ function RoomRow({
   unread,
   count,
   onClick,
+  onMarkRead,
 }: {
   room: ChatRoom;
   isActive: boolean;
   unread: boolean;
   count: number;
   onClick: () => void;
+  /** Быстрое «прочитано» без захода в чат (06.10.2026). */
+  onMarkRead?: () => void;
 }) {
   return (
     <button
       onClick={onClick}
       className={cn(
-        "relative flex w-full items-center gap-2.5 rounded-lg py-2 pl-3 pr-2 text-left transition-colors",
+        "group relative flex w-full items-center gap-2.5 rounded-lg py-2 pl-3 pr-2 text-left transition-colors",
         isActive
           ? "bg-primary/10"
           : unread
@@ -118,6 +121,22 @@ function RoomRow({
           )}
         </p>
       </div>
+      {unread && onMarkRead && (
+        // span, а не button: строка уже кнопка. На телефоне видно всегда.
+        <span
+          role="button"
+          tabIndex={0}
+          title="Отметить прочитанным"
+          aria-label="Отметить прочитанным"
+          onClick={(e) => { e.stopPropagation(); onMarkRead(); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onMarkRead(); }
+          }}
+          className="ml-1 grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+        >
+          <Check className="h-3.5 w-3.5" />
+        </span>
+      )}
       {count > 0 ? (
         <span className="ml-1 grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-primary px-1.5 text-[10px] font-bold leading-none text-primary-foreground shadow-sm">
           {count > 99 ? "99+" : count}
@@ -198,7 +217,10 @@ export default function ChatRoomsList({
   assistantActive?: boolean;
 }) {
   const { rooms, isLoading } = useChatRooms();
-  const { isThreadUnread, isThreadForMe, getUnreadCount } = useUnreadMessages();
+  const { isThreadUnread, isThreadForMe, getUnreadCount, markThreadsRead } = useUnreadMessages();
+  const markRead = (...threadIds: string[]) => {
+    markThreadsRead(threadIds).catch(() => toast.error("Не удалось отметить прочитанным"));
+  };
   const { data: myTasks } = useMyTasksDashboard();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "projects" | "clients" | "groups">("all");
@@ -468,6 +490,7 @@ export default function ChatRoomsList({
                           isActive={isActive}
                           unread={headerUnread}
                           count={headerCount}
+                          onMarkRead={() => markRead(room.threadId, ...(showAgg ? children.map((c) => c.threadId) : []))}
                           onClick={() =>
                             room.isTaskRoom && room.taskId ? onSelectTask?.(room.taskId) : onSelect(room.groupId)
                           }
@@ -483,6 +506,7 @@ export default function ChatRoomsList({
                             isActive={child.taskId === activeTaskId}
                             unread={isThreadUnread(child.threadId, child.lastMessageAt, child.lastMessageUserId)}
                             count={getUnreadCount(child.threadId, child.lastMessageUserId)}
+                            onMarkRead={() => markRead(child.threadId)}
                             onClick={() => (child.taskId ? onSelectTask?.(child.taskId) : onSelect(child.groupId))}
                           />
                         ))}
@@ -500,6 +524,7 @@ export default function ChatRoomsList({
                     isActive={isActive}
                     unread={isThreadUnread(room.threadId, room.lastMessageAt, room.lastMessageUserId)}
                     count={getUnreadCount(room.threadId, room.lastMessageUserId)}
+                    onMarkRead={() => markRead(room.threadId)}
                     onClick={() =>
                       room.isTaskRoom && room.taskId ? onSelectTask?.(room.taskId) : onSelect(room.groupId)
                     }
