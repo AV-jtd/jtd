@@ -245,3 +245,4 @@
 20261001150000_dependency_policies_milestones.sql
 20261005210000_assistant_user_ack.sql
 20261006120000_unread_for_me.sql
+20261006130000_mark_threads_read.sql
