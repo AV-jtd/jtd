@@ -49,8 +49,21 @@ export type AssistantReply = {
     changes?: { field: string; from: string; to: string }[]; changed_keys?: string[]; note?: string;
   }[];
   messages?: unknown[];
+  /** Задачи, названные в ответе (lib/assistant/mentions.ts) — кнопки под ним. */
+  mentioned_tasks?: { id: string; title: string }[];
   error?: string;
 };
+
+const APP_URL = "https://justtodoit.ru";
+const short = (s: string, n = 28) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+
+/** Кнопки под ответом: по строке на задачу — «✅ Закрыть» и «↗ Открыть». */
+export function taskButtons(r: AssistantReply): { text: string; callback_data?: string; url?: string }[][] {
+  return (r.mentioned_tasks ?? []).map((t) => [
+    { text: `✅ ${short(t.title)}`, callback_data: `asstdone:${t.id}` },
+    { text: "↗ Открыть", url: `${APP_URL}/?task=${t.id}` },
+  ]);
+}
 
 /**
  * Ход ассистента пошагово (как в окне приложения): после каждого чтения

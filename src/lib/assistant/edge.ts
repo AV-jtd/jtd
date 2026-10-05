@@ -6,6 +6,7 @@ import { runAgent, type ChatMessage } from "./agent";
 import { callOpenRouter, DEFAULT_MODEL, ModelError } from "./openrouter";
 import { computeChanges, type MilestoneSnapshot, type ShiftPreview, type TaskSnapshot } from "./changes";
 import { resolveUser } from "../mcp/tools/_shared";
+import { mentionedTasks } from "./mentions";
 
 /**
  * Функция `assistant-tools` — вход для ассистента ВНУТРИ приложения.
@@ -140,6 +141,10 @@ serve?.(async (req: Request) => {
       if (result.status === "confirm") {
         const labelled = await labelPending(token, result.pending, ctx);
         return json({ ...result, pending: labelled });
+      }
+      // Задачи, названные в ответе, — для кнопок «Открыть / Закрыть» (бот).
+      if (result.status === "done") {
+        return json({ ...result, mentioned_tasks: mentionedTasks(result.messages, result.reply) });
       }
       return json(result);
     } catch (e) {

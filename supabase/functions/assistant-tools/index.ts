@@ -4010,6 +4010,58 @@ function plural(n, one, few, many) {
   return many;
 }
 
+// src/lib/assistant/mentions.ts
+var UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var norm2 = (s) => s.toLowerCase().replace(/ё/g, "\u0435").replace(/[«»"“”]/g, "").replace(/\s+/g, " ").trim();
+function collect(value, out, depth = 0) {
+  if (depth > 8 || value === null || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const v of value) collect(v, out, depth + 1);
+    return;
+  }
+  const o = value;
+  const id = typeof o.id === "string" ? o.id : typeof o.task_id === "string" ? o.task_id : null;
+  if (id && UUID.test(id) && typeof o.title === "string" && o.title.trim() && o.is_completed !== true) {
+    if (!out.has(id)) out.set(id, { id, title: o.title.trim() });
+  }
+  for (const v of Object.values(o)) collect(v, out, depth + 1);
+}
+function jsonParts(text) {
+  const parts = [];
+  const tryParse = (s) => {
+    try {
+      parts.push(JSON.parse(s));
+    } catch {
+    }
+  };
+  tryParse(text);
+  const i = text.indexOf("\u0414\u0430\u043D\u043D\u044B\u0435:\n");
+  if (i >= 0) tryParse(text.slice(i + "\u0414\u0430\u043D\u043D\u044B\u0435:\n".length).replace(/\n… \[обрезано[^\]]*\]$/, ""));
+  return parts;
+}
+function mentionedTasks(messages, reply, limit = 5) {
+  let start = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === "user") {
+      start = i;
+      break;
+    }
+  }
+  const found = /* @__PURE__ */ new Map();
+  for (const m of messages.slice(start)) {
+    if (m.role !== "tool") continue;
+    for (const p of jsonParts(m.content)) collect(p, found);
+  }
+  const text = norm2(reply);
+  const out = [];
+  for (const t of found.values()) {
+    const key = norm2(t.title).slice(0, 30);
+    if (key.length >= 4 && text.includes(key)) out.push(t);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 // src/lib/assistant/edge.ts
 var cors = {
   "Access-Control-Allow-Origin": "*",
@@ -4090,6 +4142,9 @@ serve?.(async (req) => {
       if (result.status === "confirm") {
         const labelled = await labelPending(token, result.pending, ctx);
         return json({ ...result, pending: labelled });
+      }
+      if (result.status === "done") {
+        return json({ ...result, mentioned_tasks: mentionedTasks(result.messages, result.reply) });
       }
       return json(result);
     } catch (e) {

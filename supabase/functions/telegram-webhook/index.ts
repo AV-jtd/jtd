@@ -8,7 +8,7 @@ import {
   formatRelayMessage,
   bulkAutoJoinTelegramChatMembers,
 } from "../_shared/messenger-core.ts";
-import { mintUserToken, callAssistant, mdToTelegramHtml, renderPending, renderSteps, looksLikeAssistantRequest, type AssistantReply } from "../_shared/assistantTg.ts";
+import { mintUserToken, callAssistant, mdToTelegramHtml, renderPending, renderSteps, looksLikeAssistantRequest, taskButtons, type AssistantReply } from "../_shared/assistantTg.ts";
 import { isAcknowledgement } from "../_shared/assistantTgRouter.ts";
 
 const corsHeaders = {
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
         { command: "spisok", description: "📦 Пакетное создание задач" },
         { command: "protocol", description: "📋 Создать протокол встречи" },
         { command: "chat", description: "💬 Отправить сообщение в чат проекта" },
-        { command: "ai", description: "✨ ИИ-ассистент" },
+        { command: "ai", description: "✨ ИИ-помощник (можно и без команды)" },
         { command: "register", description: "📝 Регистрация (если нет аккаунта)" },
         { command: "cancel", description: "❌ Отменить текущую операцию" },
       ];
@@ -206,6 +206,10 @@ Deno.serve(async (req) => {
       }
 
       // Ассистент: «Выполнить / Отмена» по карточке подтверждения.
+      if (cbData.startsWith("asstdone:")) {
+        await handleAssistantCloseTask(supabaseCb, BOT_TOKEN, callbackQuery, cbProfile.id, cbData.slice(9));
+        return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+      }
       if (cbData.startsWith("asstask:")) {
         await handleAssistantMakeTask(supabaseCb, BOT_TOKEN, callbackQuery.id, cbChatId, cbMessageId, cbProfile.id, cbData.slice(8));
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
@@ -1376,25 +1380,14 @@ Deno.serve(async (req) => {
       await sendTelegramMessage(
         BOT_TOKEN,
         chatId,
-        "👋 Привет! Я JustTODOit (JTD).\n\n" +
-        "📝 Отправь сообщение — создам задачу.\n" +
-        "📦 Отправь список — создам пакетно.\n" +
-        "🎤 Отправь голосовое — распознаю и создам.\n" +
-        "📨 Перешли сообщение — создам задачу из него.\n\n" +
-        "🔧 Возможности:\n" +
-        "• `!` в начале — важная задача\n" +
-        "• `#тег` — добавить тег\n" +
-        "• `@username` — назначить ответственного\n" +
-        "• `завтра`, `послезавтра`, `DD.MM`, `3д` — дедлайн\n" +
-        "• `/project` — выбрать проект\n" +
-        "• `/projects` — список проектов\n" +
-        "• `/spisok` — пакетное создание задач\n" +
-        "• `/protocol` — создать протокол встречи\n" +
-        "• `/chat Проект Сообщение` — чат проекта\n" +
-        "• `/ai Вопрос` — ИИ-ассистент\n" +
-        "• `/register` — регистрация (если ещё нет аккаунта)\n" +
-        "• `/help` — справка",
-        "Markdown"
+        "👋 Привет! Я бот JustTODOit (JTD).\n\n" +
+        "📝 <b>Напиши задачу</b> — создам её. Списком — создам несколько. Голосовым или пересланным сообщением — тоже.\n\n" +
+        "🤖 <b>Спроси или попроси</b> — отвечу как ИИ-помощник, текстом или голосом:\n" +
+        "• «что у меня горит на неделе?»\n" +
+        "• «перенеси задачу про Ашан на пятницу»\n" +
+        "Изменения выполняю только после кнопки «Выполнить».\n\n" +
+        "/help — все возможности",
+        "HTML"
       );
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
@@ -1404,38 +1397,31 @@ Deno.serve(async (req) => {
       await sendTelegramMessage(
         BOT_TOKEN,
         chatId,
-        "📖 *Справка JustTODOit (JTD)*\n\n" +
-        "Просто отправь текст — создам задачу.\n\n" +
-        "*Модификаторы (в любом порядке):*\n" +
-        "• `!` в начале текста — пометить как важную\n" +
-        "• `#работа` — добавить тег «работа»\n" +
-        "• `@ivan` — назначить на пользователя @ivan\n\n" +
-        "*Даты (в тексте):*\n" +
-        "• `сегодня`, `завтра`, `послезавтра`\n" +
-        "• `через 3 дня`, `через неделю`\n" +
-        "• `15.03` или `15.03.2026`\n\n" +
-        "*Проекты:*\n" +
-        "• `/projects` — список ваших проектов\n" +
-        "• `/project Название` — выбрать проект\n" +
-        "• После выбора все задачи идут в этот проект\n" +
-        "• `/project` без аргумента — сбросить проект\n\n" +
-        "*Пакетное создание:*\n" +
-        "• `/spisok Проект` \\+ список задач\n" +
-        "• `/spisok Проект` → затем голосовое или пересланное сообщение\n" +
-        "• Или просто отправь список \\(-, •, 1\\.\\) — распознаю автоматически\n" +
-        "• 🎤 Голосовые сообщения распознаются в задачи\n" +
-        "• 📨 Пересланные сообщения создаются как задачи\n\n" +
-        "*Чат проекта:*\n" +
-        "• `/chat Название Сообщение` — отправить в чат проекта\n\n" +
-        "*ИИ\\-ассистент:*\n" +
-        "• `/ai Вопрос` — спросить ИИ о проектах, статусе, советах\n\n" +
-        "*Регистрация:*\n" +
-        "• `/register` — создать аккаунт, если его ещё нет\n\n" +
-        "*Пароль:*\n" +
-        "• `/password старый новый` — сменить пароль\n" +
-        "• `/password` — сбросить, если забыли \\(пришлю временный\\)\n" +
-        "• Сообщение с паролями бот удаляет из чата сам",
-        "Markdown"
+        "📖 <b>Справка JustTODOit (JTD)</b>\n\n" +
+        "🤖 <b>ИИ-помощник</b>\n" +
+        "Просто спросите или попросите — текстом или голосом: «что у меня просрочено?», «найди задачу про Бристоль», «назначь КП Ашан на Ирину». " +
+        "Отвечает по вашим задачам и проектам, с вашими правами. Изменения — только после кнопки «Выполнить». " +
+        "Под ответом — кнопки задач: ✅ закрыть, ↗ открыть в JTD. Ответ (reply) на сообщение помощника продолжает разговор. " +
+        "Если я принял задачу за вопрос — нажмите «Это была задача — создать».\n\n" +
+        "📝 <b>Задачи</b>\n" +
+        "Обычный текст — задача. В тексте можно:\n" +
+        "• <code>!</code> в начале — важная\n" +
+        "• <code>#работа</code> — тег\n" +
+        "• <code>@ivan</code> — исполнитель\n" +
+        "• <code>сегодня</code>, <code>завтра</code>, <code>через 3 дня</code>, <code>15.03</code> — срок\n\n" +
+        "📂 <b>Проекты</b>\n" +
+        "• /projects — список ваших проектов\n" +
+        "• <code>/project Название</code> — дальше задачи идут в этот проект; /project без названия — сбросить\n\n" +
+        "📦 <b>Несколько задач сразу</b>\n" +
+        "• Отправьте список (-, •, 1.) — распознаю автоматически\n" +
+        "• <code>/spisok Проект</code> + список, голосовое или пересланное сообщение\n\n" +
+        "💬 <b>Чат проекта</b>: <code>/chat Проект Сообщение</code>\n" +
+        "📋 <b>Протокол встречи</b>: /protocol\n\n" +
+        "🔑 <b>Пароль</b>\n" +
+        "• /password — сбросить, если забыли (пришлю временный)\n" +
+        "• <code>/password старый новый</code> — сменить; сообщение с паролями удаляю сам\n\n" +
+        "/register — создать аккаунт, если его ещё нет",
+        "HTML"
       );
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
@@ -2258,7 +2244,17 @@ Deno.serve(async (req) => {
         await sendTelegramMessage(BOT_TOKEN, chatId, "👍 Принял. Задачу из этого не создаю — если нужна, напишите её текстом.");
         return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
       }
-      if (looksLikeAssistantRequest(message.text, { forwarded: !!message._forwarded, voice: isFromVoice })) {
+      // Голосовое — тоже ассистенту, если в расшифровке вопрос или просьба
+      // (06.10): в дороге голосом спрашивают чаще, чем пишут. Но если перед
+      // этим запущен /spisok (свежий контекст), голосовое — это список задач.
+      let voiceToAssistant = false;
+      if (isFromVoice && looksLikeAssistantRequest(message.text)) {
+        const { data: ctx } = await supabase.from("telegram_pending_context")
+          .select("created_at").eq("chat_id", chatId).maybeSingle();
+        voiceToAssistant = !ctx || Date.now() - new Date(ctx.created_at).getTime() > 10 * 60 * 1000;
+      }
+      if (voiceToAssistant || looksLikeAssistantRequest(message.text, { forwarded: !!message._forwarded, voice: isFromVoice })) {
+        if (voiceToAssistant) await sendTelegramMessage(BOT_TOKEN, chatId, `🎤 «${message.text.slice(0, 300)}»`);
         const origin = { text: message.text, message_id: message.message_id, from: message.from };
         if (await handleAssistantTg(supabase, BOT_TOKEN, chatId, userId, message.text, { autoRouted: true, origin })) {
           return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
@@ -4372,10 +4368,11 @@ async function sendAssistantResult(
     return;
   }
   const text = (r.reply ? mdToTelegramHtml(r.reply) : "Готово.") + renderSteps(r);
-  // Бот сам решил, что это вопрос, — даём исправить: «Создать задачей».
-  const markup = offerTask
-    ? { reply_markup: { inline_keyboard: [[{ text: "📝 Это была задача — создать", callback_data: `asstask:${sessionId}` }]] } }
-    : {};
+  // Кнопки: задачи из ответа («✅ Закрыть», «↗ Открыть») и — если бот сам
+  // решил, что это вопрос, — «Создать задачей», чтобы исправить ошибку.
+  const rows = taskButtons(r);
+  if (offerTask) rows.push([{ text: "📝 Это была задача — создать", callback_data: `asstask:${sessionId}` }]);
+  const markup = rows.length ? { reply_markup: { inline_keyboard: rows } } : {};
   let sent = await tgCall(token, "sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true, ...markup });
   // Если разметка не понравилась Telegram — отправляем без неё, но отправляем.
   if (!sent?.ok) sent = await tgCall(token, "sendMessage", { chat_id: chatId, text: r.reply || "Готово.", ...markup });
@@ -4515,4 +4512,41 @@ async function handleAssistantMakeTask(
       },
     }),
   });
+}
+
+/**
+ * «✅ Закрыть» под ответом ассистента: тот же complete_task, что в приложении и
+ * коннекторе (утверждение, повторяющиеся задачи, уведомления), с правами
+ * нажавшего. Нажатие кнопки и есть подтверждение — второй карточки не нужно.
+ */
+async function handleAssistantCloseTask(supabase: any, token: string, cq: any, profileId: string, taskId: string) {
+  const chatId = cq.message?.chat?.id;
+  const { data: prof } = await supabase.from("profiles").select("telegram_chat_id").eq("id", profileId).maybeSingle();
+  if (!prof || String(prof.telegram_chat_id) !== String(chatId)) {
+    await answerCallbackQuery(token, cq.id, "Кнопка работает только в вашем личном чате с ботом");
+    return;
+  }
+  const { data: au } = await supabase.auth.admin.getUserById(profileId);
+  const userToken = await mintUserToken(profileId, au?.user?.email ?? null);
+  const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/assistant-tools`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${userToken}`, apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "" },
+    body: JSON.stringify({ action: "call", tool: "complete_task", input: { task_id: taskId } }),
+  });
+  const r = await res.json().catch(() => ({}));
+  if (!r?.ok) {
+    const why = String(r?.error ?? "не удалось");
+    // Задачу с утверждением без итога не закрыть — отправляем в приложение.
+    const text = /result|утвержд/i.test(why)
+      ? "Эта задача закрывается через утверждение — нужен итог работы. Закройте её в приложении."
+      : `Не получилось: ${why}`.slice(0, 190);
+    await answerCallbackQuery(token, cq.id, text);
+    return;
+  }
+  await answerCallbackQuery(token, cq.id, String(r.text ?? "Закрыта").slice(0, 190));
+  // Убираем строку закрытой задачи из клавиатуры, остальные кнопки оставляем.
+  const rows = (cq.message?.reply_markup?.inline_keyboard ?? []).filter(
+    (row: any[]) => !row.some((b: any) => b.callback_data === `asstdone:${taskId}`),
+  );
+  await tgCall(token, "editMessageReplyMarkup", { chat_id: chatId, message_id: cq.message?.message_id, reply_markup: { inline_keyboard: rows } });
 }
