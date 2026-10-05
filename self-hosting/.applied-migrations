@@ -243,3 +243,4 @@
 20261001120000_assistant_tg_sessions.sql
 20261001130000_assistant_tg_sessions_routing.sql
 20261001150000_dependency_policies_milestones.sql
+20261005210000_assistant_user_ack.sql
