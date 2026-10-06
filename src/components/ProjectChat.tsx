@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useMarkReadWhileOpen } from "@/hooks/useUnreadMessages";
 import { supabase } from "@/integrations/supabase/client";
 import { useGroupMessages, useGroupChatMutations, GroupMessage } from "@/hooks/useGroupChat";
 import { useAuth } from "@/hooks/useAuth";
@@ -45,6 +46,8 @@ function getAuthorName(msg: GroupMessage) {
 export default function ProjectChat({ groupId, groupName, onClose, embedded, fullscreen, onToggleFullscreen, onNavigateToProject, onNavigateToTask, highlightMessageId }: ProjectChatProps) {
   const { user } = useAuth();
   const { data: messages = [], isLoading } = useGroupMessages(groupId);
+  // Открытый чат проекта — прочитан, где бы он ни был открыт.
+  useMarkReadWhileOpen(groupId ? `group-${groupId}` : null, messages.length);
   const { sendMessage, deleteMessage } = useGroupChatMutations();
   const { addTask, updateTask } = useTaskMutations();
   const { data: availableUsers = [] } = useAvailableUsers();

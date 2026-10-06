@@ -218,3 +218,32 @@ export function useUnreadMessages() {
     isThreadUnread, isThreadForMe, getUnreadCount,
   };
 }
+
+/**
+ * Держать ветку прочитанной, пока её чат открыт и вкладка видна (06.10.2026).
+ *
+ * Раньше прочитанной ветку делали только мессенджер и полноэкранный чат: прочёл
+ * и даже ответил в карточке задачи — ветка всё равно «непрочитана». Замер
+ * 06.10: у сотрудников 25–45 таких веток. Срабатывает при открытии, на каждое
+ * новое сообщение (`signal` — например, число сообщений) и при возвращении на
+ * вкладку; запрос уходит, только если ветка действительно непрочитана.
+ */
+export function useMarkReadWhileOpen(threadId: string | null | undefined, signal?: unknown) {
+  const { markThreadRead, isThreadUnread } = useUnreadMessages();
+  const unread = threadId ? isThreadUnread(threadId, null) : false;
+
+  useEffect(() => {
+    if (!threadId || !unread) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    markThreadRead(threadId);
+  }, [threadId, unread, signal, markThreadRead]);
+
+  useEffect(() => {
+    if (!threadId || !unread || typeof document === "undefined") return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") markThreadRead(threadId);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [threadId, unread, markThreadRead]);
+}

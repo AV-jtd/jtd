@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { useMarkReadWhileOpen } from "@/hooks/useUnreadMessages";
 import { useTaskComments, useCommentMutations, TaskComment } from "@/hooks/useComments";
 import { useAuth } from "@/hooks/useAuth";
 import { Profile, useTaskMutations } from "@/hooks/useTasks";
@@ -104,6 +105,8 @@ export default function TaskChat({
 }: TaskChatProps) {
   const { user } = useAuth();
   const { data: comments = [], isLoading } = useTaskComments(taskId);
+  // Открытый чат задачи — прочитан: и в карточке, не только в мессенджере.
+  useMarkReadWhileOpen(taskId ? `task-${taskId}` : null, comments.length);
   const navigate = useNavigate();
   const { addComment, deleteComment } = useCommentMutations();
   const { toggleTask } = useTaskMutations();
