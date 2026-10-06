@@ -10,6 +10,7 @@ import {
 } from "../_shared/messenger-core.ts";
 import { mintUserToken, callAssistant, mdToTelegramHtml, renderPending, renderSteps, looksLikeAssistantRequest, taskButtons, type AssistantReply } from "../_shared/assistantTg.ts";
 import { isAcknowledgement } from "../_shared/assistantTgRouter.ts";
+import { looksLikeRecruiting, RECRUITING_STEPS } from "../_shared/recruitingTask.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -2491,6 +2492,22 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
     }
 
+    // === Подбор людей → проект «HR» (решение владельца 06.10.2026) ===
+    // Если проект не указан явно, задача на подбор («Поиск руководителя…»,
+    // «Нанять администратора») идёт в проект HR с его меткой и шагами по
+    // образцу «Нанять Администратора», а не с шагами, придуманными ИИ.
+    let hrGroup: { id: string; name: string; linked_tag_id: string | null; user_id: string } | null = null;
+    if (!groupId && looksLikeRecruiting(text)) {
+      const { data } = await supabase.from("task_groups")
+        .select("id, name, linked_tag_id, user_id")
+        .eq("name", "HR").is("closed_at", null)
+        .order("created_at").limit(1).maybeSingle();
+      if (data) {
+        hrGroup = data;
+        groupId = data.id;
+      }
+    }
+
     // === AI Enrichment for private chat (always runs) ===
     let aiEnrichment: AiTaskEnrichment | null = null;
     let aiApplied: string[] = [];
@@ -2498,7 +2515,9 @@ Deno.serve(async (req) => {
       let members: { id: string; name: string; telegram_username: string | null }[] = [];
       let projectNameForAi: string | undefined;
 
-      if (groupId) {
+      // Для подбора проект HR выбран не человеком — исполнителя ищем по всем
+      // сотрудникам, а не только среди участников HR.
+      if (groupId && !hrGroup) {
         const { data: groupInfo } = await supabase
           .from("task_groups")
           .select("user_id, name")
@@ -2599,8 +2618,20 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Подбор: метка проекта HR и шаги по образцу — вместо шагов от ИИ.
+    if (hrGroup && newTask) {
+      if (hrGroup.linked_tag_id) {
+        await supabase.from("task_tags").insert({ task_id: newTask.id, tag_id: hrGroup.linked_tag_id });
+      }
+      await supabase.from("subtasks").insert(
+        RECRUITING_STEPS.map((title, i) => ({ task_id: newTask.id, title, position: i })),
+      );
+      // В проект HR людей НЕ добавляем: это открыло бы им все задачи HR.
+      // Автор и исполнитель видят задачу и так — она их.
+      aiApplied.push(`🧑‍💼 подбор → ${hrGroup.name}, ${RECRUITING_STEPS.length} шагов`);
+    }
     // Add AI-suggested subtasks
-    if (aiEnrichment?.subtasks && aiEnrichment.subtasks.length > 0 && newTask) {
+    if (!hrGroup && aiEnrichment?.subtasks && aiEnrichment.subtasks.length > 0 && newTask) {
       for (let i = 0; i < aiEnrichment.subtasks.length; i++) {
         await supabase.from("subtasks").insert({
           task_id: newTask.id,
